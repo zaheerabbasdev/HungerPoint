@@ -260,57 +260,90 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1B4B)),
-          onPressed: () {
-            if (widget.onBackToHome != null) {
-              widget.onBackToHome!();
-            } else if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            }
-          },
-        ),
-
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              'Explore Menu',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E1B4B),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(68),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
-            ),
-            Text(
-              'No branch found',
-              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFF3F4F6)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.search, color: Color(0xFF1E1B4B), size: 20),
-            ),
+            ],
           ),
-        ],
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            toolbarHeight: 68,
+            titleSpacing: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1B4B), size: 22),
+              onPressed: () {
+                if (widget.onBackToHome != null) {
+                  widget.onBackToHome!();
+                } else if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
+              },
+            ),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text(
+                  'Explore Menu',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E1B4B),
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'No branch found',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: Center(
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFF3F4F6)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 14,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.search, color: Color(0xFF1E1B4B), size: 22),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
+
+
+
+
       body: Stack(
         children: [
           Column(
@@ -355,9 +388,8 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                 ),
               ),
 
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
               // ─── 2. CONTINUOUS VERTICAL SCROLLABLE MENU SECTIONS ──────
+
               Expanded(
                 child: ListView.builder(
                   controller: _scrollController,
@@ -489,13 +521,6 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFF3F4F6)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -540,12 +565,6 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                           color: Colors.white,
                           shape: BoxShape.circle,
                           border: Border.all(color: const Color(0xFFF3F4F6)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 4,
-                            ),
-                          ],
                         ),
                         child: const Icon(
                           Icons.favorite_border,
@@ -589,12 +608,6 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                           color: Colors.white,
                           shape: BoxShape.circle,
                           border: Border.all(color: const Color(0xFFF3F4F6)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 4,
-                            ),
-                          ],
                         ),
                         child: const Icon(
                           Icons.add,
@@ -610,6 +623,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
           ],
         ),
       ),
+
     );
   }
 }

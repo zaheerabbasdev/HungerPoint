@@ -28,6 +28,8 @@ class HungerPointCustomerApp extends StatelessWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           iconTheme: IconThemeData(color: AppColors.textNavy),
           titleTextStyle: TextStyle(
             color: AppColors.textNavy,
@@ -35,6 +37,7 @@ class HungerPointCustomerApp extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
+
       ),
       home: const WelcomeScreen(),
     );
