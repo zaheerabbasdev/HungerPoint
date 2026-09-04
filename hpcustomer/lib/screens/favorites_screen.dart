@@ -95,7 +95,10 @@ class FavoritesScreen extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (_) => ItemDetailScreen(
                               item: item,
-                              onAddToCart: onAddToCart,
+                              onAddToCart: (addedItem) {
+                                CartService().addItem(addedItem);
+                                onAddToCart(addedItem);
+                              },
                             ),
                           ),
                         );
@@ -169,95 +172,69 @@ class FavoritesScreen extends StatelessWidget {
                                         builder: (context, cart, _) {
                                           final count = CartService().getItemCount(item['id'], item['name']);
 
-                                          if (count == 0) {
-                                            return GestureDetector(
-                                              behavior: HitTestBehavior.opaque,
-                                              onTap: () {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (_) => ItemDetailScreen(
-                                                      item: item,
-                                                      onAddToCart: onAddToCart,
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                              child: Container(
-                                                width: 32,
-                                                height: 32,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(color: const Color(0xFFF3F4F6)),
-                                                ),
-                                                child: const Icon(
-                                                  Icons.add,
-                                                  size: 18,
-                                                  color: Color(0xFF1E1B4B),
-                                                ),
-                                              ),
-                                            );
-                                          }
-
-                                          return Container(
-                                            height: 32,
-                                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFFFD54F),
-                                              borderRadius: BorderRadius.circular(16),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black.withValues(alpha: 0.08),
-                                                  blurRadius: 4,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                GestureDetector(
-                                                  behavior: HitTestBehavior.opaque,
-                                                  onTap: () {
-                                                    CartService().decrementItem(item['id'], item['name']);
-                                                  },
-                                                  child: const Padding(
-                                                    padding: EdgeInsets.symmetric(horizontal: 4),
-                                                    child: Icon(
-                                                      Icons.remove,
-                                                      size: 16,
-                                                      color: Color(0xFF1E1B4B),
-                                                    ),
+                                          return GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) => ItemDetailScreen(
+                                                    item: item,
+                                                    onAddToCart: (addedItem) {
+                                                      CartService().addItem(addedItem);
+                                                      onAddToCart(addedItem);
+                                                    },
                                                   ),
                                                 ),
-                                                Padding(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                  child: Text(
-                                                    '$count',
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w900,
-                                                      color: Color(0xFF1E1B4B),
+                                              );
+                                            },
+                                            child: count == 0
+                                                ? Container(
+                                                    width: 32,
+                                                    height: 32,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white,
+                                                      shape: BoxShape.circle,
+                                                      border: Border.all(color: const Color(0xFFF3F4F6)),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black.withValues(alpha: 0.04),
+                                                          blurRadius: 4,
+                                                          offset: const Offset(0, 2),
+                                                        ),
+                                                      ],
                                                     ),
-                                                  ),
-                                                ),
-                                                GestureDetector(
-                                                  behavior: HitTestBehavior.opaque,
-                                                  onTap: () {
-                                                    CartService().incrementItem(item['id'], item['name']);
-                                                  },
-                                                  child: const Padding(
-                                                    padding: EdgeInsets.symmetric(horizontal: 4),
-                                                    child: Icon(
+                                                    child: const Icon(
                                                       Icons.add,
-                                                      size: 16,
+                                                      size: 18,
                                                       color: Color(0xFF1E1B4B),
                                                     ),
+                                                  )
+                                                : Container(
+                                                    width: 32,
+                                                    height: 32,
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFFFD54F),
+                                                      shape: BoxShape.circle,
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black.withValues(alpha: 0.08),
+                                                          blurRadius: 4,
+                                                          offset: const Offset(0, 2),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Center(
+                                                      child: Text(
+                                                        '$count',
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                          fontWeight: FontWeight.w900,
+                                                          color: Color(0xFF1E1B4B),
+                                                        ),
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
-                                            ),
                                           );
                                         },
                                       ),
