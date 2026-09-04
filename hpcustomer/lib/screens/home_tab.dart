@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../constants/app_colors.dart';
+import '../services/cart_service.dart';
+import 'cart_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
@@ -158,40 +160,70 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const Spacer(),
 
-                  // White Circular Cart Button
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFF3F4F6)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const Icon(Icons.shopping_cart_outlined, color: Color(0xFF1E1B4B), size: 20),
-                        if (widget.cart.isNotEmpty)
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFF5722),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
+                  // White Circular Cart Button with Count Badge
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CartScreen(
+                            onNavigateToExplore: () => widget.onNavigateToExplore?.call(0),
                           ),
-                      ],
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFF3F4F6)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                        valueListenable: CartService().cartNotifier,
+                        builder: (context, cart, _) {
+                          final count = CartService().totalItemCount;
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              const Icon(Icons.shopping_cart_outlined, color: Color(0xFF1E1B4B), size: 20),
+                              if (count > 0)
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFFF5722),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                    child: Center(
+                                      child: Text(
+                                        '$count',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                          height: 1.0,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],

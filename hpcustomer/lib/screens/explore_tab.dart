@@ -3,8 +3,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'item_detail_screen.dart';
 import 'favorites_screen.dart';
+import 'cart_screen.dart';
 import '../services/api_service.dart';
 import '../services/favorites_service.dart';
+import '../services/cart_service.dart';
 
 
 class ExploreMenuScreen extends StatefulWidget {
@@ -317,6 +319,75 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               ],
             ),
             actions: [
+              // Cart Button with Count Badge
+              Center(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CartScreen(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFF3F4F6)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 14,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                      valueListenable: CartService().cartNotifier,
+                      builder: (context, cart, _) {
+                        final count = CartService().totalItemCount;
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const Icon(Icons.shopping_cart_outlined, color: Color(0xFF1E1B4B), size: 20),
+                            if (count > 0)
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFF5722),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                  child: Center(
+                                    child: Text(
+                                      '$count',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Search Button
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: Center(
@@ -434,71 +505,90 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
           ),
 
           // ─── 3. FLOATING BOTTOM CART BAR ───────────────────────────
-          if (widget.cart.isNotEmpty)
-            Positioned(
-              bottom: 16,
-              left: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFC107),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        widget.cart.last['image'] ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-                        width: 36,
-                        height: 36,
-                        fit: BoxFit.cover,
+          ValueListenableBuilder<List<Map<String, dynamic>>>(
+            valueListenable: CartService().cartNotifier,
+            builder: (context, cart, _) {
+              if (cart.isEmpty) return const SizedBox.shrink();
+              final totalCount = CartService().totalItemCount;
+              final totalPrice = CartService().totalPrice;
+              final lastImg = cart.last['image'] ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+
+              return Positioned(
+                bottom: 16,
+                left: 16,
+                right: 16,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CartScreen(),
                       ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD54F),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                    child: Row(
                       children: [
-                        Text(
-                          '${widget.cart.length} Item',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E1B4B),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            lastImg,
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
                           ),
                         ),
-                        Text(
-                          'PKR $cartTotal',
-                          style: const TextStyle(
-                            fontSize: 14,
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$totalCount Item${totalCount > 1 ? 's' : ''}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E1B4B),
+                              ),
+                            ),
+                            Text(
+                              'PKR $totalPrice',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF1E1B4B),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        const Text(
+                          'VIEW BASKET >>',
+                          style: TextStyle(
+                            fontSize: 13,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF1E1B4B),
                           ),
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    const Text(
-                      'VIEW CART >>',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF1E1B4B),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
+          ),
         ],
       ),
     );

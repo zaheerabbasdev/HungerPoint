@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/favorites_service.dart';
+import '../services/cart_service.dart';
+import 'cart_screen.dart';
 
 class ItemDetailScreen extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -74,25 +76,71 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFF3F4F6)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CartScreen(),
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.shopping_cart_outlined,
-                  color: Color(0xFF1E1B4B),
-                  size: 20,
+                  );
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFF3F4F6)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                    valueListenable: CartService().cartNotifier,
+                    builder: (context, cart, _) {
+                      final count = CartService().totalItemCount;
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Icon(
+                            Icons.shopping_cart_outlined,
+                            color: Color(0xFF1E1B4B),
+                            size: 20,
+                          ),
+                          if (count > 0)
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFF5722),
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                child: Center(
+                                  child: Text(
+                                    '$count',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -368,11 +416,17 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                       height: 52,
                       child: ElevatedButton(
                         onPressed: () {
-                          widget.onAddToCart({
+                          final cartItem = {
+                            'id': widget.item['id'] ?? widget.item['name'],
                             'name': widget.item['name'],
+                            'desc': widget.item['desc'],
+                            'image': widget.item['image'],
+                            'variation': _variations[_selectedVariation]['name'],
                             'price': selectedPrice,
                             'quantity': _quantity,
-                          });
+                          };
+                          CartService().addItem(cartItem);
+                          widget.onAddToCart(cartItem);
                           Navigator.pop(context);
                         },
                         style: ElevatedButton.styleFrom(

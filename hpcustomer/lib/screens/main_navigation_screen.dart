@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/side_profile_drawer.dart';
+import '../services/cart_service.dart';
 import 'home_tab.dart';
 import 'explore_tab.dart';
 import 'vouchers_tab.dart';
@@ -17,12 +18,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _exploreCategoryIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final List<Map<String, dynamic>> _cart = [];
-
   void _addToCart(Map<String, dynamic> item) {
-    setState(() {
-      _cart.add(item);
-    });
+    CartService().addItem(item);
+    setState(() {});
   }
 
   void _navigateToExplore([int categoryIndex = 0]) {
@@ -38,13 +36,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       HomeScreen(
         scaffoldKey: _scaffoldKey,
         onAddToCart: _addToCart,
-        cart: _cart,
+        cart: CartService().items,
         onNavigateToExplore: _navigateToExplore,
       ),
       ExploreMenuScreen(
         key: ValueKey(_exploreCategoryIndex),
         onAddToCart: _addToCart,
-        cart: _cart,
+        cart: CartService().items,
         initialCategoryIndex: _exploreCategoryIndex,
         onBackToHome: () => setState(() => _currentIndex = 0),
       ),
