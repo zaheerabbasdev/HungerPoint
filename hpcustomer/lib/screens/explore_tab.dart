@@ -322,22 +322,32 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: Center(
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFF3F4F6)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 14,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (widget.onBackToHome != null) {
+                        widget.onBackToHome!();
+                      } else if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      }
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFF3F4F6)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 14,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.search, color: Color(0xFF1E1B4B), size: 22),
                     ),
-                    child: const Icon(Icons.search, color: Color(0xFF1E1B4B), size: 22),
                   ),
                 ),
               ),
@@ -398,7 +408,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               Expanded(
                 child: ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + MediaQuery.of(context).padding.bottom),
                   itemCount: _menuCategories.length,
                   itemBuilder: (context, catIdx) {
                     final cat = _menuCategories[catIdx];
@@ -443,9 +453,10 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               final totalCount = CartService().totalItemCount;
               final totalPrice = CartService().totalPrice;
               final lastImg = cart.last['image'] ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+              final bottomInset = MediaQuery.of(context).padding.bottom;
 
               return Positioned(
-                bottom: 16,
+                bottom: bottomInset + 20,
                 left: 16,
                 right: 16,
                 child: GestureDetector(

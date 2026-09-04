@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/side_profile_drawer.dart';
 import '../services/cart_service.dart';
 import 'home_tab.dart';
+import 'explore_search_tab.dart';
 import 'explore_tab.dart';
 import 'vouchers_tab.dart';
 import 'branches_tab.dart';
@@ -15,7 +16,6 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
-  int _exploreCategoryIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _addToCart(Map<String, dynamic> item) {
@@ -24,10 +24,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   void _navigateToExplore([int categoryIndex = 0]) {
-    setState(() {
-      _exploreCategoryIndex = categoryIndex;
-      _currentIndex = 1;
-    });
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ExploreMenuScreen(
+          onAddToCart: _addToCart,
+          cart: CartService().items,
+          initialCategoryIndex: categoryIndex,
+          onBackToHome: () => Navigator.pop(context),
+        ),
+      ),
+    );
   }
 
   @override
@@ -39,12 +46,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         cart: CartService().items,
         onNavigateToExplore: _navigateToExplore,
       ),
-      ExploreMenuScreen(
-        key: ValueKey(_exploreCategoryIndex),
+      ExploreSearchScreen(
         onAddToCart: _addToCart,
-        cart: CartService().items,
-        initialCategoryIndex: _exploreCategoryIndex,
         onBackToHome: () => setState(() => _currentIndex = 0),
+        onOpenExploreMenu: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ExploreMenuScreen(
+                onAddToCart: _addToCart,
+                cart: CartService().items,
+                initialCategoryIndex: 0,
+                onBackToHome: () => Navigator.pop(context),
+              ),
+            ),
+          );
+        },
       ),
 
       const VouchersScreen(),

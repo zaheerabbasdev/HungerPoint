@@ -3,6 +3,7 @@ import 'dart:async';
 import '../constants/app_colors.dart';
 import '../services/cart_service.dart';
 import 'cart_screen.dart';
+import 'item_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
@@ -55,29 +56,53 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   ];
 
-  final List<Map<String, String>> _categories = [
+  final List<Map<String, dynamic>> _categories = [
     {
+      'id': '1',
       'title': 'Thin Crust Pizza',
+      'name': 'Thin Crust Beef Pepperoni',
+      'desc': 'A crispy thin crust topped with beef pepperoni, mozzarella cheese, and rich marinara sauce.',
+      'price': 1480,
       'image': 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80',
     },
     {
+      'id': '5',
       'title': 'Malai Tikka',
+      'name': 'Malai Tikka',
+      'desc': 'A flavorful Pizza loaded with fresh BBQ Malai Tikka chunks and mozzarella cheese.',
+      'price': 1530,
       'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
     },
     {
+      'id': '6',
       'title': 'Beef Peppero...',
+      'name': 'Beef Pepperoni Pan Pizza',
+      'desc': 'Freshly baked pan crust, soft inside and golden-crisp outside topped with beef pepperoni.',
+      'price': 1480,
       'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
     },
     {
+      'id': '7',
       'title': 'Starters',
-      'image': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=400&q=80',
+      'name': 'Cheezy Sticks',
+      'desc': 'Freshly baked bread filled with the yummiest Cheese blend and garlic butter.',
+      'price': 600,
+      'image': 'https://images.unsplash.com/photo-1541745537411-b8046dc6d66c?auto=format&fit=crop&w=400&q=80',
     },
     {
+      'id': '12',
       'title': 'Somewhat Local',
+      'name': 'Chicken Tikka Pizza',
+      'desc': 'Traditional chicken tikka topping with fresh onions and green peppers.',
+      'price': 1350,
       'image': 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
     },
     {
+      'id': '13',
       'title': 'Somewhat Sooper',
+      'name': 'Super Supreme Pizza',
+      'desc': 'Loaded with beef, chicken, black olives, mushrooms, capsicum and extra cheese.',
+      'price': 1590,
       'image': 'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?auto=format&fit=crop&w=400&q=80',
     },
   ];
@@ -535,7 +560,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemBuilder: (context, idx) {
                     final cat = _categories[idx];
                     return GestureDetector(
-                      onTap: () => widget.onNavigateToExplore?.call(idx),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ItemDetailScreen(
+                              item: cat,
+                              onAddToCart: widget.onAddToCart,
+                            ),
+                          ),
+                        );
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                         decoration: BoxDecoration(
@@ -556,7 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(10),
                               child: Image.network(
-                                cat['image']!,
+                                cat['image'] as String,
                                 height: 52,
                                 width: 52,
                                 fit: BoxFit.cover,
@@ -564,7 +599,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              cat['title']!,
+                              cat['title'] as String,
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
