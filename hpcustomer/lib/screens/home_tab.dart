@@ -560,17 +560,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemBuilder: (context, idx) {
                     final cat = _categories[idx];
                     return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ItemDetailScreen(
-                              item: cat,
-                              onAddToCart: widget.onAddToCart,
-                            ),
-                          ),
-                        );
-                      },
+                      onTap: () => widget.onNavigateToExplore?.call(idx),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                         decoration: BoxDecoration(

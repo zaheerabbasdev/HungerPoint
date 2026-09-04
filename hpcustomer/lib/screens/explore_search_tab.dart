@@ -318,8 +318,30 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
                     final term = _popularSearches[idx];
                     return GestureDetector(
                       onTap: () {
-                        _searchController.text = term;
-                        setState(() {});
+                        final matchingItem = _allItems.firstWhere(
+                          (it) {
+                            final name = (it['name'] ?? '').toString().toLowerCase();
+                            final t = term.toLowerCase();
+                            return name.contains(t) || t.contains(name);
+                          },
+                          orElse: () => {
+                            'id': 'pop_$idx',
+                            'name': term,
+                            'desc': 'Delicious gourmet item freshly prepared for you.',
+                            'price': 1480,
+                            'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
+                          },
+                        );
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ItemDetailScreen(
+                              item: matchingItem,
+                              onAddToCart: widget.onAddToCart,
+                            ),
+                          ),
+                        );
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
