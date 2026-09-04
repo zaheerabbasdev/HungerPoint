@@ -1,0 +1,615 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'item_detail_screen.dart';
+import '../services/api_service.dart';
+
+class ExploreMenuScreen extends StatefulWidget {
+  final Function(Map<String, dynamic>) onAddToCart;
+  final List<Map<String, dynamic>> cart;
+  final int initialCategoryIndex;
+  final VoidCallback? onBackToHome;
+
+  const ExploreMenuScreen({
+    super.key,
+    required this.onAddToCart,
+    required this.cart,
+    this.initialCategoryIndex = 0,
+    this.onBackToHome,
+  });
+
+
+  @override
+  State<ExploreMenuScreen> createState() => _ExploreMenuScreenState();
+}
+
+class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
+  int _selectedCategoryIndex = 0;
+  final ScrollController _scrollController = ScrollController();
+  final ScrollController _tabScrollController = ScrollController();
+  final List<GlobalKey> _categoryKeys = [];
+
+  final List<Map<String, dynamic>> _menuCategories = [
+    {
+      'title': 'Thin Crust Pizza',
+      'items': [
+        {
+          'id': '1',
+          'name': 'Thin Crust Beef Pepperoni',
+          'desc': 'A crispy thin crust topped with beef pepperoni, mozzarella cheese, and rich marinara sauce.',
+          'price': 1480,
+          'image': 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80',
+        },
+        {
+          'id': '2',
+          'name': 'Thin Crust Veggie Lover',
+          'desc': 'Cheese blend, mushrooms, sweet corn, black olives, onions, capsicum and tomatoes.',
+          'price': 1290,
+          'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
+        },
+        {
+          'id': '3',
+          'name': 'Thin Crust Cheese Lover',
+          'desc': 'Extra special mozzarella blend and signature sauce on a crispy thin crust.',
+          'price': 1290,
+          'image': 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
+        },
+        {
+          'id': '4',
+          'name': 'Thin Crust Fajita',
+          'desc': 'Tender fajita chicken with mozzarella blend, onions and fresh capsicum.',
+          'price': 1290,
+          'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
+        },
+      ],
+    },
+    {
+      'title': 'Malai Tikka',
+      'items': [
+        {
+          'id': '5',
+          'name': 'Malai Tikka',
+          'desc': 'A flavorful Pizza loaded with fresh BBQ Malai Tikka chunks and mozzarella cheese.',
+          'price': 1530,
+          'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
+        },
+      ],
+    },
+    {
+      'title': 'Beef Pepperoni',
+      'items': [
+        {
+          'id': '6',
+          'name': 'Beef Pepperoni Pan Pizza',
+          'desc': 'Freshly baked pan crust, soft inside and golden-crisp outside topped with beef pepperoni.',
+          'price': 1480,
+          'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
+        },
+      ],
+    },
+    {
+      'title': 'Starters',
+      'items': [
+        {
+          'id': '7',
+          'name': 'Cheezy Sticks',
+          'desc': 'Freshly baked bread filled with the yummiest Cheese blend and garlic butter.',
+          'price': 600,
+          'image': 'https://images.unsplash.com/photo-1541745537411-b8046dc6d66c?auto=format&fit=crop&w=400&q=80',
+        },
+        {
+          'id': '8',
+          'name': 'Oven Baked Wings',
+          'desc': 'Fresh Oven baked wings served with Dip Sauce.',
+          'price': 580,
+          'image': 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=400&q=80',
+        },
+        {
+          'id': '9',
+          'name': 'Flaming Wings',
+          'desc': 'Fresh oven baked wings tossed in hot Peri Peri Sauce and served with dip.',
+          'price': 620,
+          'image': 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=400&q=80',
+        },
+        {
+          'id': '10',
+          'name': 'Calzone Chunks',
+          'desc': '4 pcs Stuffed Calzone Chunks served with Sauce & Fries.',
+          'price': 1100,
+          'image': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=400&q=80',
+        },
+        {
+          'id': '11',
+          'name': 'Arabic Rolls',
+          'desc': 'Crispy golden rolls filled with spicy seasoned chicken and garlic sauce.',
+          'price': 950,
+          'image': 'https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=400&q=80',
+        },
+      ],
+    },
+    {
+      'title': 'Somewhat Local',
+      'items': [
+        {
+          'id': '12',
+          'name': 'Chicken Tikka Pizza',
+          'desc': 'Traditional chicken tikka topping with fresh onions and green peppers.',
+          'price': 1350,
+          'image': 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
+        },
+      ],
+    },
+    {
+      'title': 'Somewhat Sooper',
+      'items': [
+        {
+          'id': '13',
+          'name': 'Super Supreme Pizza',
+          'desc': 'Loaded with beef, chicken, black olives, mushrooms, capsicum and extra cheese.',
+          'price': 1590,
+          'image': 'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?auto=format&fit=crop&w=400&q=80',
+        },
+      ],
+    },
+  ];
+
+  bool _isAutoScrolling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategoryIndex = widget.initialCategoryIndex;
+    _categoryKeys.addAll(List.generate(_menuCategories.length, (_) => GlobalKey()));
+    _scrollController.addListener(_onScroll);
+    _fetchLiveMenu();
+
+    if (widget.initialCategoryIndex > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToCategory(widget.initialCategoryIndex);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _tabScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isAutoScrolling) return;
+
+    for (int i = 0; i < _categoryKeys.length; i++) {
+      final key = _categoryKeys[i];
+      final context = key.currentContext;
+      if (context != null) {
+        final box = context.findRenderObject() as RenderBox?;
+        if (box != null) {
+          final position = box.localToGlobal(Offset.zero);
+          // Check if top of category header is near the top of viewport (offset around 140-180)
+          if (position.dy >= 80 && position.dy <= 260) {
+            if (_selectedCategoryIndex != i) {
+              setState(() {
+                _selectedCategoryIndex = i;
+              });
+              _scrollTabToCenter(i);
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  void _scrollTabToCenter(int index) {
+    if (_tabScrollController.hasClients) {
+      final tabOffset = index * 130.0;
+      _tabScrollController.animateTo(
+        tabOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _scrollToCategory(int index) {
+    _isAutoScrolling = true;
+    setState(() {
+      _selectedCategoryIndex = index;
+    });
+    _scrollTabToCenter(index);
+
+    final context = _categoryKeys[index].currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        alignment: 0.05,
+      ).then((_) {
+        _isAutoScrolling = false;
+      });
+    } else {
+      _isAutoScrolling = false;
+    }
+  }
+
+  Future<void> _fetchLiveMenu() async {
+    try {
+      final response = await http.get(Uri.parse('${ApiService.baseUrl}/products'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final list = data['data'] as List<dynamic>? ?? [];
+        if (list.isNotEmpty) {
+          // Live fallback updates if needed
+        }
+      }
+    } catch (e) {
+      debugPrint('Live API fetch fallback: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cartTotal = widget.cart.fold(
+      0,
+      (sum, item) => sum + (item['price'] as int) * (item['quantity'] as int),
+    );
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1B4B)),
+          onPressed: () {
+            if (widget.onBackToHome != null) {
+              widget.onBackToHome!();
+            } else if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+          },
+        ),
+
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Explore Menu',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E1B4B),
+              ),
+            ),
+            Text(
+              'No branch found',
+              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFF3F4F6)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.search, color: Color(0xFF1E1B4B), size: 20),
+            ),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ─── 1. STICKY CATEGORY TAB BAR (Orange Active Underline) ───
+              Container(
+                color: Colors.white,
+                height: 48,
+                child: ListView.builder(
+                  controller: _tabScrollController,
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _menuCategories.length,
+                  itemBuilder: (context, idx) {
+                    final isSelected = _selectedCategoryIndex == idx;
+                    final catName = _menuCategories[idx]['title'] as String;
+                    return GestureDetector(
+                      onTap: () => _scrollToCategory(idx),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 22),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: isSelected ? const Color(0xFFFF5722) : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          catName,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold,
+                            color: isSelected ? const Color(0xFFFF5722) : const Color(0xFF1E1B4B),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const Divider(height: 1, color: Color(0xFFE5E7EB)),
+
+              // ─── 2. CONTINUOUS VERTICAL SCROLLABLE MENU SECTIONS ──────
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  itemCount: _menuCategories.length,
+                  itemBuilder: (context, catIdx) {
+                    final cat = _menuCategories[catIdx];
+                    final catTitle = cat['title'] as String;
+                    final items = cat['items'] as List<Map<String, dynamic>>;
+
+                    return Column(
+                      key: _categoryKeys[catIdx],
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Orange Category Section Title (as in screenshots)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16, bottom: 12),
+                          child: Text(
+                            catTitle,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFFF5722),
+                            ),
+                          ),
+                        ),
+
+                        // Products in this Category
+                        ...items.map((item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 14.0),
+                              child: _buildMenuItemCard(item),
+                            )),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+
+          // ─── 3. FLOATING BOTTOM CART BAR ───────────────────────────
+          if (widget.cart.isNotEmpty)
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC107),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        widget.cart.last['image'] ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${widget.cart.length} Item',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E1B4B),
+                          ),
+                        ),
+                        Text(
+                          'PKR $cartTotal',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1E1B4B),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Text(
+                      'VIEW CART >>',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E1B4B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ─── PRODUCT ITEM CARD (Matching Provided Screenshots Exactly) ────
+  Widget _buildMenuItemCard(Map<String, dynamic> item) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ItemDetailScreen(
+              item: item,
+              onAddToCart: widget.onAddToCart,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF3F4F6)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Left Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                item['image'],
+                width: 90,
+                height: 90,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Content Right
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title + Heart Icon
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item['name'],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1E1B4B),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFF3F4F6)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.favorite_border,
+                          size: 16,
+                          color: Color(0xFF1E1B4B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Description
+                  Text(
+                    item['desc'],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF6B7280),
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Price + Plus Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'PKR ${item['price']}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFFF5722),
+                        ),
+                      ),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFF3F4F6)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          size: 18,
+                          color: Color(0xFF1E1B4B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
