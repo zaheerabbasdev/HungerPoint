@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'item_detail_screen.dart';
+import 'favorites_screen.dart';
 import '../services/api_service.dart';
+import '../services/favorites_service.dart';
+
 
 class ExploreMenuScreen extends StatefulWidget {
   final Function(Map<String, dynamic>) onAddToCart;
@@ -503,127 +506,198 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
 
   // ─── PRODUCT ITEM CARD (Matching Provided Screenshots Exactly) ────
   Widget _buildMenuItemCard(Map<String, dynamic> item) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ItemDetailScreen(
-              item: item,
-              onAddToCart: widget.onAddToCart,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFF3F4F6)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Left Image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                item['image'],
-                width: 90,
-                height: 90,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: 14),
-
-            // Content Right
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title + Heart Icon
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item['name'],
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1E1B4B),
-                          ),
-                        ),
-                      ),
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFF3F4F6)),
-                        ),
-                        child: const Icon(
-                          Icons.favorite_border,
-                          size: 16,
-                          color: Color(0xFF1E1B4B),
-                        ),
-                      ),
-                    ],
+    return Stack(
+      children: [
+        // Main Card (tapping opens Choose Item / ItemDetailScreen)
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ItemDetailScreen(
+                    item: item,
+                    onAddToCart: widget.onAddToCart,
                   ),
-                  const SizedBox(height: 4),
-
-                  // Description
-                  Text(
-                    item['desc'],
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF6B7280),
-                      height: 1.3,
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFF3F4F6)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Left Image
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      item['image'],
+                      width: 90,
+                      height: 90,
+                      fit: BoxFit.cover,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(width: 14),
 
-                  // Price + Plus Button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'PKR ${item['price']}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFFF5722),
+                  // Content Right
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title (padded right to leave clearance for the heart icon)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 36.0),
+                          child: Text(
+                            item['name'],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1E1B4B),
+                            ),
+                          ),
                         ),
-                      ),
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFF3F4F6)),
+                        const SizedBox(height: 4),
+
+                        // Description
+                        Text(
+                          item['desc'],
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF6B7280),
+                            height: 1.3,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.add,
-                          size: 18,
-                          color: Color(0xFF1E1B4B),
+                        const SizedBox(height: 10),
+
+                        // Price + Plus Button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'PKR ${item['price']}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFFF5722),
+                              ),
+                            ),
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: const Color(0xFFF3F4F6)),
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                size: 18,
+                                color: Color(0xFF1E1B4B),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
 
+        // Isolated Favorite Button on Top-Right
+        // Positioned as a sibling in the Stack so clicking it strictly handles favorite toggle and NEVER triggers ItemDetailScreen
+        Positioned(
+          top: 8,
+          right: 8,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              final added = FavoritesService().toggleFavorite(item);
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: const Color(0xFF1E1B4B),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  content: Text(
+                    added
+                        ? '❤️ Added ${item['name']} to My Favorites!'
+                        : 'Removed ${item['name']} from Favorites',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  action: added
+                      ? SnackBarAction(
+                          label: 'VIEW',
+                          textColor: const Color(0xFFFF9800),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FavoritesScreen(
+                                  onAddToCart: widget.onAddToCart,
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : null,
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              color: Colors.transparent,
+              child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                valueListenable: FavoritesService().favoritesNotifier,
+                builder: (context, favorites, _) {
+                  final isFav = FavoritesService().isFavorite(item['id'] ?? item['name']);
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: isFav ? const Color(0xFFFFF3ED) : Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isFav ? const Color(0xFFFF5722) : const Color(0xFFF3F4F6),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        isFav ? Icons.favorite : Icons.favorite_border,
+                        size: 16,
+                        color: isFav ? const Color(0xFFFF5722) : const Color(0xFF1E1B4B),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

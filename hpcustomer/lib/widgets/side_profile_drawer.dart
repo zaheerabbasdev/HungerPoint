@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../screens/favorites_screen.dart';
+
 
 class SideProfileDrawer extends StatelessWidget {
   final VoidCallback onClose;
@@ -62,7 +64,21 @@ class SideProfileDrawer extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 10),
               children: [
                 _buildDrawerItem(Icons.inventory_2_outlined, 'Order History'),
-                _buildDrawerItem(Icons.favorite_border, 'My Favorites'),
+                _buildDrawerItem(
+                  Icons.favorite_border,
+                  'My Favorites',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FavoritesScreen(
+                          onAddToCart: (_) {},
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 _buildDrawerItem(Icons.grid_view_outlined, 'Explore Menu'),
                 _buildDrawerItem(Icons.location_on_outlined, 'Saved Addresses'),
                 _buildDrawerItem(Icons.star_outline, 'Ratings & Feedbacks'),
@@ -70,6 +86,7 @@ class SideProfileDrawer extends StatelessWidget {
               ],
             ),
           ),
+
 
           // Bottom Contact Us Card
           Padding(
@@ -97,12 +114,13 @@ class SideProfileDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerItem(IconData icon, String title) {
+  Widget _buildDrawerItem(IconData icon, String title, {VoidCallback? onTap}) {
     return ListTile(
       leading: Icon(icon, color: AppColors.darkNavy, size: 22),
       title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.darkNavy)),
       trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-      onTap: () {},
+      onTap: onTap ?? () {},
     );
   }
 }
+

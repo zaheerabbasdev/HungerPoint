@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/favorites_service.dart';
 
 class ItemDetailScreen extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -90,16 +91,49 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                       Positioned(
                         bottom: 12,
                         right: 12,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.favorite,
-                            color: Color(0xFFFF5722),
-                            size: 20,
+                        child: GestureDetector(
+                          onTap: () {
+                            final added = FavoritesService().toggleFavorite(widget.item);
+                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                duration: const Duration(seconds: 2),
+                                backgroundColor: const Color(0xFF1E1B4B),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                content: Text(
+                                  added
+                                      ? '❤️ Added ${widget.item['name']} to My Favorites!'
+                                      : 'Removed ${widget.item['name']} from Favorites',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ),
+                            );
+                          },
+                          child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                            valueListenable: FavoritesService().favoritesNotifier,
+                            builder: (context, favorites, _) {
+                              final isFav = FavoritesService().isFavorite(widget.item['id'] ?? widget.item['name']);
+                              return Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.12),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  isFav ? Icons.favorite : Icons.favorite_border,
+                                  color: isFav ? const Color(0xFFFF5722) : const Color(0xFF1E1B4B),
+                                  size: 20,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
