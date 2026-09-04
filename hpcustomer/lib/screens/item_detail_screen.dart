@@ -18,11 +18,19 @@ class ItemDetailScreen extends StatefulWidget {
 class _ItemDetailScreenState extends State<ItemDetailScreen> {
   int _selectedVariation = 0;
   int _quantity = 1;
+  late List<Map<String, dynamic>> _variations;
 
-  final List<Map<String, dynamic>> _variations = [
-    {'name': 'Regular', 'price': 1480},
-    {'name': 'Large', 'price': 1960},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    final basePrice = (widget.item['price'] is int)
+        ? widget.item['price'] as int
+        : int.tryParse(widget.item['price']?.toString() ?? '1480') ?? 1480;
+    _variations = [
+      {'name': 'Regular', 'price': basePrice},
+      {'name': 'Large', 'price': (basePrice * 1.32).round()},
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +40,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1B4B)),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1B4B), size: 22),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -42,31 +54,46 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             Text(
               'Choose Item',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
                 color: Color(0xFF1E1B4B),
               ),
             ),
+            SizedBox(height: 2),
             Text(
               'F-7 Old Islamabad',
-              style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF9CA3AF),
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF3F4F6),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.shopping_cart_outlined,
-                color: Color(0xFF1E1B4B),
-                size: 18,
+            child: Center(
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFF3F4F6)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.shopping_cart_outlined,
+                  color: Color(0xFF1E1B4B),
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -74,74 +101,88 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       ),
       body: Column(
         children: [
+          // ─── SCROLLABLE CONTENT ───
           Expanded(
             child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Product Image
-                  Stack(
-                    children: [
-                      Image.network(
-                        widget.item['image'],
-                        height: 220,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                      Positioned(
-                        bottom: 12,
-                        right: 12,
-                        child: GestureDetector(
-                          onTap: () {
-                            final added = FavoritesService().toggleFavorite(widget.item);
-                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                duration: const Duration(seconds: 2),
-                                backgroundColor: const Color(0xFF1E1B4B),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                content: Text(
-                                  added
-                                      ? '❤️ Added ${widget.item['name']} to My Favorites!'
-                                      : 'Removed ${widget.item['name']} from Favorites',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  // Full Product Image (contain fit so full pizza/plate is displayed)
+                  Container(
+                    width: double.infinity,
+                    color: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxHeight: 270,
+                              minHeight: 210,
+                            ),
+                            child: Image.network(
+                              widget.item['image'],
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 210,
+                                color: const Color(0xFFF9FAFB),
+                                child: const Center(
+                                  child: Icon(Icons.fastfood, size: 64, color: Colors.grey),
                                 ),
                               ),
-                            );
-                          },
-                          child: ValueListenableBuilder<List<Map<String, dynamic>>>(
-                            valueListenable: FavoritesService().favoritesNotifier,
-                            builder: (context, favorites, _) {
-                              final isFav = FavoritesService().isFavorite(widget.item['id'] ?? widget.item['name']);
-                              return Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.12),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  isFav ? Icons.favorite : Icons.favorite_border,
-                                  color: isFav ? const Color(0xFFFF5722) : const Color(0xFF1E1B4B),
-                                  size: 20,
+                            ),
+                          ),
+                        ),
+                        // Heart Icon (matching choose_item.jpeg bottom right of image area)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              final added = FavoritesService().toggleFavorite(widget.item);
+                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  duration: const Duration(seconds: 2),
+                                  backgroundColor: const Color(0xFF1E1B4B),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  content: Text(
+                                    added
+                                        ? '❤️ Added ${widget.item['name']} to My Favorites!'
+                                        : 'Removed ${widget.item['name']} from Favorites',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
                                 ),
                               );
                             },
+                            child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                              valueListenable: FavoritesService().favoritesNotifier,
+                              builder: (context, favorites, _) {
+                                final isFav = FavoritesService().isFavorite(widget.item['id'] ?? widget.item['name']);
+                                return Container(
+                                  padding: const EdgeInsets.all(8),
+                                  color: Colors.transparent,
+                                  child: Icon(
+                                    isFav ? Icons.favorite : Icons.favorite_border,
+                                    color: isFav ? const Color(0xFFFF5722) : const Color(0xFF1E1B4B),
+                                    size: 26,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
 
+                  // Item Details Info
                   Padding(
-                    padding: const EdgeInsets.all(20.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -205,43 +246,54 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
 
-                        // Variations Options
+                        // Variations Options (matching choose_item.jpeg)
                         ...List.generate(_variations.length, (idx) {
                           final v = _variations[idx];
                           final isSel = _selectedVariation == idx;
-                          return RadioListTile<int>(
-                            value: idx,
-                            groupValue: _selectedVariation,
-                            onChanged: (val) =>
-                                setState(() => _selectedVariation = val!),
-                            activeColor: const Color(0xFFFF5722),
-                            title: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  v['name'],
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: isSel
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: const Color(0xFF1E1B4B),
+                          return InkWell(
+                            onTap: () => setState(() => _selectedVariation = idx),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10.0),
+                              child: Row(
+                                children: [
+                                  // Custom Radio Indicator (matching design screenshot)
+                                  Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isSel ? const Color(0xFFFF5722) : const Color(0xFFD1D5DB),
+                                        width: isSel ? 6 : 2,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  'PKR ${v['price']}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1E1B4B),
+                                  const SizedBox(width: 14),
+                                  Text(
+                                    v['name'],
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                                      color: const Color(0xFF1E1B4B),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  const Spacer(),
+                                  Text(
+                                    'PKR ${v['price']}',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E1B4B),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         }),
+                        const SizedBox(height: 28),
                       ],
                     ),
                   ),
@@ -250,91 +302,99 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             ),
           ),
 
-          // Bottom Stepper & Add Button (Screenshot 6 & 7)
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
-            ),
-            child: Row(
-              children: [
-                // Stepper
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.remove,
-                          size: 18,
-                          color: Color(0xFF1E1B4B),
+          // ─── BOTTOM STEPPER & ADD BUTTON (Lifted upward with SafeArea and padding) ───
+          SafeArea(
+            top: false,
+            bottom: true,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+              ),
+              child: Row(
+                children: [
+                  // Stepper [-] 1 [+]
+                  Container(
+                    height: 52,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          splashRadius: 20,
+                          icon: const Icon(
+                            Icons.remove,
+                            size: 18,
+                            color: Color(0xFF1E1B4B),
+                          ),
+                          onPressed: () {
+                            if (_quantity > 1) setState(() => _quantity--);
+                          },
                         ),
-                        onPressed: () {
-                          if (_quantity > 1) setState(() => _quantity--);
-                        },
-                      ),
-                      Text(
-                        '$_quantity',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E1B4B),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                          child: Text(
+                            '$_quantity',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E1B4B),
+                            ),
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.add,
-                          size: 18,
-                          color: Color(0xFF1E1B4B),
+                        IconButton(
+                          splashRadius: 20,
+                          icon: const Icon(
+                            Icons.add,
+                            size: 18,
+                            color: Color(0xFF1E1B4B),
+                          ),
+                          onPressed: () => setState(() => _quantity++),
                         ),
-                        onPressed: () => setState(() => _quantity++),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 14),
+                  const SizedBox(width: 14),
 
-                // Add Button
-                Expanded(
-                  child: SizedBox(
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        widget.onAddToCart({
-                          'name': widget.item['name'],
-                          'price': selectedPrice,
-                          'quantity': _quantity,
-                        });
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFC107),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  // Yellow ADD Button
+                  Expanded(
+                    child: SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          widget.onAddToCart({
+                            'name': widget.item['name'],
+                            'price': selectedPrice,
+                            'quantity': _quantity,
+                          });
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFD54F),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        'ADD   Rs: $totalAddPrice',
-                        style: const TextStyle(
-                          color: Color(0xFF1E1B4B),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
+                        child: Text(
+                          'ADD   Rs: $totalAddPrice',
+                          style: const TextStyle(
+                            color: Color(0xFF1E1B4B),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
