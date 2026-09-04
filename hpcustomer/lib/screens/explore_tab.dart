@@ -657,11 +657,12 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                                           width: 32,
                                           height: 32,
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFFFD54F),
+                                            color: Colors.white,
                                             shape: BoxShape.circle,
+                                            border: Border.all(color: const Color(0xFFE5E7EB)),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.08),
+                                                color: Colors.black.withValues(alpha: 0.04),
                                                 blurRadius: 4,
                                                 offset: const Offset(0, 2),
                                               ),
@@ -672,7 +673,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                                               '$count',
                                               style: const TextStyle(
                                                 fontSize: 14,
-                                                fontWeight: FontWeight.w900,
+                                                fontWeight: FontWeight.w800,
                                                 color: Color(0xFF1E1B4B),
                                               ),
                                             ),
