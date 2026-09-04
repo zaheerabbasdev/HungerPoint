@@ -425,7 +425,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                             'price': selectedPrice,
                             'quantity': _quantity,
                           };
-                          CartService().addItem(cartItem);
                           widget.onAddToCart(cartItem);
                           Navigator.pop(context);
                         },

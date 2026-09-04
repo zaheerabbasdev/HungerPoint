@@ -6,26 +6,7 @@ class CartService {
   CartService._internal();
 
   final ValueNotifier<List<Map<String, dynamic>>> cartNotifier =
-      ValueNotifier<List<Map<String, dynamic>>>([
-    {
-      'id': '6',
-      'name': 'Thin Crust Beef Pepperoni',
-      'desc': 'A crispy thin crust topped with beef pepperoni, mozzarella cheese, and rich marinara sauce.',
-      'variation': 'Regular',
-      'price': 1480,
-      'quantity': 1,
-      'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '8',
-      'name': 'Oven Baked Wings',
-      'desc': 'Fresh Oven baked wings served with Dip Sauce.',
-      'variation': '6pcs',
-      'price': 580,
-      'quantity': 1,
-      'image': 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=400&q=80',
-    },
-  ]);
+      ValueNotifier<List<Map<String, dynamic>>>([]);
 
   List<Map<String, dynamic>> get items => cartNotifier.value;
 
