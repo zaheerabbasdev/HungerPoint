@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/favorites_service.dart';
 import '../services/cart_service.dart';
+import '../widgets/top_toast.dart';
 import 'cart_screen.dart';
 
 class ItemDetailScreen extends StatefulWidget {
@@ -18,7 +19,7 @@ class ItemDetailScreen extends StatefulWidget {
 }
 
 class _ItemDetailScreenState extends State<ItemDetailScreen> {
-  int _selectedVariation = 0;
+  int? _selectedVariation;
   int _quantity = 1;
   late List<Map<String, dynamic>> _variations;
 
@@ -36,7 +37,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedPrice = _variations[_selectedVariation]['price'] as int;
+    final basePrice = (widget.item['price'] is int)
+        ? widget.item['price'] as int
+        : int.tryParse(widget.item['price']?.toString() ?? '1480') ?? 1480;
+    final selectedPrice = _selectedVariation != null
+        ? (_variations[_selectedVariation!]['price'] as int)
+        : basePrice;
     final totalAddPrice = selectedPrice * _quantity;
 
     return Scaffold(
@@ -401,17 +407,24 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                       height: 52,
                       child: ElevatedButton(
                         onPressed: () {
+                          if (_selectedVariation == null) {
+                            TopToast.show(context, 'Please select any variation:');
+                            return;
+                          }
+
                           final cartItem = {
                             'id': widget.item['id'] ?? widget.item['name'],
                             'name': widget.item['name'],
                             'desc': widget.item['desc'],
                             'image': widget.item['image'],
-                            'variation': _variations[_selectedVariation]['name'],
+                            'variation': _variations[_selectedVariation!]['name'],
                             'price': selectedPrice,
                             'quantity': _quantity,
                           };
+                          final overlay = Overlay.of(context, rootOverlay: true);
                           widget.onAddToCart(cartItem);
                           Navigator.pop(context);
+                          TopToast.showWithOverlay(overlay, 'Product has been added to cart');
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFFFD54F),
