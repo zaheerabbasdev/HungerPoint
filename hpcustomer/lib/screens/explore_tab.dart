@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'item_detail_screen.dart';
 import 'favorites_screen.dart';
 import 'cart_screen.dart';
+import 'explore_search_tab.dart';
 import '../services/api_service.dart';
 import '../services/favorites_service.dart';
 import '../services/cart_service.dart';
@@ -325,11 +326,16 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {
-                      if (widget.onBackToHome != null) {
-                        widget.onBackToHome!();
-                      } else if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ExploreSearchScreen(
+                            onAddToCart: widget.onAddToCart,
+                            onBackToHome: () => Navigator.pop(context),
+                            onOpenExploreMenu: () => Navigator.pop(context),
+                          ),
+                        ),
+                      );
                     },
                     child: Container(
                       width: 44,
