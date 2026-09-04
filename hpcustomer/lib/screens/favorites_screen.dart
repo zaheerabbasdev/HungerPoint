@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/favorites_service.dart';
+import '../services/cart_service.dart';
 import 'item_detail_screen.dart';
 
 class FavoritesScreen extends StatelessWidget {
@@ -163,27 +164,102 @@ class FavoritesScreen extends StatelessWidget {
                                           color: Color(0xFFFF5722),
                                         ),
                                       ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFFFF3ED),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: const Color(0xFFFFCCBC)),
-                                        ),
-                                        child: const Row(
-                                          children: [
-                                            Icon(Icons.add, size: 14, color: Color(0xFFFF5722)),
-                                            SizedBox(width: 2),
-                                            Text(
-                                              'ORDER',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFFFF5722),
+                                      ValueListenableBuilder<List<Map<String, dynamic>>>(
+                                        valueListenable: CartService().cartNotifier,
+                                        builder: (context, cart, _) {
+                                          final count = CartService().getItemCount(item['id'], item['name']);
+
+                                          if (count == 0) {
+                                            return GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) => ItemDetailScreen(
+                                                      item: item,
+                                                      onAddToCart: onAddToCart,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              child: Container(
+                                                width: 32,
+                                                height: 32,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: const Color(0xFFF3F4F6)),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.add,
+                                                  size: 18,
+                                                  color: Color(0xFF1E1B4B),
+                                                ),
                                               ),
+                                            );
+                                          }
+
+                                          return Container(
+                                            height: 32,
+                                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFFFD54F),
+                                              borderRadius: BorderRadius.circular(16),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.08),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                GestureDetector(
+                                                  behavior: HitTestBehavior.opaque,
+                                                  onTap: () {
+                                                    CartService().decrementItem(item['id'], item['name']);
+                                                  },
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.symmetric(horizontal: 4),
+                                                    child: Icon(
+                                                      Icons.remove,
+                                                      size: 16,
+                                                      color: Color(0xFF1E1B4B),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                  child: Text(
+                                                    '$count',
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w900,
+                                                      color: Color(0xFF1E1B4B),
+                                                    ),
+                                                  ),
+                                                ),
+                                                GestureDetector(
+                                                  behavior: HitTestBehavior.opaque,
+                                                  onTap: () {
+                                                    CartService().incrementItem(item['id'], item['name']);
+                                                  },
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.symmetric(horizontal: 4),
+                                                    child: Icon(
+                                                      Icons.add,
+                                                      size: 16,
+                                                      color: Color(0xFF1E1B4B),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ],
                                   ),
@@ -204,19 +280,6 @@ class FavoritesScreen extends StatelessWidget {
                       behavior: HitTestBehavior.opaque,
                       onTap: () {
                         FavoritesService().toggleFavorite(item);
-                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            duration: const Duration(seconds: 1),
-                            backgroundColor: const Color(0xFF1E1B4B),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            content: Text(
-                              'Removed ${item['name']} from Favorites',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                          ),
-                        );
                       },
                       child: Container(
                         padding: const EdgeInsets.all(6),

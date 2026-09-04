@@ -190,22 +190,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                           child: GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: () {
-                              final added = FavoritesService().toggleFavorite(widget.item);
-                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  duration: const Duration(seconds: 2),
-                                  backgroundColor: const Color(0xFF1E1B4B),
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  content: Text(
-                                    added
-                                        ? '❤️ Added ${widget.item['name']} to My Favorites!'
-                                        : 'Removed ${widget.item['name']} from Favorites',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                                  ),
-                                ),
-                              );
+                              FavoritesService().toggleFavorite(widget.item);
                             },
                             child: ValueListenableBuilder<List<Map<String, dynamic>>>(
                               valueListenable: FavoritesService().favoritesNotifier,

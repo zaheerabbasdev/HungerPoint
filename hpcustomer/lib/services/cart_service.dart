@@ -67,6 +67,64 @@ class CartService {
     }
   }
 
+  int getItemCount(dynamic id, [String? name]) {
+    final idStr = id?.toString();
+    int count = 0;
+    for (final it in cartNotifier.value) {
+      final itId = it['id']?.toString();
+      final itName = it['name']?.toString();
+      if ((idStr != null && itId == idStr) ||
+          (name != null && itName == name) ||
+          (idStr != null && itName == idStr)) {
+        count += (it['quantity'] as int?) ?? 1;
+      }
+    }
+    return count;
+  }
+
+  void incrementItem(dynamic id, [String? name]) {
+    final idStr = id?.toString();
+    final currentList = List<Map<String, dynamic>>.from(cartNotifier.value);
+    final index = currentList.indexWhere((it) {
+      final itId = it['id']?.toString();
+      final itName = it['name']?.toString();
+      return (idStr != null && itId == idStr) ||
+          (name != null && itName == name) ||
+          (idStr != null && itName == idStr);
+    });
+
+    if (index >= 0) {
+      final existing = Map<String, dynamic>.from(currentList[index]);
+      existing['quantity'] = ((existing['quantity'] as int?) ?? 1) + 1;
+      currentList[index] = existing;
+      cartNotifier.value = currentList;
+    }
+  }
+
+  void decrementItem(dynamic id, [String? name]) {
+    final idStr = id?.toString();
+    final currentList = List<Map<String, dynamic>>.from(cartNotifier.value);
+    final index = currentList.indexWhere((it) {
+      final itId = it['id']?.toString();
+      final itName = it['name']?.toString();
+      return (idStr != null && itId == idStr) ||
+          (name != null && itName == name) ||
+          (idStr != null && itName == idStr);
+    });
+
+    if (index >= 0) {
+      final existing = Map<String, dynamic>.from(currentList[index]);
+      final currentQty = (existing['quantity'] as int?) ?? 1;
+      if (currentQty <= 1) {
+        currentList.removeAt(index);
+      } else {
+        existing['quantity'] = currentQty - 1;
+        currentList[index] = existing;
+      }
+      cartNotifier.value = currentList;
+    }
+  }
+
   void clear() {
     cartNotifier.value = [];
   }
