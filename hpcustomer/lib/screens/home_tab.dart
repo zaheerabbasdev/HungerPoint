@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../constants/app_colors.dart';
 import '../services/cart_service.dart';
+import '../services/address_service.dart';
 import 'cart_screen.dart';
 import 'item_detail_screen.dart';
+import 'location_picker_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
@@ -31,6 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late final PageController _pageController;
   Timer? _carouselTimer;
   int _currentPage = 0;
+
+  // Address
+  String? _deliveryAddress;
 
   final List<Map<String, dynamic>> _banners = [
     {
@@ -113,6 +118,142 @@ class _HomeScreenState extends State<HomeScreen> {
     _currentPage = 1000 * _banners.length;
     _pageController = PageController(initialPage: _currentPage);
     _startCarouselTimer();
+
+    // Sync local state with AddressService
+    _deliveryAddress = AddressService().currentAddress;
+    AddressService().addressNotifier.addListener(_onAddressChanged);
+
+    // Show address bottom sheet on first load if no address set
+    if (_deliveryAddress == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showAddressBottomSheet();
+      });
+    }
+  }
+
+  void _onAddressChanged() {
+    if (mounted) {
+      setState(() {
+        _deliveryAddress = AddressService().currentAddress;
+      });
+    }
+  }
+
+  /// Shows the "Add or choose an address" bottom sheet
+  void _showAddressBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      isDismissible: true,
+      builder: (sheetContext) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                // Drag handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryOrange,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Add or choose an address',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1E1B4B),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Select new location
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFFF3ED),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.near_me_outlined,
+                                color: AppColors.primaryOrange,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            const Text(
+                              'Select new location',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryOrange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                      const SizedBox(height: 16),
+                      // + ADD NEW ADDRESS
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
+                          );
+                        },
+                        child: const Center(
+                          child: Text(
+                            '+ ADD NEW ADDRESS',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.primaryOrange,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _startCarouselTimer() {
@@ -130,6 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _carouselTimer?.cancel();
     _pageController.dispose();
+    AddressService().addressNotifier.removeListener(_onAddressChanged);
     super.dispose();
   }
 
@@ -162,23 +304,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(width: 10),
 
-                  // "Deliver to v" (Moved to the left right next to menu button)
+                  // "Deliver to" – shows address if set, else generic label
                   GestureDetector(
-                    onTap: () {
-                      // Open location dropdown
-                    },
+                    onTap: _showAddressBottomSheet,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
+                      children: [
                         Text(
-                          'Deliver to ',
-                          style: TextStyle(
+                          _deliveryAddress != null
+                              ? 'Deliver to '
+                              : 'Deliver to ',
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF1E1B4B),
                           ),
                         ),
-                        Icon(Icons.keyboard_arrow_down, color: Color(0xFF1E1B4B), size: 22),
+                        if (_deliveryAddress != null)
+                          Text(
+                            _deliveryAddress!,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFFF5722),
+                            ),
+                          ),
+                        const Icon(Icons.keyboard_arrow_down, color: Color(0xFF1E1B4B), size: 22),
                       ],
                     ),
                   ),
