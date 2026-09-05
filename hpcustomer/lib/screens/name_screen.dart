@@ -1,44 +1,49 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
-import 'otp_screen.dart';
+import 'birthday_screen.dart';
 
-class PhoneAuthScreen extends StatefulWidget {
-  const PhoneAuthScreen({super.key});
+class NameScreen extends StatefulWidget {
+  final String? phoneNumber;
+
+  const NameScreen({
+    super.key,
+    this.phoneNumber,
+  });
 
   @override
-  State<PhoneAuthScreen> createState() => _PhoneAuthScreenState();
+  State<NameScreen> createState() => _NameScreenState();
 }
 
-class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
-  final _phoneController = TextEditingController(text: '3139804929');
-  String _selectedCountryCode = '+92';
+class _NameScreenState extends State<NameScreen> {
+  final TextEditingController _nameController = TextEditingController(text: 'Zaheer Abbas');
 
-  @override
-  void dispose() {
-    _phoneController.dispose();
-    super.dispose();
-  }
-
-  void _onSendCode() {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
+  void _onNext() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your mobile number'),
+          content: Text('Please enter your full name'),
           duration: Duration(seconds: 2),
         ),
       );
       return;
     }
 
-    final fullNumber = '$_selectedCountryCode$phone';
-
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => OtpScreen(phoneNumber: fullNumber),
+        builder: (_) => BirthdayScreen(
+          fullName: name,
+          phoneNumber: widget.phoneNumber,
+        ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -95,7 +100,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
             children: [
               const SizedBox(height: 12),
               const Text(
-                'Enter Your Mobile\nNumber',
+                'Hello!\nWhats your full name?',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
@@ -105,18 +110,20 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'We will send you a code to verify your\nnumber',
+                'Please enter your full name',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF6B7280),
-                  height: 1.4,
                 ),
               ),
               const SizedBox(height: 32),
 
-              // Phone Number Input Container matching screenshot
+              // Name input container matching screenshot
               Container(
+                width: double.infinity,
+                height: 56,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
@@ -129,53 +136,29 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                   ],
                   border: Border.all(color: const Color(0xFFF3F4F6), width: 1),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.horizontal(left: Radius.circular(9)),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            _selectedCountryCode,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1E1B4B),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF6B7280)),
-                        ],
-                      ),
+                child: Center(
+                  child: TextField(
+                    controller: _nameController,
+                    textCapitalization: TextCapitalization.words,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E1B4B),
                     ),
-                    Expanded(
-                      child: TextField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1E1B4B),
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: '3139804929',
-                          hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16),
-                        ),
-                      ),
+                    decoration: const InputDecoration(
+                      hintText: 'Zaheer Abbas',
+                      hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontWeight: FontWeight.normal),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
                     ),
-                  ],
+                  ),
                 ),
               ),
 
               const Spacer(),
 
-              // SEND CODE Button with chat icon
+              // NEXT Button matching screenshot
               Container(
                 width: double.infinity,
                 height: 52,
@@ -194,22 +177,21 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                   ],
                 ),
-                child: ElevatedButton.icon(
-                  onPressed: _onSendCode,
-                  icon: const Icon(Icons.chat, color: Color(0xFF1E1B4B), size: 18),
-                  label: const Text(
-                    'SEND CODE',
-                    style: TextStyle(
-                      color: Color(0xFF1E1B4B),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
+                child: ElevatedButton(
+                  onPressed: _onNext,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text(
+                    'NEXT',
+                    style: TextStyle(
+                      color: Color(0xFF1E1B4B),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
                   ),
                 ),
               ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'constants/app_colors.dart';
-import 'screens/welcome_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const HungerPointCustomerApp());
@@ -24,6 +24,7 @@ class HungerPointCustomerApp extends StatelessWidget {
           primary: AppColors.primaryYellow,
           secondary: AppColors.accentOrange,
           surface: Colors.white,
+          onSurface: AppColors.textNavy,
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
@@ -39,7 +40,7 @@ class HungerPointCustomerApp extends StatelessWidget {
         ),
 
       ),
-      home: const WelcomeScreen(),
+      home: const SplashScreen(),
     );
   }
 }

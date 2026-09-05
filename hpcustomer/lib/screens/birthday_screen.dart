@@ -1,43 +1,71 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
-import 'otp_screen.dart';
+import 'main_navigation_screen.dart';
 
-class PhoneAuthScreen extends StatefulWidget {
-  const PhoneAuthScreen({super.key});
+class BirthdayScreen extends StatefulWidget {
+  final String? fullName;
+  final String? phoneNumber;
+
+  const BirthdayScreen({
+    super.key,
+    this.fullName,
+    this.phoneNumber,
+  });
 
   @override
-  State<PhoneAuthScreen> createState() => _PhoneAuthScreenState();
+  State<BirthdayScreen> createState() => _BirthdayScreenState();
 }
 
-class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
-  final _phoneController = TextEditingController(text: '3139804929');
-  String _selectedCountryCode = '+92';
+class _BirthdayScreenState extends State<BirthdayScreen> {
+  DateTime _selectedDate = DateTime(2002, 9, 20);
 
-  @override
-  void dispose() {
-    _phoneController.dispose();
-    super.dispose();
+  static const List<String> _months = [
+    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+  ];
+
+  String get _formattedDate {
+    final day = _selectedDate.day.toString().padLeft(2, '0');
+    final month = _months[_selectedDate.month - 1];
+    final year = _selectedDate.year.toString();
+    return '$day-$month-$year';
   }
 
-  void _onSendCode() {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your mobile number'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(1920),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primaryYellow,
+              onPrimary: AppColors.darkNavy,
+              surface: Colors.white,
+              onSurface: AppColors.darkNavy,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
     }
+  }
 
-    final fullNumber = '$_selectedCountryCode$phone';
-
-    Navigator.push(
+  void _onNext() {
+    // Per user instructions: location picker removed from onboarding.
+    // Directly proceed to the main application navigation.
+    Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(
-        builder: (_) => OtpScreen(phoneNumber: fullNumber),
-      ),
+      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+      (route) => false,
     );
   }
 
@@ -95,7 +123,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
             children: [
               const SizedBox(height: 12),
               const Text(
-                'Enter Your Mobile\nNumber',
+                'Finally, add your\nbirthday',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
@@ -105,77 +133,59 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'We will send you a code to verify your\nnumber',
+                'Please enter your birthday',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF6B7280),
-                  height: 1.4,
                 ),
               ),
               const SizedBox(height: 32),
 
-              // Phone Number Input Container matching screenshot
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                  border: Border.all(color: const Color(0xFFF3F4F6), width: 1),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.horizontal(left: Radius.circular(9)),
+              // Date input container matching screenshot
+              GestureDetector(
+                onTap: _pickDate,
+                child: Container(
+                  width: double.infinity,
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
-                      child: Row(
-                        children: [
-                          Text(
-                            _selectedCountryCode,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1E1B4B),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF6B7280)),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
+                    ],
+                    border: Border.all(color: const Color(0xFFF3F4F6), width: 1),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _formattedDate,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF1E1B4B),
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: '3139804929',
-                          hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                          letterSpacing: 0.5,
                         ),
                       ),
-                    ),
-                  ],
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        color: Color(0xFF9CA3AF),
+                        size: 20,
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
               const Spacer(),
 
-              // SEND CODE Button with chat icon
+              // NEXT Button matching screenshot
               Container(
                 width: double.infinity,
                 height: 52,
@@ -194,22 +204,21 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                   ],
                 ),
-                child: ElevatedButton.icon(
-                  onPressed: _onSendCode,
-                  icon: const Icon(Icons.chat, color: Color(0xFF1E1B4B), size: 18),
-                  label: const Text(
-                    'SEND CODE',
-                    style: TextStyle(
-                      color: Color(0xFF1E1B4B),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
+                child: ElevatedButton(
+                  onPressed: _onNext,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text(
+                    'NEXT',
+                    style: TextStyle(
+                      color: Color(0xFF1E1B4B),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
                   ),
                 ),
               ),
