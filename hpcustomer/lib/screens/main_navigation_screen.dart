@@ -67,7 +67,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       VouchersScreen(
         onBackToHome: () => setState(() => _currentIndex = 0),
       ),
-      const BranchesScreen(),
+      BranchesScreen(
+        onBackToHome: () => setState(() => _currentIndex = 0),
+      ),
     ];
 
     return Scaffold(

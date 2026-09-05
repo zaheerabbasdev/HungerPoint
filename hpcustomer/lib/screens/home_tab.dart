@@ -3,10 +3,12 @@ import 'dart:async';
 import '../constants/app_colors.dart';
 import '../services/cart_service.dart';
 import '../services/address_service.dart';
+import '../services/branch_service.dart';
 import 'cart_screen.dart';
 import 'item_detail_screen.dart';
 import 'location_picker_screen.dart';
 import 'add_address_screen.dart';
+import 'branches_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
@@ -28,8 +30,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _isDeliverySelected = true;
-
   // Carousel auto-slide properties
   late final PageController _pageController;
   Timer? _carouselTimer;
@@ -114,6 +114,13 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   ];
 
+  List<Map<String, dynamic>> get _activeCategories {
+    if (BranchService().isPickupMode && BranchService().selectedBranch != null) {
+      return BranchService().selectedBranch!.menuCategories;
+    }
+    return _categories;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -127,12 +134,22 @@ class _HomeScreenState extends State<HomeScreen> {
     AddressService().savedAddressesNotifier.addListener(_onAddressChanged);
     AddressService().customLocationNotifier.addListener(_onAddressChanged);
 
+    // Sync local state with BranchService
+    BranchService().selectedBranchNotifier.addListener(_onBranchChanged);
+    BranchService().isPickupModeNotifier.addListener(_onBranchChanged);
+
     // Show address bottom sheet after 5 seconds on first load
     if (!_hasShownInitialBottomSheet) {
       _hasShownInitialBottomSheet = true;
       Future.delayed(const Duration(seconds: 5), () {
         if (mounted) _showAddressBottomSheet();
       });
+    }
+  }
+
+  void _onBranchChanged() {
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -369,6 +386,8 @@ class _HomeScreenState extends State<HomeScreen> {
     AddressService().selectedAddressNotifier.removeListener(_onAddressChanged);
     AddressService().savedAddressesNotifier.removeListener(_onAddressChanged);
     AddressService().customLocationNotifier.removeListener(_onAddressChanged);
+    BranchService().selectedBranchNotifier.removeListener(_onBranchChanged);
+    BranchService().isPickupModeNotifier.removeListener(_onBranchChanged);
     super.dispose();
   }
 
@@ -401,42 +420,63 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(width: 10),
 
-                  // "Deliver to" – shows complete name (Deliver to Home, Deliver to Work, Deliver to Other, Deliver to Swabi)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _showAddressBottomSheet,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              const TextSpan(
-                                text: 'Deliver to ',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF1E1B4B),
-                                ),
+                  // "Deliver to" / "Pickup From" header button
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (BranchService().isPickupMode) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BranchesScreen(
+                                onBackToHome: () => setState(() {}),
                               ),
+                            ),
+                          );
+                        } else {
+                          _showAddressBottomSheet();
+                        }
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text.rich(
                               TextSpan(
-                                text: AddressService().activeDeliveryLabel,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF1E1B4B),
-                                ),
+                                children: [
+                                  TextSpan(
+                                    text: BranchService().isPickupMode ? 'Pickup From ' : 'Deliver to ',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1E1B4B),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: BranchService().isPickupMode
+                                        ? (BranchService().selectedBranch?.name ?? 'F-10 Markaz...')
+                                        : AddressService().activeDeliveryLabel,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF1E1B4B),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.keyboard_arrow_down, color: Color(0xFF1E1B4B), size: 22),
-                      ],
+                          const SizedBox(width: 2),
+                          const Icon(Icons.keyboard_arrow_down, color: Color(0xFF1E1B4B), size: 22),
+                        ],
+                      ),
                     ),
                   ),
 
-                  const Spacer(),
+                  const SizedBox(width: 10),
 
                   // White Circular Cart Button with Count Badge
                   GestureDetector(
@@ -515,17 +555,20 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
                 children: [
-                  // Delivery Button (Yellow Pill)
+                  // Delivery Button (Yellow Pill when delivery mode)
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _isDeliverySelected = true),
+                      onTap: () {
+                        BranchService().switchToDelivery();
+                        setState(() {});
+                      },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
                         height: 48,
                         decoration: BoxDecoration(
-                          color: _isDeliverySelected ? const Color(0xFFFFC107) : Colors.transparent,
+                          color: !BranchService().isPickupMode ? const Color(0xFFFFC107) : Colors.transparent,
                           borderRadius: BorderRadius.circular(24),
-                          boxShadow: _isDeliverySelected
+                          boxShadow: !BranchService().isPickupMode
                               ? [
                                   BoxShadow(
                                     color: const Color(0xFFFFC107).withValues(alpha: 0.4),
@@ -544,14 +587,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: _isDeliverySelected ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
+                                  color: !BranchService().isPickupMode ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
                                   width: 1.5,
                                 ),
                               ),
                               child: Icon(
                                 Icons.person_outline,
                                 size: 13,
-                                color: _isDeliverySelected ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
+                                color: !BranchService().isPickupMode ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -561,7 +604,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.5,
-                                color: _isDeliverySelected ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
+                                color: !BranchService().isPickupMode ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
                               ),
                             ),
                           ],
@@ -572,17 +615,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(width: 12),
 
-                  // Pick-Up Button (Orange outline styling)
+                  // Pick-Up Button (Yellow Pill when pickup mode, opens branches screen on click)
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _isDeliverySelected = false),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BranchesScreen(
+                              onBackToHome: () => setState(() {}),
+                            ),
+                          ),
+                        );
+                      },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
                         height: 48,
                         decoration: BoxDecoration(
-                          color: !_isDeliverySelected ? const Color(0xFFFFC107) : Colors.transparent,
+                          color: BranchService().isPickupMode ? const Color(0xFFFFC107) : Colors.transparent,
                           borderRadius: BorderRadius.circular(24),
-                          boxShadow: !_isDeliverySelected
+                          boxShadow: BranchService().isPickupMode
                               ? [
                                   BoxShadow(
                                     color: const Color(0xFFFFC107).withValues(alpha: 0.4),
@@ -598,7 +650,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Icon(
                               Icons.storefront_outlined,
                               size: 20,
-                              color: !_isDeliverySelected ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
+                              color: BranchService().isPickupMode ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -607,7 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.5,
-                                color: !_isDeliverySelected ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
+                                color: BranchService().isPickupMode ? const Color(0xFF1E1B4B) : const Color(0xFFFF5722),
                               ),
                             ),
                           ],
@@ -803,7 +855,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _categories.length,
+                  itemCount: _activeCategories.length,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     crossAxisSpacing: 10,
@@ -811,7 +863,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     childAspectRatio: 1.05,
                   ),
                   itemBuilder: (context, idx) {
-                    final cat = _categories[idx];
+                    final cat = _activeCategories[idx];
                     return GestureDetector(
                       onTap: () => widget.onNavigateToExplore?.call(idx),
                       child: Container(
