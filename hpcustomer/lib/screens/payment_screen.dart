@@ -3,6 +3,8 @@ import '../services/cart_service.dart';
 import '../services/address_service.dart';
 import '../services/branch_service.dart';
 import 'location_picker_screen.dart';
+import 'add_address_screen.dart';
+import 'vouchers_tab.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -23,11 +25,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.initState();
     _selectedAddress = AddressService().selectedAddress;
     AddressService().selectedAddressNotifier.addListener(_onAddressChanged);
+    AddressService().savedAddressesNotifier.addListener(_onAddressChanged);
+    AddressService().customLocationNotifier.addListener(_onAddressChanged);
   }
 
   @override
   void dispose() {
     AddressService().selectedAddressNotifier.removeListener(_onAddressChanged);
+    AddressService().savedAddressesNotifier.removeListener(_onAddressChanged);
+    AddressService().customLocationNotifier.removeListener(_onAddressChanged);
     _instructionsController.dispose();
     super.dispose();
   }
@@ -54,18 +60,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
             final currentSelected = AddressService().selectedAddress;
 
             return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: SafeArea(
                 top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 12),
-                    // Orange drag handle (Image 3)
-                    Container(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 12),
+                      // Orange drag handle (Image 3)
+                      Container(
                       width: 44,
                       height: 4.5,
                       decoration: BoxDecoration(
@@ -214,131 +225,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ],
                       );
                     }),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+
+                    // + ADD NEW ADDRESS Button
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AddAddressScreen()),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10.0),
+                        child: const Center(
+                          child: Text(
+                            '+ ADD NEW ADDRESS',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFFF5722),
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
                   ],
                 ),
               ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  /// Opens the Apply Vouchers modal
-  void _showVouchersModal() {
-    final vouchers = [
-      {'code': 'HUNGER30', 'title': 'Flat 30% OFF', 'discount': 250},
-      {'code': 'WELCOME50', 'title': 'New Customer Rs. 150 OFF', 'discount': 150},
-      {'code': 'FREESHIP', 'title': 'Free Delivery on All Orders', 'discount': 50},
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.all(20),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF5722),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Apply Vouchers',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1E1B4B),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ...vouchers.map((v) {
-                  final code = v['code'] as String;
-                  final discount = v['discount'] as int;
-                  final isApplied = _appliedVoucherCode == code;
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: isApplied ? const Color(0xFFFFF7D6) : const Color(0xFFF9FAFB),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isApplied ? const Color(0xFFFFD600) : const Color(0xFFF3F4F6),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              code,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF1E1B4B),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              v['title'] as String,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isApplied ? const Color(0xFF1E1B4B) : const Color(0xFFFFD600),
-                            foregroundColor: isApplied ? Colors.white : const Color(0xFF1E1B4B),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              if (isApplied) {
-                                _appliedDiscount = 0;
-                                _appliedVoucherCode = null;
-                              } else {
-                                _appliedDiscount = discount;
-                                _appliedVoucherCode = code;
-                              }
-                            });
-                            Navigator.pop(ctx);
-                          },
-                          child: Text(
-                            isApplied ? 'REMOVE' : 'APPLY',
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
             ),
-          ),
+          );
+          },
         );
       },
     );
@@ -606,7 +526,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
             // ─── 3. APPLY VOUCHERS (Image 1 & 2) ───────────────────────
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: _showVouchersModal,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VouchersScreen(
+                      onVoucherApplied: (code, discount) {
+                        setState(() {
+                          _appliedVoucherCode = code;
+                          _appliedDiscount = discount;
+                        });
+                      },
+                    ),
+                  ),
+                );
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 decoration: BoxDecoration(
@@ -757,35 +691,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
             ),
 
-            const SizedBox(height: 22),
-
-            // ─── 6. PLACE ORDER BUTTON (Image 1 & 2) ───────────────────
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFDE03),
-                  foregroundColor: const Color(0xFF1E1B4B),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () => _handlePlaceOrder(total),
-                child: const Text(
-                  'PLACE ORDER',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        color: const Color(0xFFF9FAFB),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          10,
+          16,
+          MediaQuery.of(context).padding.bottom + 42,
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFDE03),
+              foregroundColor: const Color(0xFF1E1B4B),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
-
-            const SizedBox(height: 16),
-          ],
+            onPressed: () => _handlePlaceOrder(total),
+            child: const Text(
+              'PLACE ORDER',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
         ),
       ),
     );

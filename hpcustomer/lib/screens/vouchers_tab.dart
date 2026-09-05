@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
 
 class VouchersScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
+  final Function(String code, int discount)? onVoucherApplied;
 
-  const VouchersScreen({super.key, this.onBackToHome});
+  const VouchersScreen({super.key, this.onBackToHome, this.onVoucherApplied});
 
   @override
   State<VouchersScreen> createState() => _VouchersScreenState();
@@ -25,10 +25,21 @@ class _VouchersScreenState extends State<VouchersScreen> {
       return;
     }
 
+    final upper = code.toUpperCase();
+    int discount = 150;
+    if (upper.contains('30')) discount = 250;
+    if (upper.contains('50')) discount = 300;
+
+    if (widget.onVoucherApplied != null) {
+      widget.onVoucherApplied!(upper, discount);
+      Navigator.pop(context);
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Voucher code "$code" is invalid or expired'),
-        backgroundColor: const Color(0xFFEF4444),
+        content: Text('Voucher "$upper" applied successfully! Saved PKR $discount'),
+        backgroundColor: const Color(0xFF2E7D32),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
