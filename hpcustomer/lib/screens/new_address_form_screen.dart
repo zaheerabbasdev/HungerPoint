@@ -24,6 +24,14 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
 
   static const List<String> _labels = ['Home', 'Work', 'Other'];
 
+  String get _currentLabel {
+    if (_selectedLabel == 2) {
+      final custom = _customLabelController.text.trim();
+      return custom.isNotEmpty ? custom : 'Other';
+    }
+    return _labels[_selectedLabel];
+  }
+
   void _onAddNewAddress() {
     final detail = _addressDetailController.text.trim();
     if (detail.isEmpty) {
@@ -37,14 +45,34 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
     }
 
     // Build display address
-    String label = _labels[_selectedLabel];
-    if (_selectedLabel == 2) {
-      final custom = _customLabelController.text.trim();
-      if (custom.isNotEmpty) label = custom;
+    final label = _currentLabel;
+
+    // Check if address with same type/label already exists
+    if (AddressService().hasAddressWithLabel(label)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Address with same address type is already exist',
+            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+          ),
+          backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
     }
 
-    final fullAddress = '$label – $detail';
-    AddressService().setAddress(fullAddress);
+    final fullAddress = widget.mapAddress.isNotEmpty
+        ? '$detail, ${widget.mapAddress}'
+        : detail;
+
+    AddressService().addAddress(
+      label: label,
+      address: fullAddress,
+      selectImmediately: true,
+    );
 
     // Navigate all the way back to home
     Navigator.pushAndRemoveUntil(

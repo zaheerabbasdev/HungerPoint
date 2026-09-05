@@ -36,7 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentPage = 0;
 
   // Address
-  String? _deliveryAddress;
+  SavedAddress? _selectedAddress;
+  static bool _hasShownInitialBottomSheet = false;
 
   final List<Map<String, dynamic>> _banners = [
     {
@@ -121,11 +122,13 @@ class _HomeScreenState extends State<HomeScreen> {
     _startCarouselTimer();
 
     // Sync local state with AddressService
-    _deliveryAddress = AddressService().currentAddress;
-    AddressService().addressNotifier.addListener(_onAddressChanged);
+    _selectedAddress = AddressService().selectedAddress;
+    AddressService().selectedAddressNotifier.addListener(_onAddressChanged);
+    AddressService().savedAddressesNotifier.addListener(_onAddressChanged);
 
-    // Show address bottom sheet after 5 seconds on first load if no address set
-    if (_deliveryAddress == null) {
+    // Show address bottom sheet after 5 seconds on first load
+    if (!_hasShownInitialBottomSheet) {
+      _hasShownInitialBottomSheet = true;
       Future.delayed(const Duration(seconds: 5), () {
         if (mounted) _showAddressBottomSheet();
       });
@@ -135,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onAddressChanged() {
     if (mounted) {
       setState(() {
-        _deliveryAddress = AddressService().currentAddress;
+        _selectedAddress = AddressService().selectedAddress;
       });
     }
   }
@@ -148,110 +151,200 @@ class _HomeScreenState extends State<HomeScreen> {
       isScrollControlled: true,
       isDismissible: true,
       builder: (sheetContext) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 10),
-                // Drag handle
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryOrange,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        return StatefulBuilder(
+          builder: (sheetContext, setModalState) {
+            final savedList = AddressService().savedAddresses;
+            final selected = AddressService().selectedAddress;
+
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Add or choose an address',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF1E1B4B),
+                      const SizedBox(height: 10),
+                      // Drag handle
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryOrange,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                       const SizedBox(height: 20),
-                      // Select new location
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          Navigator.pop(sheetContext);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
-                          );
-                        },
-                        child: Row(
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFFF3ED),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.near_me_outlined,
-                                color: AppColors.primaryOrange,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
                             const Text(
-                              'Select new location',
+                              'Add or choose an address',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primaryOrange,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF1E1B4B),
                               ),
                             ),
+                            const SizedBox(height: 18),
+                            // Select new location
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
+                                );
+                              },
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFFFF3ED),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.near_me_outlined,
+                                      color: AppColors.primaryOrange,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  const Text(
+                                    'Select new location',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primaryOrange,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            const Divider(height: 1, color: Color(0xFFF3F4F6)),
+
+                            // Saved addresses list with radio selection
+                            ...savedList.map((addr) {
+                              final isSelected = selected?.id == addr.id;
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () {
+                                      AddressService().selectAddress(addr);
+                                      Navigator.pop(sheetContext);
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 14.0),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Container(
+                                              width: 22,
+                                              height: 22,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: isSelected
+                                                      ? AppColors.primaryOrange
+                                                      : const Color(0xFFD1D5DB),
+                                                  width: isSelected ? 2.5 : 2,
+                                                ),
+                                                color: Colors.white,
+                                              ),
+                                              child: isSelected
+                                                  ? Center(
+                                                      child: Container(
+                                                        width: 10,
+                                                        height: 10,
+                                                        decoration: const BoxDecoration(
+                                                          shape: BoxShape.circle,
+                                                          color: AppColors.primaryOrange,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : null,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 14),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  addr.label,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: Color(0xFF1E1B4B),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  addr.address,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    color: Color(0xFF4B5563),
+                                                    height: 1.35,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                                ],
+                              );
+                            }),
+
+                            const SizedBox(height: 16),
+                            // + ADD NEW ADDRESS
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const AddAddressScreen()),
+                                );
+                              },
+                              child: const Center(
+                                child: Text(
+                                  '+ ADD NEW ADDRESS',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.primaryOrange,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                      const SizedBox(height: 16),
-                      // + ADD NEW ADDRESS
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          Navigator.pop(sheetContext);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const AddAddressScreen()),
-                          );
-                        },
-                        child: const Center(
-                          child: Text(
-                            '+ ADD NEW ADDRESS',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.primaryOrange,
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -272,7 +365,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _carouselTimer?.cancel();
     _pageController.dispose();
-    AddressService().addressNotifier.removeListener(_onAddressChanged);
+    AddressService().selectedAddressNotifier.removeListener(_onAddressChanged);
+    AddressService().savedAddressesNotifier.removeListener(_onAddressChanged);
     super.dispose();
   }
 
@@ -305,31 +399,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(width: 10),
 
-                  // "Deliver to" – shows address if set, else generic label
+                  // "Deliver to" – shows label (Home, Work, Other, etc.)
                   GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: _showAddressBottomSheet,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          _deliveryAddress != null
-                              ? 'Deliver to '
-                              : 'Deliver to ',
-                          style: const TextStyle(
+                        const Text(
+                          'Deliver to ',
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF1E1B4B),
                           ),
                         ),
-                        if (_deliveryAddress != null)
-                          Text(
-                            _deliveryAddress!,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFFFF5722),
-                            ),
+                        Text(
+                          _selectedAddress?.label ?? 'Work',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1E1B4B),
                           ),
+                        ),
+                        const SizedBox(width: 2),
                         const Icon(Icons.keyboard_arrow_down, color: Color(0xFF1E1B4B), size: 22),
                       ],
                     ),
