@@ -38,9 +38,19 @@ class AddressService {
       address: 'Cheezious, Street 1, F 7 Markaz, F 7, Islamabad, Islamabad Capital Territory',
     ),
     const SavedAddress(
+      id: 'lahor_1',
+      label: 'Lahor',
+      address: 'Ox & Grill Steakhouse, F 7 Markaz, F 7, Islamabad, Islamabad Capital Territory',
+    ),
+    const SavedAddress(
       id: 'work_1',
       label: 'Work',
       address: 'Executive Guest House, Bhitai Road, F 7/1, F 7, Islamabad, Islamabad Capital Territory',
+    ),
+    const SavedAddress(
+      id: 'zahee_1',
+      label: 'Zahee',
+      address: 'Armani, Bhitai Road, F 7 Markaz, F 7, Islamabad, Islamabad Capital Territory',
     ),
   ]);
 

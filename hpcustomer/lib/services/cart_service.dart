@@ -67,6 +67,10 @@ class CartService {
     }
   }
 
+  void clearCart() {
+    cartNotifier.value = [];
+  }
+
   int getItemCount(dynamic id, [String? name]) {
     final idStr = id?.toString();
     int count = 0;

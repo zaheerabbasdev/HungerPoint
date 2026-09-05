@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import 'item_detail_screen.dart';
+import 'payment_screen.dart';
 
 class CartScreen extends StatelessWidget {
   final VoidCallback? onNavigateToExplore;
@@ -554,17 +555,9 @@ class CartScreen extends StatelessWidget {
                         // REVIEW PAYMENT >>
                         InkWell(
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                duration: const Duration(seconds: 2),
-                                backgroundColor: const Color(0xFF1E1B4B),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                content: const Text(
-                                  'Proceeding to Payment...',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                                ),
-                              ),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const PaymentScreen()),
                             );
                           },
                           child: Row(
