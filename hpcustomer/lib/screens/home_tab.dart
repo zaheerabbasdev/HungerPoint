@@ -5,10 +5,9 @@ import '../services/cart_service.dart';
 import '../services/address_service.dart';
 import '../services/branch_service.dart';
 import 'cart_screen.dart';
-import 'item_detail_screen.dart';
 import 'location_picker_screen.dart';
 import 'add_address_screen.dart';
-import 'branches_tab.dart';
+import 'pickup_branches_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
@@ -429,7 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => BranchesScreen(
+                              builder: (_) => PickupBranchesScreen(
                                 onBackToHome: () => setState(() {}),
                               ),
                             ),
@@ -622,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => BranchesScreen(
+                            builder: (_) => PickupBranchesScreen(
                               onBackToHome: () => setState(() {}),
                             ),
                           ),

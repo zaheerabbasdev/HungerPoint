@@ -6,6 +6,11 @@ class Branch {
   final String address;
   final String distance;
   final bool isOpen;
+  final String statusText;
+  final double lat;
+  final double lng;
+  final List<String> services;
+  final Map<String, String> openingHours;
   final List<Map<String, dynamic>> menuCategories;
 
   const Branch({
@@ -14,6 +19,15 @@ class Branch {
     required this.address,
     required this.distance,
     this.isOpen = true,
+    this.statusText = 'Open Now',
+    this.lat = 33.7215,
+    this.lng = 73.0565,
+    this.services = const ['DINE IN', 'DELIVERY', 'PICK-UP'],
+    this.openingHours = const {
+      'Monday - Thursday': '11:00AM - 03:00AM',
+      'Friday': '02:00PM - 03:00AM',
+      'Saturday - Sunday': '11:00AM - 03:00AM',
+    },
     required this.menuCategories,
   });
 }
@@ -178,12 +192,37 @@ class BranchService {
 
   final List<Branch> branches = [
     Branch(
+      id: 'b_f7_old',
+      name: 'F-7 Old Islamabad',
+      address: 'Shop 2, School Road, F-7 Markaz, Islamabad',
+      distance: '19 M away from you',
+      isOpen: true,
+      statusText: 'Open Now',
+      lat: 33.7218,
+      lng: 73.0568,
+      menuCategories: _f7Categories,
+    ),
+    Branch(
       id: 'b_f7',
       name: 'F-7 New Islamabad',
       address: 'Plot 14, Bhitai Road, F-7 Markaz, Islamabad',
       distance: '53 M away from you',
       isOpen: true,
+      statusText: 'Open Now',
+      lat: 33.7215,
+      lng: 73.0565,
       menuCategories: _f7Categories,
+    ),
+    Branch(
+      id: 'b_centaurus',
+      name: 'Centaurus Mall',
+      address: 'Food Court, 4th Floor, Centaurus Mall, Jinnah Avenue, Islamabad',
+      distance: '1.4 KM away from you',
+      isOpen: false,
+      statusText: 'Branch is closed today',
+      lat: 33.7077,
+      lng: 73.0501,
+      menuCategories: _f10Categories,
     ),
     Branch(
       id: 'b_f10',
@@ -191,6 +230,9 @@ class BranchService {
       address: 'Plot no 2-D Sector F-10 Islamabad',
       distance: '4.8 KM away from you',
       isOpen: true,
+      statusText: 'Open Now',
+      lat: 33.6934,
+      lng: 73.0116,
       menuCategories: _f10Categories,
     ),
     Branch(
@@ -199,6 +241,9 @@ class BranchService {
       address: 'Shop 5, Executive Center, I-8 Markaz Islamabad',
       distance: '6.0 KM away from you',
       isOpen: true,
+      statusText: 'Open Now',
+      lat: 33.6685,
+      lng: 73.0763,
       menuCategories: _f10Categories,
     ),
     Branch(
@@ -207,6 +252,9 @@ class BranchService {
       address: 'Al-Hameed Mall, F-11 Markaz Islamabad',
       distance: '7.5 KM away from you',
       isOpen: true,
+      statusText: 'Open Now',
+      lat: 33.6841,
+      lng: 72.9882,
       menuCategories: _f7Categories,
     ),
     Branch(
@@ -215,6 +263,9 @@ class BranchService {
       address: 'Main Jehangira Road, Near Bus Stand, Swabi',
       distance: '12.4 KM away from you',
       isOpen: true,
+      statusText: 'Open Now',
+      lat: 34.1202,
+      lng: 72.4706,
       menuCategories: _swabiCategories,
     ),
   ];

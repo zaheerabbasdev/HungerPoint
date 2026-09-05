@@ -1,197 +1,171 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/branch_service.dart';
 
 class BranchesScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
+  final bool isSelectionMode;
 
-  const BranchesScreen({super.key, this.onBackToHome});
+  const BranchesScreen({
+    super.key,
+    this.onBackToHome,
+    this.isSelectionMode = false,
+  });
 
   @override
   State<BranchesScreen> createState() => _BranchesScreenState();
 }
 
 class _BranchesScreenState extends State<BranchesScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-  Branch? _highlightedBranch;
+  Branch? _currentNearestBranch;
 
   @override
   void initState() {
     super.initState();
-    _highlightedBranch = BranchService().selectedBranch ?? BranchService().branches[0];
+    // Default to F-7 Old Islamabad (Image 1)
+    _currentNearestBranch = BranchService().branches.firstWhere(
+      (b) => b.id == 'b_f7_old',
+      orElse: () => BranchService().branches[0],
+    );
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  /// Launch Google Maps directly for the given branch
+  Future<void> _launchGoogleMaps(Branch branch) async {
+    final query = Uri.encodeComponent('${branch.name}, ${branch.address}');
+    final googleMapsUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    final geoUri = Uri.parse('geo:${branch.lat},${branch.lng}?q=$query');
+
+    try {
+      if (await canLaunchUrl(geoUri)) {
+        await launchUrl(geoUri);
+      } else if (await canLaunchUrl(googleMapsUri)) {
+        await launchUrl(googleMapsUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Could not launch maps: $e');
+    }
   }
 
-  List<Branch> get _filteredBranches {
-    final all = BranchService().branches;
-    if (_searchQuery.trim().isEmpty) return all;
-    return all.where((b) {
-      return b.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          b.address.toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
-  }
-
-  void _showConfirmBranchDialog(Branch branch) {
-    showDialog(
+  /// Opens the "Show All Branches" bottom sheet (Image 2)
+  void _showAllBranchesBottomSheet() {
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      builder: (dialogCtx) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: Colors.white,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Padding(
-            padding: const EdgeInsets.all(22.0),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        final branches = BranchService().branches;
+
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.75,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title
-                const Text(
-                  'Confirm Branch Selection',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1E1B4B),
-                  ),
-                ),
                 const SizedBox(height: 12),
-
-                // Subtitle
-                const Text(
-                  'You have selected:',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF6B7280),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Yellow card with branch name & address
+                // Orange drag handle (Image 2)
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  width: 44,
+                  height: 4.5,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7D6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFDE68A), width: 1),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        branch.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF1E1B4B),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        branch.address,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF4B5563),
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
+                    color: const Color(0xFFFF5722),
+                    borderRadius: BorderRadius.circular(2.5),
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
 
-                // Confirmation question
-                const Text(
-                  'Would you like to continue with this branch?',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF1E1B4B),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Action buttons: CANCEL & PROCEED
-                Row(
-                  children: [
-                    // CANCEL
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => Navigator.pop(dialogCtx),
-                        child: Container(
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFD1D5DB), width: 1.5),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              'CANCEL',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF1E1B4B),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                // Branches list
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: branches.length,
+                    separatorBuilder: (context, index) => const Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Color(0xFFF3F4F6),
                     ),
-                    const SizedBox(width: 14),
-
-                    // PROCEED
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
+                    itemBuilder: (context, index) {
+                      final branch = branches[index];
+                      return InkWell(
                         onTap: () {
-                          // Select branch and set pickup mode
-                          BranchService().selectBranch(branch);
-                          Navigator.pop(dialogCtx); // close dialog
-
-                          if (Navigator.canPop(context)) {
-                            Navigator.pop(context); // pop Branches screen back to Home
-                          } else if (widget.onBackToHome != null) {
-                            widget.onBackToHome!(); // navigate to Home tab
-                          }
+                          Navigator.pop(sheetCtx); // close "Show all" sheet
+                          _showBranchDetailsBottomSheet(branch); // open details
                         },
-                        child: Container(
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD600),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFFFD600).withValues(alpha: 0.4),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 4.0),
+                          child: Row(
+                            children: [
+                              // Storefront outline icon in circle
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
+                                ),
+                                child: const Icon(
+                                  Icons.storefront_outlined,
+                                  color: Color(0xFF1E1B4B),
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+
+                              // Branch Info
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      branch.name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF1E1B4B),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      branch.statusText,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: branch.isOpen
+                                            ? const Color(0xFF6B7280)
+                                            : const Color(0xFF9CA3AF),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      branch.distance,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF9CA3AF),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // Orange Chevron Arrow (Image 2)
+                              const Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: Color(0xFFFF5722),
                               ),
                             ],
                           ),
-                          child: const Center(
-                            child: Text(
-                              'PROCEED',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF1E1B4B),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
@@ -201,17 +175,188 @@ class _BranchesScreenState extends State<BranchesScreen> {
     );
   }
 
+  /// Opens the Branch Details bottom sheet (Image 3)
+  void _showBranchDetailsBottomSheet(Branch branch) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  // Orange drag handle
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF5722),
+                        borderRadius: BorderRadius.circular(2.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Branch Name
+                  Text(
+                    branch.name,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E1B4B),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Distance & GET DIRECTIONS > Row (Image 3)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        branch.distance,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: Color(0xFF6B7280),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _launchGoogleMaps(branch),
+                        child: Row(
+                          children: const [
+                            Text(
+                              'GET DIRECTIONS',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFFF5722),
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            SizedBox(width: 2),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 13,
+                              color: Color(0xFFFF5722),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                  const SizedBox(height: 16),
+
+                  // Service Available Title
+                  const Text(
+                    'Service Available',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E1B4B),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Service Badges (DINE IN, DELIVERY, PICK-UP)
+                  Row(
+                    children: branch.services.map((service) {
+                      final isPickup = service == 'PICK-UP';
+                      return GestureDetector(
+                        onTap: () {
+                          if (isPickup) {
+                            BranchService().selectBranch(branch);
+                            Navigator.pop(sheetCtx);
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            } else if (widget.onBackToHome != null) {
+                              widget.onBackToHome!();
+                            }
+                          }
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD600),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            service,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1E1B4B),
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Operating Hours
+                  ...branch.openingHours.entries.map((entry) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            entry.key,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              color: Color(0xFF6B7280),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            entry.value,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              color: Color(0xFF6B7280),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final branches = _filteredBranches;
-    final selectedBranch = BranchService().selectedBranch;
+    final nearestBranch = _currentNearestBranch ?? BranchService().branches[0];
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // Top App Bar
+            // Top App Bar: ← Branches (Image 1)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
               child: Row(
@@ -239,192 +384,90 @@ class _BranchesScreenState extends State<BranchesScreen> {
               ),
             ),
 
-            // ─── MAP VIEW (Matching Image 1) ───────────────────────────
-            SizedBox(
-              height: 250,
+            // ─── MAP SECTION (F-7 Markaz Street Level Map Matching Image 1) ───
+            Expanded(
               child: Stack(
                 children: [
-                  // Map graphics painter
+                  // Vector street map canvas
                   Positioned.fill(
                     child: CustomPaint(
-                      painter: _BranchMapPainter(),
+                      painter: _F7MarkazStreetPainter(),
                     ),
                   ),
 
-                  // Pins scattered across map
-                  // F-7 Pin (Yellow active pin)
-                  Positioned(
-                    top: 55,
-                    left: 175,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_f7');
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_f7') || (selectedBranch?.id == 'b_f7'),
-                        size: 38,
-                      ),
-                    ),
-                  ),
-
-                  // F-10 Pin
-                  Positioned(
-                    top: 105,
-                    left: 140,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_f10');
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_f10') || (selectedBranch?.id == 'b_f10'),
-                        size: 34,
-                      ),
-                    ),
-                  ),
-
-                  // I-8 Pin
-                  Positioned(
-                    top: 130,
-                    left: 185,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_i8');
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_i8') || (selectedBranch?.id == 'b_i8'),
-                        size: 32,
-                      ),
-                    ),
-                  ),
-
-                  // F-11 Pin
-                  Positioned(
-                    top: 90,
-                    left: 105,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_f11');
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_f11') || (selectedBranch?.id == 'b_f11'),
-                        size: 32,
-                      ),
-                    ),
-                  ),
-
-                  // Swabi Pin (Top left)
-                  Positioned(
-                    top: 30,
-                    left: 30,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_swabi');
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_swabi') || (selectedBranch?.id == 'b_swabi'),
-                        size: 32,
-                      ),
-                    ),
-                  ),
-
-                  // Cluster pins (decorative representing other Islamabad/Rawalpindi spots)
-                  Positioned(
-                    top: 70,
-                    right: 140,
-                    child: _buildMapPin(isActive: false, size: 28),
-                  ),
-                  Positioned(
-                    top: 120,
-                    right: 110,
-                    child: _buildMapPin(isActive: false, size: 28),
-                  ),
-                  Positioned(
-                    top: 135,
-                    right: 130,
-                    child: _buildMapPin(isActive: false, size: 28),
-                  ),
-                  Positioned(
-                    bottom: 30,
-                    left: 170,
-                    child: _buildMapPin(isActive: false, size: 28),
-                  ),
-                  Positioned(
-                    bottom: 20,
-                    left: 205,
-                    child: _buildMapPin(isActive: false, size: 28),
-                  ),
-                  Positioned(
-                    top: 85,
-                    left: 70,
-                    child: _buildMapPin(isActive: false, size: 28),
-                  ),
-
-                  // TPL Maps Watermark (Bottom Left)
-                  Positioned(
-                    bottom: 12,
-                    left: 16,
-                    child: Row(
+                  // Center Pin: Overlapping Storefront Icons (Image 1)
+                  Center(
+                    child: Stack(
+                      clipBehavior: Clip.none,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Text(
-                              'TPL',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF2E7D32),
-                                height: 0.9,
-                              ),
+                        // Secondary offset pin behind
+                        Positioned(
+                          top: -6,
+                          right: -6,
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6B7280).withValues(alpha: 0.75),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
-                            Text(
-                              'maps',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF1B5E20),
-                                height: 0.9,
-                              ),
+                            child: const Icon(
+                              Icons.storefront_rounded,
+                              color: Colors.white,
+                              size: 28,
                             ),
-                          ],
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF50),
-                            borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
-                            '1-2',
-                            style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        // Foreground pin
+                        GestureDetector(
+                          onTap: () => _showBranchDetailsBottomSheet(nearestBranch),
+                          child: Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4B5563),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.storefront_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
 
-                  // GPS Crosshair Floating Button (Bottom Right)
+                  // GPS Crosshair button (Bottom right)
                   Positioned(
-                    bottom: 12,
+                    bottom: 16,
                     right: 16,
                     child: Container(
-                      width: 48,
-                      height: 48,
+                      width: 46,
+                      height: 46,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
@@ -439,99 +482,97 @@ class _BranchesScreenState extends State<BranchesScreen> {
               ),
             ),
 
-            // ─── SEARCH BY BRANCH ──────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFF3F4F6), width: 1.5),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (val) => setState(() => _searchQuery = val),
-                  decoration: const InputDecoration(
-                    hintText: 'Search by Branch',
-                    hintStyle: TextStyle(
-                      color: Color(0xFF9CA3AF),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            // ─── NEAREST BRANCH SECTION (Matching Image 1) ─────────────
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Row: Nearest Branch & SHOW ALL BRANCHES >
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Nearest Branch',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1E1B4B),
+                        ),
+                      ),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _showAllBranchesBottomSheet,
+                        child: Row(
+                          children: const [
+                            Text(
+                              'SHOW ALL BRANCHES',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFFF5722),
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                            SizedBox(width: 3),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 13,
+                              color: Color(0xFFFF5722),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-            ),
+                  const SizedBox(height: 14),
 
-            // ─── "All Branches" HEADER ─────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: const Text(
-                  'All Branches',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1E1B4B),
-                  ),
-                ),
-              ),
-            ),
-
-            // ─── BRANCHES LIST ────────────────────────────────────────
-            Expanded(
-              child: ListView.separated(
-                itemCount: branches.length,
-                separatorBuilder: (context, index) => const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Color(0xFFF3F4F6),
-                ),
-                itemBuilder: (context, index) {
-                  final branch = branches[index];
-                  final isCurrentlySelected = selectedBranch?.id == branch.id ||
-                      (selectedBranch == null && index == 0);
-
-                  return InkWell(
-                    onTap: () {
-                      setState(() => _highlightedBranch = branch);
-                      _showConfirmBranchDialog(branch);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                  // Nearest Branch Card (Image 1)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _showBranchDetailsBottomSheet(nearestBranch),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                       child: Row(
                         children: [
-                          // Storefront Icon (Yellow circle if active, outline if not)
+                          // Yellow circular icon with storefront inside
                           Container(
                             width: 44,
                             height: 44,
-                            decoration: BoxDecoration(
-                              color: isCurrentlySelected ? const Color(0xFFFFD600) : Colors.transparent,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFFD600),
                               shape: BoxShape.circle,
-                              border: isCurrentlySelected
-                                  ? null
-                                  : Border.all(color: const Color(0xFF1E1B4B), width: 1.5),
                             ),
-                            child: Icon(
-                              Icons.storefront_outlined,
-                              color: const Color(0xFF1E1B4B),
+                            child: const Icon(
+                              Icons.storefront_rounded,
+                              color: Color(0xFF1E1B4B),
                               size: 22,
                             ),
                           ),
                           const SizedBox(width: 14),
 
-                          // Branch Details
+                          // Branch Info
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  branch.name,
+                                  nearestBranch.name,
                                   style: const TextStyle(
-                                    fontSize: 15,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF1E1B4B),
                                   ),
@@ -542,12 +583,12 @@ class _BranchesScreenState extends State<BranchesScreen> {
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Color(0xFF6B7280),
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  branch.distance,
+                                  nearestBranch.distance,
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Color(0xFF9CA3AF),
@@ -558,19 +599,17 @@ class _BranchesScreenState extends State<BranchesScreen> {
                             ),
                           ),
 
-                          // Chevron Forward Arrow
-                          Icon(
+                          // Trailing Chevron
+                          const Icon(
                             Icons.arrow_forward_ios,
                             size: 16,
-                            color: isCurrentlySelected
-                                ? const Color(0xFFFFD600)
-                                : const Color(0xFF1E1B4B),
+                            color: Color(0xFF1E1B4B),
                           ),
                         ],
                       ),
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
           ],
@@ -578,124 +617,115 @@ class _BranchesScreenState extends State<BranchesScreen> {
       ),
     );
   }
-
-  Widget _buildMapPin({required bool isActive, double size = 32}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: isActive ? const Color(0xFFFFD600) : const Color(0xFF78716C).withValues(alpha: 0.85),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Icon(
-          Icons.storefront_rounded,
-          color: isActive ? const Color(0xFF1E1B4B) : Colors.white,
-          size: size * 0.55,
-        ),
-      ),
-    );
-  }
 }
 
-/// Custom painter for the Islamabad/Rawalpindi stylized map background matching Image 1
-class _BranchMapPainter extends CustomPainter {
+/// Custom painter for the detailed F-7 Markaz street-level map matching Image 1
+class _F7MarkazStreetPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Base terrain background
-    final bgPaint = Paint()..color = const Color(0xFFF1EFEA);
+    // 1. Map base background
+    final bgPaint = Paint()..color = const Color(0xFFEBEAE5);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    // 2. Mountain/Green reserve areas (Margalla hills to the north & parks)
-    final greenPaint = Paint()
-      ..color = const Color(0xFFD3E7CD)
-      ..style = PaintingStyle.fill;
+    // 2. City block polygons / buildings
+    final blockPaint = Paint()..color = const Color(0xFFDFDED8);
+    for (double y = 20; y < size.height; y += 45) {
+      for (double x = 10; x < size.width; x += 55) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromLTWH(x, y, 42, 32), const Radius.circular(4)),
+          blockPaint,
+        );
+      }
+    }
 
-    final greenPath1 = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width * 0.65, 0)
-      ..quadraticBezierTo(size.width * 0.45, 50, size.width * 0.2, 70)
-      ..quadraticBezierTo(size.width * 0.05, 90, 0, 110)
-      ..close();
-    canvas.drawPath(greenPath1, greenPaint);
-
-    final greenPath2 = Path()
-      ..moveTo(size.width * 0.75, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, 100)
-      ..quadraticBezierTo(size.width * 0.85, 70, size.width * 0.75, 0)
-      ..close();
-    canvas.drawPath(greenPath2, greenPaint);
-
-    final greenPath3 = Path()
-      ..moveTo(0, size.height * 0.75)
-      ..quadraticBezierTo(size.width * 0.15, size.height * 0.8, size.width * 0.25, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(greenPath3, greenPaint);
-
-    // 3. Roads / Grid Lines
+    // 3. Roads / Streets (Diagonal and horizontal lines matching F-7 sector grid)
     final roadPaint = Paint()
       ..color = Colors.white
-      ..strokeWidth = 3.5
+      ..strokeWidth = 14
       ..style = PaintingStyle.stroke;
 
-    final highwayPaint = Paint()
-      ..color = const Color(0xFFFEE7A6)
-      ..strokeWidth = 4.5
+    final roadMinorPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 7
       ..style = PaintingStyle.stroke;
 
-    // Major Highways (e.g. Kashmir Highway, Islamabad Expressway)
-    final hw1 = Path()
-      ..moveTo(0, size.height * 0.4)
-      ..quadraticBezierTo(size.width * 0.4, size.height * 0.35, size.width, size.height * 0.6);
-    canvas.drawPath(hw1, highwayPaint);
+    // Major Streets
+    canvas.drawLine(Offset(0, size.height * 0.15), Offset(size.width, size.height * 0.85), roadPaint);
+    canvas.drawLine(Offset(size.width * 0.25, 0), Offset(size.width, size.height * 0.7), roadPaint);
+    canvas.drawLine(Offset(0, size.height * 0.5), Offset(size.width * 0.85, size.height), roadPaint);
+    canvas.drawLine(Offset(0, size.height * 0.8), Offset(size.width, size.height * 0.25), roadMinorPaint);
+    canvas.drawLine(Offset(size.width * 0.1, 0), Offset(size.width * 0.9, size.height), roadMinorPaint);
+    canvas.drawLine(Offset(0, size.height * 0.35), Offset(size.width, size.height * 0.5), roadMinorPaint);
 
-    final hw2 = Path()
-      ..moveTo(size.width * 0.5, 0)
-      ..quadraticBezierTo(size.width * 0.45, size.height * 0.5, size.width * 0.48, size.height);
-    canvas.drawPath(hw2, highwayPaint);
+    // 4. POI Map Icons and Labels (Matching Image 1)
+    _drawPoi(canvas, 'Berlin Nights', Offset(size.width * 0.12, 50), const Color(0xFFEA580C), Icons.restaurant);
+    _drawPoi(canvas, 'Ox & Grill\nSteakhouse', Offset(size.width * 0.28, size.height * 0.27), const Color(0xFFEA580C), Icons.restaurant);
+    _drawPoi(canvas, 'Mantra Safa\nGold Mall', Offset(size.width * 0.55, size.height * 0.26), const Color(0xFF2563EB), Icons.shopping_bag);
+    _drawPoi(canvas, 'Executive\nGuest House', Offset(size.width * 0.68, size.height * 0.33), const Color(0xFF7C3AED), Icons.hotel);
+    _drawPoi(canvas, 'English Tea\nHouse', Offset(size.width * 0.05, size.height * 0.30), const Color(0xFF7C3AED), Icons.hotel);
+    _drawPoi(canvas, 'Marble Stone\nIce Creamery', Offset(size.width * 0.22, size.height * 0.40), const Color(0xFF4B5563), Icons.build);
+    _drawPoi(canvas, 'Melberry Guest\nHouse', Offset(size.width * 0.65, size.height * 0.52), const Color(0xFF7C3AED), Icons.hotel);
+    _drawPoi(canvas, 'Sarfaraz Nawaz\nCricket Academy', Offset(size.width * 0.22, size.height * 0.55), const Color(0xFF7C3AED), Icons.sports_cricket);
+    _drawPoi(canvas, 'Kabul\nRestaurant', Offset(size.width * 0.60, 60), const Color(0xFFEA580C), Icons.restaurant);
+    _drawPoi(canvas, 'Saeed Book Bank', Offset(size.width * 0.82, 45), const Color(0xFF2563EB), Icons.shopping_bag);
 
-    // City Sector Roads
-    canvas.drawLine(Offset(size.width * 0.2, 40), Offset(size.width * 0.7, size.height * 0.85), roadPaint);
-    canvas.drawLine(Offset(size.width * 0.35, 30), Offset(size.width * 0.85, size.height * 0.7), roadPaint);
-    canvas.drawLine(Offset(size.width * 0.1, size.height * 0.6), Offset(size.width * 0.9, size.height * 0.2), roadPaint);
-    canvas.drawLine(Offset(size.width * 0.15, size.height * 0.75), Offset(size.width * 0.8, size.height * 0.9), roadPaint);
-
-    // 4. Sector & City labels
-    _drawText(canvas, 'Islamabad', Offset(size.width * 0.32, 50), 16, FontWeight.bold, const Color(0xFF1E1B4B));
-    _drawText(canvas, 'Rawalpindi', Offset(size.width * 0.28, size.height * 0.68), 16, FontWeight.bold, const Color(0xFF1E1B4B));
-    _drawText(canvas, 'Kahuta', Offset(size.width * 0.85, size.height * 0.65), 10, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'E 9', Offset(size.width * 0.38, 30), 9, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'Blue Area', Offset(size.width * 0.65, 35), 9, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'F 10', Offset(size.width * 0.36, 95), 9, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'E 11', Offset(size.width * 0.29, 82), 9, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'Tarnol', Offset(size.width * 0.05, 120), 9, FontWeight.w600, const Color(0xFF6B7280));
+    // 5. Street Name Labels (Image 1)
+    _drawStreetLabel(canvas, 'F 7 MARKAZ', Offset(size.width * 0.65, 95));
+    _drawStreetLabel(canvas, 'Bhitai Road', Offset(size.width * 0.72, size.height * 0.27));
+    _drawStreetLabel(canvas, 'Street 41', Offset(size.width * 0.50, size.height * 0.40));
+    _drawStreetLabel(canvas, 'Street 40', Offset(size.width * 0.54, size.height * 0.45));
+    _drawStreetLabel(canvas, 'Street 46', Offset(size.width * 0.86, size.height * 0.36));
+    _drawStreetLabel(canvas, 'Street 45', Offset(size.width * 0.88, size.height * 0.41));
+    _drawStreetLabel(canvas, 'Street 21', Offset(size.width * 0.08, size.height * 0.22));
   }
 
-  void _drawText(Canvas canvas, String text, Offset offset, double fontSize, FontWeight weight, Color color) {
-    final textSpan = TextSpan(
-      text: text,
+  void _drawPoi(Canvas canvas, String title, Offset offset, Color iconColor, IconData icon) {
+    // Circle container
+    final circlePaint = Paint()..color = iconColor;
+    canvas.drawCircle(Offset(offset.dx + 10, offset.dy + 10), 10, circlePaint);
+
+    // Icon
+    final iconSpan = TextSpan(
+      text: String.fromCharCode(icon.codePoint),
       style: TextStyle(
-        color: color,
-        fontSize: fontSize,
-        fontWeight: weight,
-        letterSpacing: 0.2,
+        fontSize: 11,
+        fontFamily: icon.fontFamily,
+        package: icon.fontPackage,
+        color: Colors.white,
+      ),
+    );
+    final iconPainter = TextPainter(text: iconSpan, textDirection: TextDirection.ltr)..layout();
+    iconPainter.paint(canvas, Offset(offset.dx + 4.5, offset.dy + 4.5));
+
+    // Label Text
+    final textSpan = TextSpan(
+      text: title,
+      style: TextStyle(
+        color: iconColor,
+        fontSize: 9,
+        fontWeight: FontWeight.w700,
+        height: 1.05,
       ),
     );
     final textPainter = TextPainter(
       text: textSpan,
+      textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 80);
+    textPainter.paint(canvas, Offset(offset.dx - 24, offset.dy + 23));
+  }
+
+  void _drawStreetLabel(Canvas canvas, String name, Offset offset) {
+    final textSpan = TextSpan(
+      text: name,
+      style: const TextStyle(
+        color: Color(0xFF6B7280),
+        fontSize: 9.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.3,
+      ),
     );
-    textPainter.layout();
+    final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr)..layout();
     textPainter.paint(canvas, offset);
   }
 
