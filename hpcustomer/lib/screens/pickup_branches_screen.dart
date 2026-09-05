@@ -29,8 +29,17 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
 
   List<Branch> get _filteredBranches {
     final all = BranchService().branches;
-    if (_searchQuery.trim().isEmpty) return all;
-    return all.where((b) {
+    final selected = BranchService().selectedBranch;
+
+    // Show the selected branch on the top of the list
+    final list = List<Branch>.from(all);
+    if (selected != null) {
+      list.removeWhere((b) => b.id == selected.id);
+      list.insert(0, selected);
+    }
+
+    if (_searchQuery.trim().isEmpty) return list;
+    return list.where((b) {
       return b.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           b.address.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
@@ -477,7 +486,7 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
                 itemBuilder: (context, index) {
                   final branch = branches[index];
                   final isCurrentlySelected = selectedBranch?.id == branch.id ||
-                      (selectedBranch == null && branch.id == 'b_f10');
+                      (selectedBranch == null && index == 0);
 
                   return InkWell(
                     onTap: () {
