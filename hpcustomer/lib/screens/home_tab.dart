@@ -6,6 +6,7 @@ import '../services/address_service.dart';
 import 'cart_screen.dart';
 import 'item_detail_screen.dart';
 import 'location_picker_screen.dart';
+import 'add_address_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
@@ -123,9 +124,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _deliveryAddress = AddressService().currentAddress;
     AddressService().addressNotifier.addListener(_onAddressChanged);
 
-    // Show address bottom sheet on first load if no address set
+    // Show address bottom sheet after 5 seconds on first load if no address set
     if (_deliveryAddress == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(seconds: 5), () {
         if (mounted) _showAddressBottomSheet();
       });
     }
@@ -229,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Navigator.pop(sheetContext);
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
+                            MaterialPageRoute(builder: (_) => const AddAddressScreen()),
                           );
                         },
                         child: const Center(
