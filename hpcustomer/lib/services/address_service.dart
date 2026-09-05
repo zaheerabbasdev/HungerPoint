@@ -29,7 +29,7 @@ class AddressService {
   factory AddressService() => _instance;
   AddressService._internal();
 
-  /// List of saved addresses (Home, Work, Other)
+  /// List of saved addresses matching screenshot
   final ValueNotifier<List<SavedAddress>> savedAddressesNotifier =
       ValueNotifier<List<SavedAddress>>([
     const SavedAddress(
@@ -41,11 +41,6 @@ class AddressService {
       id: 'work_1',
       label: 'Work',
       address: 'Executive Guest House, Bhitai Road, F 7/1, F 7, Islamabad, Islamabad Capital Territory',
-    ),
-    const SavedAddress(
-      id: 'other_1',
-      label: 'Other',
-      address: 'House 45, Street 12, G-11/2, Islamabad, Islamabad Capital Territory',
     ),
   ]);
 

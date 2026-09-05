@@ -26,8 +26,7 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
 
   String get _currentLabel {
     if (_selectedLabel == 2) {
-      final custom = _customLabelController.text.trim();
-      return custom.isNotEmpty ? custom : 'Other';
+      return _customLabelController.text.trim();
     }
     return _labels[_selectedLabel];
   }
@@ -120,6 +119,10 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
 
     // Build display address
     final label = _currentLabel;
+    if (_selectedLabel == 2 && label.isEmpty) {
+      _showTopToast('Please enter address name (e.g. Mardan)');
+      return;
+    }
 
     // Check if address with same type/label already exists
     if (AddressService().hasAddressWithLabel(label)) {
@@ -336,7 +339,7 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                           decoration: const InputDecoration(
-                            hintText: "e.g Osama's House",
+                            hintText: "e.g. Mardan",
                             hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
