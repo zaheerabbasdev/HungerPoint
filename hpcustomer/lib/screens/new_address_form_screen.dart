@@ -32,6 +32,80 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
     return _labels[_selectedLabel];
   }
 
+  OverlayEntry? _topToastOverlay;
+
+  void _showTopToast(String message) {
+    _topToastOverlay?.remove();
+    _topToastOverlay = null;
+
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
+
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    _topToastOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        top: topPadding + 14,
+        left: 18,
+        right: 18,
+        child: Material(
+          color: Colors.transparent,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutBack,
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(0, -25 * (1 - value)),
+                child: Opacity(
+                  opacity: value.clamp(0.0, 1.0),
+                  child: child,
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.white, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(_topToastOverlay!);
+
+    Future.delayed(const Duration(seconds: 3), () {
+      _topToastOverlay?.remove();
+      _topToastOverlay = null;
+    });
+  }
+
   void _onAddNewAddress() {
     final detail = _addressDetailController.text.trim();
     if (detail.isEmpty) {
@@ -49,18 +123,7 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
 
     // Check if address with same type/label already exists
     if (AddressService().hasAddressWithLabel(label)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            'Address with same address type is already exist',
-            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
-          ),
-          backgroundColor: const Color(0xFFEF4444),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      _showTopToast('Address with same address type is already exist');
       return;
     }
 
@@ -84,6 +147,8 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
 
   @override
   void dispose() {
+    _topToastOverlay?.remove();
+    _topToastOverlay = null;
     _addressDetailController.dispose();
     _customLabelController.dispose();
     super.dispose();

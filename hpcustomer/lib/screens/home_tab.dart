@@ -125,6 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _selectedAddress = AddressService().selectedAddress;
     AddressService().selectedAddressNotifier.addListener(_onAddressChanged);
     AddressService().savedAddressesNotifier.addListener(_onAddressChanged);
+    AddressService().customLocationNotifier.addListener(_onAddressChanged);
 
     // Show address bottom sheet after 5 seconds on first load
     if (!_hasShownInitialBottomSheet) {
@@ -367,6 +368,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _pageController.dispose();
     AddressService().selectedAddressNotifier.removeListener(_onAddressChanged);
     AddressService().savedAddressesNotifier.removeListener(_onAddressChanged);
+    AddressService().customLocationNotifier.removeListener(_onAddressChanged);
     super.dispose();
   }
 
@@ -399,27 +401,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(width: 10),
 
-                  // "Deliver to" – shows label (Home, Work, Other, etc.)
+                  // "Deliver to" – shows complete name (Deliver to Home, Deliver to Work, Deliver to Other, Deliver to Swabi)
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _showAddressBottomSheet,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Deliver to ',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E1B4B),
-                          ),
-                        ),
-                        Text(
-                          _selectedAddress?.label ?? 'Work',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1E1B4B),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(
+                                text: 'Deliver to ',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF1E1B4B),
+                                ),
+                              ),
+                              TextSpan(
+                                text: AddressService().activeDeliveryLabel,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF1E1B4B),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 2),

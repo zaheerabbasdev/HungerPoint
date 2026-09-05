@@ -29,7 +29,7 @@ class AddressService {
   factory AddressService() => _instance;
   AddressService._internal();
 
-  /// List of saved addresses matching screenshot
+  /// List of saved addresses (Home, Work, Other)
   final ValueNotifier<List<SavedAddress>> savedAddressesNotifier =
       ValueNotifier<List<SavedAddress>>([
     const SavedAddress(
@@ -41,6 +41,11 @@ class AddressService {
       id: 'work_1',
       label: 'Work',
       address: 'Executive Guest House, Bhitai Road, F 7/1, F 7, Islamabad, Islamabad Capital Territory',
+    ),
+    const SavedAddress(
+      id: 'other_1',
+      label: 'Other',
+      address: 'House 45, Street 12, G-11/2, Islamabad, Islamabad Capital Territory',
     ),
   ]);
 
@@ -54,15 +59,42 @@ class AddressService {
     ),
   );
 
+  /// One-time / temporary chosen location (from Choose Location).
+  /// Not saved into [savedAddressesNotifier].
+  final ValueNotifier<String?> customLocationNotifier = ValueNotifier<String?>(null);
+
   /// Backward-compatible notifier for string listeners
   final ValueNotifier<String?> addressNotifier = ValueNotifier<String?>('Work');
 
   SavedAddress? get selectedAddress => selectedAddressNotifier.value;
-  String? get currentAddress => selectedAddressNotifier.value?.label ?? addressNotifier.value;
+  String? get currentAddress =>
+      customLocationNotifier.value ?? selectedAddressNotifier.value?.label ?? addressNotifier.value;
   List<SavedAddress> get savedAddresses => savedAddressesNotifier.value;
+
+  /// The active delivery label displayed on top header (e.g. "Work", "Home", or "House123")
+  String get activeDeliveryLabel {
+    if (customLocationNotifier.value != null && customLocationNotifier.value!.trim().isNotEmpty) {
+      return customLocationNotifier.value!.trim();
+    }
+    return selectedAddressNotifier.value?.label ?? 'Work';
+  }
+
+  bool get hasActiveLocation =>
+      (customLocationNotifier.value != null && customLocationNotifier.value!.trim().isNotEmpty) ||
+      selectedAddressNotifier.value != null;
+
+  /// Sets a temporary / one-time selected location (from Choose Location).
+  /// This updates the header "Deliver to [location]", but is NOT added to
+  /// the saved addresses list in the bottom sheet.
+  void setTemporaryLocation(String location) {
+    selectedAddressNotifier.value = null; // deselect saved address radio
+    customLocationNotifier.value = location;
+    addressNotifier.value = location;
+  }
 
   /// Select an address
   void selectAddress(SavedAddress address) {
+    customLocationNotifier.value = null; // clear any temporary location
     selectedAddressNotifier.value = address;
     addressNotifier.value = address.label;
   }
@@ -98,6 +130,7 @@ class AddressService {
   }
 
   void clearAddress() {
+    customLocationNotifier.value = null;
     selectedAddressNotifier.value = null;
     addressNotifier.value = null;
   }

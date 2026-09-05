@@ -92,8 +92,13 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   /// Shows the "Please type address" modal dialog.
   Future<void> _showAddressInputModal() async {
-    final addressController = TextEditingController();
+    final initialText = _searchController.text.trim().isNotEmpty
+        ? _searchController.text.trim()
+        : '';
+    final addressController = TextEditingController(text: initialText);
     final formKey = GlobalKey<FormState>();
+
+    bool submitted = false;
 
     await showDialog<void>(
       context: context,
@@ -129,7 +134,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       color: Color(0xFF1E1B4B),
                     ),
                     decoration: InputDecoration(
-                      hintText: 'e.g. House123',
+                      hintText: 'e.g. Swabi or House123',
                       hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       border: OutlineInputBorder(
@@ -168,7 +173,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       onPressed: () {
                         if (formKey.currentState!.validate()) {
                           final address = addressController.text.trim();
-                          AddressService().setAddress(address);
+                          AddressService().setTemporaryLocation(address);
+                          submitted = true;
                           Navigator.of(dialogContext).pop();
                         }
                       },
@@ -197,7 +203,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     );
 
     if (!mounted) return;
-    if (AddressService().currentAddress != null) {
+    if (submitted) {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
