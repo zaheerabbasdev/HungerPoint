@@ -95,7 +95,9 @@ class _BranchesScreenState extends State<BranchesScreen> {
                       return InkWell(
                         onTap: () {
                           Navigator.pop(sheetCtx); // close "Show all" sheet
-                          _showBranchDetailsBottomSheet(branch); // open details
+                          setState(() {
+                            _currentNearestBranch = branch;
+                          });
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 4.0),
@@ -552,8 +554,10 @@ class _BranchesScreenState extends State<BranchesScreen> {
                           Container(
                             width: 44,
                             height: 44,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFFFD600),
+                            decoration: BoxDecoration(
+                              color: nearestBranch.isOpen
+                                  ? const Color(0xFFFFD600)
+                                  : const Color(0xFFE5E7EB),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -578,11 +582,13 @@ class _BranchesScreenState extends State<BranchesScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 3),
-                                const Text(
-                                  'Open Now',
+                                Text(
+                                  nearestBranch.statusText,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF6B7280),
+                                    color: nearestBranch.isOpen
+                                        ? const Color(0xFF6B7280)
+                                        : const Color(0xFF9CA3AF),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
