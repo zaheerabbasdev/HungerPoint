@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../screens/favorites_screen.dart';
@@ -6,6 +7,7 @@ import '../screens/saved_addresses_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/ratings_feedback_screen.dart';
 import '../screens/notifications_screen.dart';
+import '../screens/welcome_screen.dart';
 import '../services/cart_service.dart';
 import '../services/profile_service.dart';
 
@@ -18,6 +20,61 @@ class SideProfileDrawer extends StatelessWidget {
     required this.onClose,
     this.onExploreMenu,
   });
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.logout, color: Color(0xFFFF5722), size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Log Out',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF1E1B4B),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to log out of your HungerPoint account?',
+          style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('CANCEL', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6B7280))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              ProfileService().resetToDefault();
+              CartService().clearCart();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                (route) => false,
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Logged out successfully!'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF5722),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('LOGOUT', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +89,7 @@ class SideProfileDrawer extends StatelessWidget {
             child: ValueListenableBuilder<UserProfile>(
               valueListenable: ProfileService().userProfileNotifier,
               builder: (context, profile, _) {
+                final hasFileImage = profile.profileImagePath != null && File(profile.profileImagePath!).existsSync();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -39,10 +97,34 @@ class SideProfileDrawer extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          width: 50,
-                          height: 50,
-                          decoration: const BoxDecoration(color: AppColors.primaryYellow, shape: BoxShape.circle),
-                          child: const Center(child: Text('🍕', style: TextStyle(fontSize: 26))),
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryYellow,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                            image: hasFileImage
+                                ? DecorationImage(
+                                    image: FileImage(File(profile.profileImagePath!)),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: hasFileImage
+                              ? null
+                              : Center(
+                                  child: Text(
+                                    profile.avatarEmoji ?? '🍕',
+                                    style: const TextStyle(fontSize: 26),
+                                  ),
+                                ),
                         ),
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
@@ -180,7 +262,11 @@ class SideProfileDrawer extends StatelessWidget {
                     );
                   },
                 ),
-                _buildDrawerItem(Icons.logout, 'Logout'),
+                _buildDrawerItem(
+                  Icons.logout,
+                  'Logout',
+                  onTap: () => _showLogoutDialog(context),
+                ),
               ],
             ),
           ),

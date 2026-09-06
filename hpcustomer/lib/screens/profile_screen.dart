@@ -1,9 +1,246 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/profile_service.dart';
 import 'edit_profile_field_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  Future<void> _pickImage(BuildContext context, ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (pickedFile != null) {
+        ProfileService().updateProfileImage(imagePath: pickedFile.path);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile picture updated successfully!'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not select image: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAvatarPickerSheet(BuildContext context) {
+    final avatars = ['🍕', '🍔', '🌮', '🥗', '🍣', '🍦', '☕', '👑', '🧑‍🍳', '🥑', '🍩', '🍟'];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Choose Foodie Avatar',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1E1B4B),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                alignment: WrapAlignment.center,
+                children: avatars.map((emoji) {
+                  return GestureDetector(
+                    onTap: () {
+                      ProfileService().updateProfileImage(avatarEmoji: emoji);
+                      Navigator.pop(sheetCtx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Avatar updated to $emoji!'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7ED),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFFF5722).withValues(alpha: 0.3)),
+                      ),
+                      child: Center(
+                        child: Text(emoji, style: const TextStyle(fontSize: 30)),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showImagePickerSheet(BuildContext context, UserProfile profile) {
+    final hasCustomImage = (profile.profileImagePath != null && profile.profileImagePath!.isNotEmpty) ||
+        (profile.avatarEmoji != null && profile.avatarEmoji!.isNotEmpty);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Profile Photo',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1E1B4B),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Choose how you want to update your profile photo',
+                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFF3ED),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt, color: Color(0xFFFF5722), size: 22),
+                ),
+                title: const Text('Take Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                subtitle: const Text('Use camera to take a new picture', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _pickImage(context, ImageSource.camera);
+                },
+              ),
+              const Divider(height: 1, color: Color(0xFFF3F4F6)),
+              ListTile(
+                leading: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEEF2FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.photo_library, color: Color(0xFF4F46E5), size: 22),
+                ),
+                title: const Text('Choose from Gallery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                subtitle: const Text('Select a picture from your device', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _pickImage(context, ImageSource.gallery);
+                },
+              ),
+              const Divider(height: 1, color: Color(0xFFF3F4F6)),
+              ListTile(
+                leading: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEF3C7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.mood, color: Color(0xFFD97706), size: 22),
+                ),
+                title: const Text('Choose Foodie Avatar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                subtitle: const Text('Select from fun foodie icons', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showAvatarPickerSheet(context);
+                },
+              ),
+              if (hasCustomImage) ...[
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                ListTile(
+                  leading: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFEE2E2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 22),
+                  ),
+                  title: const Text('Remove Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFFEF4444))),
+                  subtitle: const Text('Reset back to default avatar', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    ProfileService().removeProfileImage();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile photo removed'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog(
@@ -51,6 +288,9 @@ class ProfileScreen extends StatelessWidget {
       body: ValueListenableBuilder<UserProfile>(
         valueListenable: ProfileService().userProfileNotifier,
         builder: (context, profile, _) {
+          final hasFileImage = profile.profileImagePath != null && File(profile.profileImagePath!).existsSync();
+          final hasAvatarEmoji = profile.avatarEmoji != null && profile.avatarEmoji!.isNotEmpty;
+
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             child: Column(
@@ -114,56 +354,82 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
 
-                    // Centered Overlapping Avatar (Image 1)
+                    // Centered Overlapping Avatar (Image 1) - Clickable to edit
                     Positioned(
                       top: 220 - 55, // Center avatar halfway over banner edge
                       left: 0,
                       right: 0,
                       child: Center(
-                        child: Stack(
-                          children: [
-                            Container(
-                              width: 110,
-                              height: 110,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: const Color(0xFFD1D5DB),
-                                border: Border.all(color: Colors.white, width: 4),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.08),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 68,
-                              ),
-                            ),
-
-                            // Camera badge icon (Image 1)
-                            Positioned(
-                              bottom: 2,
-                              right: 2,
-                              child: Container(
-                                width: 34,
-                                height: 34,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _showImagePickerSheet(context, profile),
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: 110,
+                                height: 110,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFF5722),
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  color: hasAvatarEmoji ? const Color(0xFFFFFBEB) : const Color(0xFFD1D5DB),
+                                  border: Border.all(color: Colors.white, width: 4),
+                                  image: hasFileImage
+                                      ? DecorationImage(
+                                          image: FileImage(File(profile.profileImagePath!)),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.12),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.white,
-                                  size: 17,
+                                child: hasFileImage
+                                    ? null
+                                    : hasAvatarEmoji
+                                        ? Center(
+                                            child: Text(
+                                              profile.avatarEmoji!,
+                                              style: const TextStyle(fontSize: 52),
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.person,
+                                            color: Colors.white,
+                                            size: 68,
+                                          ),
+                              ),
+
+                              // Camera badge icon (Image 1)
+                              Positioned(
+                                bottom: 2,
+                                right: 2,
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF5722),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.15),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                    size: 17,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
