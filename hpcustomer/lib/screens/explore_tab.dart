@@ -289,10 +289,10 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1B4B), size: 22),
               onPressed: () {
-                if (widget.onBackToHome != null) {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else if (widget.onBackToHome != null) {
                   widget.onBackToHome!();
-                } else if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
                 }
               },
             ),

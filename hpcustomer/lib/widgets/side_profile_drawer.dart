@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../screens/favorites_screen.dart';
-
+import '../screens/explore_tab.dart';
+import '../services/cart_service.dart';
 
 class SideProfileDrawer extends StatelessWidget {
   final VoidCallback onClose;
+  final VoidCallback? onExploreMenu;
 
-  const SideProfileDrawer({super.key, required this.onClose});
+  const SideProfileDrawer({
+    super.key,
+    required this.onClose,
+    this.onExploreMenu,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -73,13 +79,33 @@ class SideProfileDrawer extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => FavoritesScreen(
-                          onAddToCart: (_) {},
+                          onAddToCart: (item) => CartService().addItem(item),
                         ),
                       ),
                     );
                   },
                 ),
-                _buildDrawerItem(Icons.grid_view_outlined, 'Explore Menu'),
+                _buildDrawerItem(
+                  Icons.grid_view_outlined,
+                  'Explore Menu',
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (onExploreMenu != null) {
+                      onExploreMenu!();
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ExploreMenuScreen(
+                            onAddToCart: (item) => CartService().addItem(item),
+                            cart: CartService().items,
+                            initialCategoryIndex: 0,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
                 _buildDrawerItem(Icons.location_on_outlined, 'Saved Addresses'),
                 _buildDrawerItem(Icons.star_outline, 'Ratings & Feedbacks'),
                 _buildDrawerItem(Icons.logout, 'Logout'),

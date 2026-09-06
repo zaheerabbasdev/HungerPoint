@@ -31,7 +31,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           onAddToCart: _addToCart,
           cart: CartService().items,
           initialCategoryIndex: categoryIndex,
-          onBackToHome: () => Navigator.pop(context),
         ),
       ),
     );
@@ -57,7 +56,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 onAddToCart: _addToCart,
                 cart: CartService().items,
                 initialCategoryIndex: 0,
-                onBackToHome: () => Navigator.pop(context),
               ),
             ),
           );
@@ -74,7 +72,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: SideProfileDrawer(onClose: () => Navigator.pop(context)),
+      drawer: SideProfileDrawer(
+        onClose: () => Navigator.pop(context),
+        onExploreMenu: () => _navigateToExplore(0),
+      ),
       body: pages[_currentIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
