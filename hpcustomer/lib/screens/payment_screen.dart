@@ -5,6 +5,7 @@ import '../services/branch_service.dart';
 import 'location_picker_screen.dart';
 import 'add_address_screen.dart';
 import 'vouchers_tab.dart';
+import 'main_navigation_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -266,6 +267,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   /// Handles Place Order action
   void _handlePlaceOrder(int total) {
+    CartService().clearCart();
+
+    bool hasRedirected = false;
+    void redirectToHome() {
+      if (hasRedirected) return;
+      hasRedirected = true;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        (route) => false,
+      );
+    }
+
+    // Automatically redirect after 2.5 seconds
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted && !hasRedirected) {
+        redirectToHome();
+      }
+    });
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -279,14 +299,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 70,
-                  height: 70,
+                  width: 72,
+                  height: 72,
                   decoration: const BoxDecoration(
                     color: Color(0xFFE8F5E9),
                     shape: BoxShape.circle,
                   ),
                   child: const Center(
-                    child: Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 44),
+                    child: Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 48),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -309,7 +329,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF5722)),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Redirecting to home in 2s...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF9CA3AF),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -321,12 +364,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
-                      CartService().clearCart();
-                      Navigator.pop(dialogCtx); // close dialog
-                      Navigator.pop(context); // pop back from PaymentScreen
+                      redirectToHome();
                     },
                     child: const Text(
-                      'BACK TO HOME',
+                      'GO TO HOME NOW',
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.5),
                     ),
                   ),
