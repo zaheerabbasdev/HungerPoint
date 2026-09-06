@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/address_service.dart';
-import 'main_navigation_screen.dart';
 
 class NewAddressFormScreen extends StatefulWidget {
   final String mapAddress;
+  final SavedAddress? existingAddress;
 
   const NewAddressFormScreen({
     super.key,
     this.mapAddress = '',
+    this.existingAddress,
   });
 
   @override
@@ -23,6 +24,25 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
   int _selectedLabel = 0;
 
   static const List<String> _labels = ['Home', 'Work', 'Other'];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingAddress != null) {
+      final label = widget.existingAddress!.label;
+      if (label.toLowerCase() == 'home') {
+        _selectedLabel = 0;
+        _addressDetailController.text = 'Home';
+      } else if (label.toLowerCase() == 'work') {
+        _selectedLabel = 1;
+        _addressDetailController.text = 'Work';
+      } else {
+        _selectedLabel = 2;
+        _customLabelController.text = label;
+        _addressDetailController.text = label;
+      }
+    }
+  }
 
   String get _currentLabel {
     if (_selectedLabel == 2) {
@@ -105,22 +125,54 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
     });
   }
 
-  void _onAddNewAddress() {
+  void _onSaveAddress() {
     final detail = _addressDetailController.text.trim();
     if (detail.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter house / flat / apartment / office number'),
+          content: Text('Please enter address details'),
           duration: Duration(seconds: 2),
         ),
       );
       return;
     }
 
-    // Build display address
     final label = _currentLabel;
     if (_selectedLabel == 2 && label.isEmpty) {
       _showTopToast('Please enter address name (e.g. Mardan)');
+      return;
+    }
+
+    if (widget.existingAddress != null) {
+      // Check if another address has this same label
+      if (AddressService().hasAddressWithLabelExcludingId(label, widget.existingAddress!.id)) {
+        _showTopToast('Address with same address type is already exist');
+        return;
+      }
+
+      final fullAddress = widget.mapAddress.isNotEmpty
+          ? widget.mapAddress
+          : widget.existingAddress!.address;
+
+      AddressService().updateAddress(
+        id: widget.existingAddress!.id,
+        label: label,
+        address: fullAddress,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Address updated successfully!'),
+          backgroundColor: Color(0xFF2E7D32),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Pop back past AddAddressScreen
+      int count = 0;
+      Navigator.popUntil(context, (route) {
+        return count++ == 2 || route.isFirst;
+      });
       return;
     }
 
@@ -131,7 +183,7 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
     }
 
     final fullAddress = widget.mapAddress.isNotEmpty
-        ? '$detail, ${widget.mapAddress}'
+        ? (detail.toLowerCase() == label.toLowerCase() ? widget.mapAddress : '$detail, ${widget.mapAddress}')
         : detail;
 
     AddressService().addAddress(
@@ -140,12 +192,18 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
       selectImmediately: true,
     );
 
-    // Navigate all the way back to home
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-      (route) => false,
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Address added successfully!'),
+        backgroundColor: Color(0xFF2E7D32),
+        duration: Duration(seconds: 2),
+      ),
     );
+
+    int count = 0;
+    Navigator.popUntil(context, (route) {
+      return count++ == 2 || route.isFirst;
+    });
   }
 
   @override
@@ -165,45 +223,35 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leadingWidth: 160,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => Navigator.pop(context),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.arrow_back, color: Color(0xFF1E1B4B), size: 22),
-                SizedBox(width: 6),
-                Text(
-                  'New Address',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E1B4B),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        surfaceTintColor: Colors.transparent,
+        toolbarHeight: 64,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1B4B), size: 22),
+          onPressed: () => Navigator.pop(context),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(30),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 20, bottom: 10),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Complete your address',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade500,
-                  fontWeight: FontWeight.w500,
-                ),
+        titleSpacing: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              widget.existingAddress != null ? 'Update Location' : 'New Address',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E1B4B),
               ),
             ),
-          ),
+            const SizedBox(height: 2),
+            Text(
+              'Complete your address',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
       body: SafeArea(
@@ -220,11 +268,24 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
                     const Text(
                       'Address',
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF1E1B4B),
                       ),
                     ),
+                    if (widget.mapAddress.isNotEmpty || widget.existingAddress != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.mapAddress.isNotEmpty
+                            ? widget.mapAddress
+                            : widget.existingAddress!.address,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: Color(0xFF6B7280),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 14),
 
                     // House / Flat input field
@@ -281,7 +342,18 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
                         return Padding(
                           padding: EdgeInsets.only(right: i < 2 ? 10 : 0),
                           child: GestureDetector(
-                            onTap: () => setState(() => _selectedLabel = i),
+                            onTap: () {
+                              setState(() {
+                                _selectedLabel = i;
+                                if (i == 0 && (_addressDetailController.text.isEmpty || _addressDetailController.text == 'Work' || _addressDetailController.text == _customLabelController.text)) {
+                                  _addressDetailController.text = 'Home';
+                                } else if (i == 1 && (_addressDetailController.text.isEmpty || _addressDetailController.text == 'Home' || _addressDetailController.text == _customLabelController.text)) {
+                                  _addressDetailController.text = 'Work';
+                                } else if (i == 2 && (_addressDetailController.text == 'Home' || _addressDetailController.text == 'Work')) {
+                                  _addressDetailController.text = _customLabelController.text;
+                                }
+                              });
+                            },
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 180),
                               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
@@ -376,15 +448,15 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
                     ],
                   ),
                   child: ElevatedButton(
-                    onPressed: _onAddNewAddress,
+                    onPressed: _onSaveAddress,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: const Text(
-                      'ADD NEW ADDRESS',
-                      style: TextStyle(
+                    child: Text(
+                      widget.existingAddress != null ? 'UPDATE LOCATION' : 'ADD NEW ADDRESS',
+                      style: const TextStyle(
                         color: Color(0xFF1E1B4B),
                         fontSize: 14,
                         fontWeight: FontWeight.w900,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../screens/favorites_screen.dart';
 import '../screens/explore_tab.dart';
+import '../screens/saved_addresses_screen.dart';
 import '../services/cart_service.dart';
 
 class SideProfileDrawer extends StatelessWidget {
@@ -106,7 +107,19 @@ class SideProfileDrawer extends StatelessWidget {
                     }
                   },
                 ),
-                _buildDrawerItem(Icons.location_on_outlined, 'Saved Addresses'),
+                _buildDrawerItem(
+                  Icons.location_on_outlined,
+                  'Saved Addresses',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SavedAddressesScreen(),
+                      ),
+                    );
+                  },
+                ),
                 _buildDrawerItem(Icons.star_outline, 'Ratings & Feedbacks'),
                 _buildDrawerItem(Icons.logout, 'Logout'),
               ],

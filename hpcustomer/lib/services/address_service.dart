@@ -127,6 +127,36 @@ class AddressService {
     addAddress(label: label, address: address, selectImmediately: true);
   }
 
+  /// Update an existing saved address
+  void updateAddress({
+    required String id,
+    required String label,
+    required String address,
+  }) {
+    final updatedList = savedAddressesNotifier.value.map((item) {
+      if (item.id == id) {
+        return SavedAddress(id: id, label: label, address: address);
+      }
+      return item;
+    }).toList();
+
+    savedAddressesNotifier.value = updatedList;
+
+    // If currently selected address is the one updated, update selected address as well
+    if (selectedAddressNotifier.value?.id == id) {
+      final updated = updatedList.firstWhere((a) => a.id == id);
+      selectedAddressNotifier.value = updated;
+      addressNotifier.value = updated.label;
+    }
+  }
+
+  /// Check if an address with the given label already exists, excluding a given id
+  bool hasAddressWithLabelExcludingId(String label, String id) {
+    return savedAddressesNotifier.value.any(
+      (a) => a.id != id && a.label.trim().toLowerCase() == label.trim().toLowerCase(),
+    );
+  }
+
   /// Check if an address with the given label already exists (case-insensitive)
   bool hasAddressWithLabel(String label) {
     return savedAddressesNotifier.value.any(
