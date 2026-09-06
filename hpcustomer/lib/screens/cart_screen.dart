@@ -381,6 +381,12 @@ class CartScreen extends StatelessWidget {
                                         width: 70,
                                         height: 70,
                                         fit: BoxFit.cover,
+                                        errorBuilder: (ctx, err, stack) => Container(
+                                          width: 70,
+                                          height: 70,
+                                          color: const Color(0xFFFFF7ED),
+                                          child: const Center(child: Text('🍕', style: TextStyle(fontSize: 28))),
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 12),

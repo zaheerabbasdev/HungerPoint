@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
 import 'otp_screen.dart';
 
 class PhoneAuthScreen extends StatefulWidget {

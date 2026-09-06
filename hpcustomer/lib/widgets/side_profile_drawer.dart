@@ -7,6 +7,7 @@ import '../screens/saved_addresses_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/ratings_feedback_screen.dart';
 import '../screens/notifications_screen.dart';
+import '../screens/order_history_screen.dart';
 import '../screens/welcome_screen.dart';
 import '../services/cart_service.dart';
 import '../services/profile_service.dart';
@@ -199,7 +200,17 @@ class SideProfileDrawer extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 10),
               children: [
-                _buildDrawerItem(Icons.inventory_2_outlined, 'Order History'),
+                _buildDrawerItem(
+                  Icons.inventory_2_outlined,
+                  'Order History',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
+                    );
+                  },
+                ),
                 _buildDrawerItem(
                   Icons.favorite_border,
                   'My Favorites',

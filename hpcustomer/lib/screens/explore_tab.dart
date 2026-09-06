@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'item_detail_screen.dart';
-import 'favorites_screen.dart';
 import 'cart_screen.dart';
 import 'explore_search_tab.dart';
 import '../services/api_service.dart';
@@ -496,6 +495,12 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                             width: 36,
                             height: 36,
                             fit: BoxFit.cover,
+                            errorBuilder: (ctx, err, stack) => Container(
+                              width: 36,
+                              height: 36,
+                              color: const Color(0xFFFFF7ED),
+                              child: const Center(child: Text('🍕', style: TextStyle(fontSize: 18))),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -580,6 +585,12 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                       width: 90,
                       height: 90,
                       fit: BoxFit.cover,
+                      errorBuilder: (ctx, err, stack) => Container(
+                        width: 90,
+                        height: 90,
+                        color: const Color(0xFFFFF7ED),
+                        child: const Center(child: Text('🍕', style: TextStyle(fontSize: 32))),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 14),

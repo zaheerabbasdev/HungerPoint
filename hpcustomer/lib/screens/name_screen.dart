@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
 import 'birthday_screen.dart';
 
 class NameScreen extends StatefulWidget {

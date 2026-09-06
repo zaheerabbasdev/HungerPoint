@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import '../services/favorites_service.dart';
 import 'item_detail_screen.dart';
-import 'cart_screen.dart';
 import 'explore_tab.dart';
 
 class ExploreSearchScreen extends StatefulWidget {
