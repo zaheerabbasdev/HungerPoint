@@ -32,17 +32,45 @@ class _BranchesScreenState extends State<BranchesScreen> {
   /// Launch Google Maps directly for the given branch
   Future<void> _launchGoogleMaps(Branch branch) async {
     final query = Uri.encodeComponent('${branch.name}, ${branch.address}');
-    final googleMapsUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
-    final geoUri = Uri.parse('geo:${branch.lat},${branch.lng}?q=$query');
+    // Google Maps directions URI (navigates from current location to branch)
+    final dirUrl = 'https://www.google.com/maps/dir/?api=1&destination=${branch.lat},${branch.lng}&destination_place_id=$query';
+    final googleMapsDirUri = Uri.parse(dirUrl);
+    // Google Maps search URI
+    final googleMapsSearchUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${branch.lat},${branch.lng}+$query');
+    // Android Geo Intent URI
+    final geoUri = Uri.parse('geo:${branch.lat},${branch.lng}?q=${branch.lat},${branch.lng}(${Uri.encodeComponent(branch.name)})');
 
     try {
-      if (await canLaunchUrl(geoUri)) {
-        await launchUrl(geoUri);
-      } else if (await canLaunchUrl(googleMapsUri)) {
-        await launchUrl(googleMapsUri, mode: LaunchMode.externalApplication);
-      }
+      // 1. Try launching native geo intent
+      final launchedGeo = await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+      if (launchedGeo) return;
+    } catch (_) {}
+
+    try {
+      // 2. Try launching Google Maps app with directions
+      final launchedDir = await launchUrl(googleMapsDirUri, mode: LaunchMode.externalApplication);
+      if (launchedDir) return;
+    } catch (_) {}
+
+    try {
+      // 3. Try launching Google Maps search in external application
+      final launchedSearch = await launchUrl(googleMapsSearchUri, mode: LaunchMode.externalApplication);
+      if (launchedSearch) return;
+    } catch (_) {}
+
+    try {
+      // 4. Fallback to platform default browser
+      await launchUrl(googleMapsDirUri, mode: LaunchMode.platformDefault);
     } catch (e) {
       debugPrint('Could not launch maps: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open map: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -237,24 +265,27 @@ class _BranchesScreenState extends State<BranchesScreen> {
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => _launchGoogleMaps(branch),
-                        child: Row(
-                          children: const [
-                            Text(
-                              'GET DIRECTIONS',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFFFF5722),
-                                letterSpacing: 0.3,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                          child: Row(
+                            children: const [
+                              Text(
+                                'GET DIRECTIONS',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFFFF5722),
+                                  letterSpacing: 0.3,
+                                ),
                               ),
-                            ),
-                            SizedBox(width: 2),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              size: 13,
-                              color: Color(0xFFFF5722),
-                            ),
-                          ],
+                              SizedBox(width: 3),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                size: 13,
+                                color: Color(0xFFFF5722),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
