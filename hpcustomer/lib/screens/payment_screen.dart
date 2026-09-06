@@ -269,110 +269,84 @@ class _PaymentScreenState extends State<PaymentScreen> {
   void _handlePlaceOrder(int total) {
     CartService().clearCart();
 
-    bool hasRedirected = false;
-    void redirectToHome() {
-      if (hasRedirected) return;
-      hasRedirected = true;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-        (route) => false,
-      );
-    }
-
-    // Automatically redirect after 2.5 seconds
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (mounted && !hasRedirected) {
-        redirectToHome();
-      }
-    });
-
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogCtx) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE8F5E9),
-                    shape: BoxShape.circle,
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) {
+              Navigator.of(dialogCtx, rootNavigator: true).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                (route) => false,
+              );
+            }
+          },
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            backgroundColor: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE8F5E9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 48),
+                    ),
                   ),
-                  child: const Center(
-                    child: Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 48),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Order Placed Successfully!',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E1B4B),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Order Placed Successfully!',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1E1B4B),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your order of PKR $total via $_selectedPaymentMethod has been confirmed.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: Color(0xFF6B7280),
+                      height: 1.35,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Your order of PKR $total via $_selectedPaymentMethod has been confirmed.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    color: Color(0xFF6B7280),
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF5722)),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFD600),
+                        foregroundColor: const Color(0xFF1E1B4B),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.of(dialogCtx, rootNavigator: true).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                          (route) => false,
+                        );
+                      },
+                      child: const Text(
+                        'Go to Home',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.5),
                       ),
                     ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Redirecting to home in 2s...',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF9CA3AF),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFD600),
-                      foregroundColor: const Color(0xFF1E1B4B),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () {
-                      redirectToHome();
-                    },
-                    child: const Text(
-                      'GO TO HOME NOW',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
