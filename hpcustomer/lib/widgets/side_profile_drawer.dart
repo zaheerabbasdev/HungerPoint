@@ -3,7 +3,9 @@ import '../constants/app_colors.dart';
 import '../screens/favorites_screen.dart';
 import '../screens/explore_tab.dart';
 import '../screens/saved_addresses_screen.dart';
+import '../screens/profile_screen.dart';
 import '../services/cart_service.dart';
+import '../services/profile_service.dart';
 
 class SideProfileDrawer extends StatelessWidget {
   final VoidCallback onClose;
@@ -25,43 +27,60 @@ class SideProfileDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
             color: const Color(0xFFFAFAFA),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: ValueListenableBuilder<UserProfile>(
+              valueListenable: ProfileService().userProfileNotifier,
+              builder: (context, profile, _) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: const BoxDecoration(color: AppColors.primaryYellow, shape: BoxShape.circle),
-                      child: const Center(child: Text('🍕', style: TextStyle(fontSize: 26))),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: const BoxDecoration(color: AppColors.primaryYellow, shape: BoxShape.circle),
+                          child: const Center(child: Text('🍕', style: TextStyle(fontSize: 26))),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                          child: const Icon(Icons.notifications_none, color: AppColors.darkNavy, size: 20),
+                        ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      child: const Icon(Icons.notifications_none, color: AppColors.darkNavy, size: 20),
+                    const SizedBox(height: 14),
+                    Text(
+                      profile.fullName,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.darkNavy),
+                    ),
+                    Text(
+                      profile.mobileNumber,
+                      style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryYellow,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('VIEW PROFILE', style: TextStyle(color: AppColors.darkNavy, fontWeight: FontWeight.w900, fontSize: 13)),
+                      ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 14),
-                const Text('Zaheer Abbas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.darkNavy)),
-                const Text('+923139804929', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryYellow,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('VIEW PROFILE', style: TextStyle(color: AppColors.darkNavy, fontWeight: FontWeight.w900, fontSize: 13)),
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ),
 
