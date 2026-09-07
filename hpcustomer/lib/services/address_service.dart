@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'api_service.dart';
 
 /// Represents a saved delivery address with label, full text, and id
 class SavedAddress {
@@ -29,47 +30,20 @@ class AddressService {
   factory AddressService() => _instance;
   AddressService._internal();
 
-  /// List of saved addresses matching screenshot
+  /// List of saved addresses (populated dynamically from backend)
   final ValueNotifier<List<SavedAddress>> savedAddressesNotifier =
-      ValueNotifier<List<SavedAddress>>([
-    const SavedAddress(
-      id: 'home_1',
-      label: 'Home',
-      address: 'Cheezious, Street 1, F 7 Markaz, F 7, Islamabad, Islamabad Capital Territory',
-    ),
-    const SavedAddress(
-      id: 'lahor_1',
-      label: 'Lahor',
-      address: 'Ox & Grill Steakhouse, F 7 Markaz, F 7, Islamabad, Islamabad Capital Territory',
-    ),
-    const SavedAddress(
-      id: 'work_1',
-      label: 'Work',
-      address: 'Executive Guest House, Bhitai Road, F 7/1, F 7, Islamabad, Islamabad Capital Territory',
-    ),
-    const SavedAddress(
-      id: 'zahee_1',
-      label: 'Zahee',
-      address: 'Armani, Bhitai Road, F 7 Markaz, F 7, Islamabad, Islamabad Capital Territory',
-    ),
-  ]);
+      ValueNotifier<List<SavedAddress>>([]);
 
   /// Currently selected address
   final ValueNotifier<SavedAddress?> selectedAddressNotifier =
-      ValueNotifier<SavedAddress?>(
-    const SavedAddress(
-      id: 'work_1',
-      label: 'Work',
-      address: 'Executive Guest House, Bhitai Road, F 7/1, F 7, Islamabad, Islamabad Capital Territory',
-    ),
-  );
+      ValueNotifier<SavedAddress?>(null);
 
   /// One-time / temporary chosen location (from Choose Location).
   /// Not saved into [savedAddressesNotifier].
   final ValueNotifier<String?> customLocationNotifier = ValueNotifier<String?>(null);
 
   /// Backward-compatible notifier for string listeners
-  final ValueNotifier<String?> addressNotifier = ValueNotifier<String?>('Work');
+  final ValueNotifier<String?> addressNotifier = ValueNotifier<String?>(null);
 
   SavedAddress? get selectedAddress => selectedAddressNotifier.value;
   String? get currentAddress =>
@@ -81,7 +55,7 @@ class AddressService {
     if (customLocationNotifier.value != null && customLocationNotifier.value!.trim().isNotEmpty) {
       return customLocationNotifier.value!.trim();
     }
-    return selectedAddressNotifier.value?.label ?? 'Work';
+    return selectedAddressNotifier.value?.label ?? (savedAddresses.isNotEmpty ? savedAddresses.first.label : 'Select Address');
   }
 
   bool get hasActiveLocation =>
@@ -104,6 +78,29 @@ class AddressService {
     addressNotifier.value = address.label;
   }
 
+  /// Load addresses from backend database
+  Future<void> fetchAddressesFromBackend() async {
+    try {
+      final list = await ApiService.getAddresses();
+      if (list.isNotEmpty) {
+        final serverAddresses = list.map<SavedAddress>((item) {
+          return SavedAddress(
+            id: item['id']?.toString() ?? '',
+            label: item['title']?.toString() ?? 'Home',
+            address: item['address']?.toString() ?? '',
+          );
+        }).toList();
+
+        savedAddressesNotifier.value = serverAddresses;
+        if (selectedAddressNotifier.value == null && serverAddresses.isNotEmpty) {
+          selectAddress(serverAddresses.first);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading saved addresses from backend: $e');
+    }
+  }
+
   /// Add a new address (Home, Work, Other, etc.)
   void addAddress({
     required String label,
@@ -120,6 +117,17 @@ class AddressService {
     if (selectImmediately) {
       selectAddress(item);
     }
+    // Sync with backend API
+    ApiService.addAddress({'title': label, 'address': address});
+  }
+
+  /// Delete address
+  void deleteAddress(String id) {
+    savedAddressesNotifier.value = savedAddressesNotifier.value.where((a) => a.id != id).toList();
+    if (selectedAddressNotifier.value?.id == id) {
+      selectedAddressNotifier.value = savedAddressesNotifier.value.isNotEmpty ? savedAddressesNotifier.value.first : null;
+    }
+    ApiService.deleteAddress(id);
   }
 
   /// Legacy helper

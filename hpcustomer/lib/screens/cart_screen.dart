@@ -184,7 +184,7 @@ class CartScreen extends StatelessWidget {
                                   child: Image.network(
                                     item['image'] ?? '',
                                     fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) => const Center(
+                                    errorBuilder: (context, error, stackTrace) => const Center(
                                       child: Icon(Icons.fastfood, color: Colors.grey, size: 36),
                                     ),
                                   ),
@@ -347,7 +347,7 @@ class CartScreen extends StatelessWidget {
                           scrollDirection: Axis.horizontal,
                           physics: const BouncingScrollPhysics(),
                           itemCount: _recommendedItems.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 12),
+                          separatorBuilder: (context, index) => const SizedBox(width: 12),
                           itemBuilder: (context, idx) {
                             final rec = _recommendedItems[idx];
                             return GestureDetector(

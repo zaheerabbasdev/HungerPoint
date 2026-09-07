@@ -99,7 +99,7 @@ class FavoritesScreen extends StatelessWidget {
               return ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
                 itemCount: favorites.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 14),
+                separatorBuilder: (context, index) => const SizedBox(height: 14),
                 itemBuilder: (context, index) {
                   final item = favorites[index];
                   return Stack(
@@ -138,7 +138,7 @@ class FavoritesScreen extends StatelessWidget {
                                     width: 80,
                                     height: 80,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
+                                    errorBuilder: (context, error, stackTrace) => Container(
                                       width: 80,
                                       height: 80,
                                       color: const Color(0xFFF3F4F6),
@@ -332,7 +332,7 @@ class FavoritesScreen extends StatelessWidget {
                             width: 40,
                             height: 40,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (context, error, stackTrace) => Container(
                               width: 40,
                               height: 40,
                               color: const Color(0xFFF3F4F6),

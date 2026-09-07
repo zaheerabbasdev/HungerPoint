@@ -2,14 +2,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
+import '../services/api_service.dart';
+import '../services/profile_service.dart';
+import 'main_navigation_screen.dart';
 import 'name_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
+  final bool isExistingUser;
+  final String? initialOtp;
 
   const OtpScreen({
     super.key,
-    this.phoneNumber = '+923139804929',
+    required this.phoneNumber,
+    this.isExistingUser = false,
+    this.initialOtp,
   });
 
   @override
@@ -23,19 +30,48 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Timer? _countdownTimer;
   int _remainingSeconds = 80; // 01:20
+  bool _isVerifying = false;
+  String? _currentOtp;
 
   @override
   void initState() {
     super.initState();
-    // Default pre-filled with demo digits as seen in EnterOTP.jpeg screenshot (8,7,2,3,0,5)
-    final defaultDigits = ['8', '7', '2', '3', '0', '5'];
+    _currentOtp = widget.initialOtp;
+
     _controllers = List.generate(
       _codeLength,
-      (i) => TextEditingController(text: i < defaultDigits.length ? defaultDigits[i] : ''),
+      (i) => TextEditingController(
+        text: (_currentOtp != null && _currentOtp!.length == _codeLength) ? _currentOtp![i] : '',
+      ),
     );
     _focusNodes = List.generate(_codeLength, (i) => FocusNode());
 
     _startTimer();
+
+    if (_currentOtp != null && _currentOtp!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.sms_outlined, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'HungerPoint SMS: Your code is $_currentOtp (Auto-filled)',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1E1B4B),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      });
+    }
   }
 
   void _startTimer() {
@@ -58,19 +94,54 @@ class _OtpScreenState extends State<OtpScreen> {
     return '$minutes:$seconds';
   }
 
-  void _resendCode() {
+  Future<void> _resendCode() async {
     if (_remainingSeconds == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A new OTP code has been sent to your number!'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      _startTimer();
+      final res = await ApiService.sendOtp(widget.phoneNumber);
+      if (!mounted) return;
+      if (res['success'] == true) {
+        final newOtp = res['data']?['otp']?.toString();
+        setState(() {
+          _currentOtp = newOtp;
+          if (newOtp != null && newOtp.length == _codeLength) {
+            for (int i = 0; i < _codeLength; i++) {
+              _controllers[i].text = newOtp[i];
+            }
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.sms_outlined, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'HungerPoint SMS: New code is $newOtp (Auto-filled)',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1E1B4B),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        _startTimer();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Could not resend OTP'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
-  void _onNext() {
+  Future<void> _onNext() async {
+    if (_isVerifying) return;
     final code = _controllers.map((c) => c.text).join();
     if (code.length < _codeLength) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -82,12 +153,57 @@ class _OtpScreenState extends State<OtpScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => NameScreen(phoneNumber: widget.phoneNumber),
-      ),
-    );
+    setState(() => _isVerifying = true);
+
+    try {
+      final res = await ApiService.verifyOtp(widget.phoneNumber, code);
+      if (!mounted) return;
+      setState(() => _isVerifying = false);
+
+      if (res['success'] == true) {
+        final data = res['data'];
+        final bool isNew = data?['isNewUser'] ?? false;
+
+        if (!isNew && data?['user'] != null) {
+          // Existing customer - session is established and tokens saved
+          ProfileService().setUserFromBackend(data['user']);
+          await ProfileService().syncWithBackend();
+          if (!mounted) return;
+
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+            (route) => false,
+          );
+        } else {
+          // New customer - proceed to capture their name & profile
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => NameScreen(phoneNumber: widget.phoneNumber),
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Invalid OTP code. Please try again.'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isVerifying = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Verification error. Please check your connection.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -241,7 +357,34 @@ class _OtpScreenState extends State<OtpScreen> {
                 children: List.generate(_codeLength, (index) => _buildDigitBox(index)),
               ),
 
-              const SizedBox(height: 32),
+              if (_currentOtp != null && _currentOtp!.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFFD600).withValues(alpha: 0.6)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.sms_outlined, color: Color(0xFF1E1B4B), size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'SMS Code: $_currentOtp (Auto-filled)',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E1B4B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
 
               // Didn't Receive OTP Code? RESEND 01:20
               Row(
@@ -308,21 +451,30 @@ class _OtpScreenState extends State<OtpScreen> {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: _onNext,
+                  onPressed: _isVerifying ? null : _onNext,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text(
-                    'NEXT',
-                    style: TextStyle(
-                      color: Color(0xFF1E1B4B),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
+                  child: _isVerifying
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E1B4B)),
+                          ),
+                        )
+                      : const Text(
+                          'NEXT',
+                          style: TextStyle(
+                            color: Color(0xFF1E1B4B),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 12),

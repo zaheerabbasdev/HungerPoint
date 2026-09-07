@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import '../services/address_service.dart';
 import '../services/branch_service.dart';
+import '../services/api_service.dart';
 import 'location_picker_screen.dart';
 import 'add_address_screen.dart';
 import 'vouchers_tab.dart';
@@ -266,8 +267,58 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   /// Handles Place Order action
-  void _handlePlaceOrder(int total) {
+  Future<void> _handlePlaceOrder(int total) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFD600)),
+        ),
+      ),
+    );
+
+    final branch = BranchService().selectedBranch ?? BranchService().allBranches.first;
+    final isPickup = BranchService().isPickupMode;
+    final orderItems = CartService().items.map((it) {
+      return {
+        'productId': it['id']?.toString() ?? '1',
+        'quantity': (it['quantity'] as int?) ?? 1,
+        'unitPrice': (it['price'] as int?) ?? 0,
+        'notes': it['variation']?.toString(),
+      };
+    }).toList();
+
+    final paymentMethod = _selectedPaymentMethod == 'JazzCash'
+        ? 'JAZZCASH'
+        : (_selectedPaymentMethod == 'Easypaisa'
+            ? 'EASYPAISA'
+            : (_selectedPaymentMethod == 'Credit / Debit Card'
+                ? 'CREDIT_CARD'
+                : 'CASH_ON_DELIVERY'));
+
+    final res = await ApiService.createOrder(
+      branchId: branch.id,
+      type: isPickup ? 'PICKUP' : 'DELIVERY',
+      items: orderItems,
+      paymentMethod: paymentMethod,
+      deliveryAddress: isPickup ? null : (_selectedAddress?.address ?? AddressService().activeDeliveryLabel),
+      notes: _instructionsController.text.trim().isNotEmpty ? _instructionsController.text.trim() : null,
+      couponCode: _appliedVoucherCode,
+    );
+
+    // Dismiss loading dialog
+    if (mounted) Navigator.pop(context);
+
+    String orderNum = '';
+    if (res['success'] == true && res['data'] != null) {
+      orderNum = res['data']['orderNumber'] ?? '';
+    }
+
     CartService().clearCart();
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -312,6 +363,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  if (orderNum.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Order #$orderNum',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFFF5722),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Text(
                     'Your order of PKR $total via $_selectedPaymentMethod has been confirmed.',

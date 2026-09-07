@@ -371,12 +371,12 @@ class SideProfileDrawer extends StatelessWidget {
                   child: const Icon(Icons.phone, color: AppColors.primaryOrange, size: 20),
                 ),
                 title: const Text('Helpline / Call Us', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('+92 313 9804929', style: TextStyle(fontSize: 13)),
+                subtitle: const Text('111-486-437 (+92 51 111-HUNGER)', style: TextStyle(fontSize: 13)),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                 onTap: () {
                   Navigator.pop(sheetCtx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Calling +923139804929...')),
+                    const SnackBar(content: Text('Dialing HungerPoint Helpline (111-486-437)...')),
                   );
                 },
               ),

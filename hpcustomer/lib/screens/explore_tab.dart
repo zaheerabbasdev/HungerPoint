@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'item_detail_screen.dart';
 import 'cart_screen.dart';
 import 'explore_search_tab.dart';
@@ -34,129 +32,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
   final ScrollController _tabScrollController = ScrollController();
   final List<GlobalKey> _categoryKeys = [];
 
-  final List<Map<String, dynamic>> _menuCategories = [
-    {
-      'title': 'Thin Crust Pizza',
-      'items': [
-        {
-          'id': '1',
-          'name': 'Thin Crust Beef Pepperoni',
-          'desc': 'A crispy thin crust topped with beef pepperoni, mozzarella cheese, and rich marinara sauce.',
-          'price': 1480,
-          'image': 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80',
-        },
-        {
-          'id': '2',
-          'name': 'Thin Crust Veggie Lover',
-          'desc': 'Cheese blend, mushrooms, sweet corn, black olives, onions, capsicum and tomatoes.',
-          'price': 1290,
-          'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-        },
-        {
-          'id': '3',
-          'name': 'Thin Crust Cheese Lover',
-          'desc': 'Extra special mozzarella blend and signature sauce on a crispy thin crust.',
-          'price': 1290,
-          'image': 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
-        },
-        {
-          'id': '4',
-          'name': 'Thin Crust Fajita',
-          'desc': 'Tender fajita chicken with mozzarella blend, onions and fresh capsicum.',
-          'price': 1290,
-          'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
-        },
-      ],
-    },
-    {
-      'title': 'Malai Tikka',
-      'items': [
-        {
-          'id': '5',
-          'name': 'Malai Tikka',
-          'desc': 'A flavorful Pizza loaded with fresh BBQ Malai Tikka chunks and mozzarella cheese.',
-          'price': 1530,
-          'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-        },
-      ],
-    },
-    {
-      'title': 'Beef Pepperoni',
-      'items': [
-        {
-          'id': '6',
-          'name': 'Beef Pepperoni Pan Pizza',
-          'desc': 'Freshly baked pan crust, soft inside and golden-crisp outside topped with beef pepperoni.',
-          'price': 1480,
-          'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
-        },
-      ],
-    },
-    {
-      'title': 'Starters',
-      'items': [
-        {
-          'id': '7',
-          'name': 'Cheezy Sticks',
-          'desc': 'Freshly baked bread filled with the yummiest Cheese blend and garlic butter.',
-          'price': 600,
-          'image': 'https://images.unsplash.com/photo-1541745537411-b8046dc6d66c?auto=format&fit=crop&w=400&q=80',
-        },
-        {
-          'id': '8',
-          'name': 'Oven Baked Wings',
-          'desc': 'Fresh Oven baked wings served with Dip Sauce.',
-          'price': 580,
-          'image': 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=400&q=80',
-        },
-        {
-          'id': '9',
-          'name': 'Flaming Wings',
-          'desc': 'Fresh oven baked wings tossed in hot Peri Peri Sauce and served with dip.',
-          'price': 620,
-          'image': 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=400&q=80',
-        },
-        {
-          'id': '10',
-          'name': 'Calzone Chunks',
-          'desc': '4 pcs Stuffed Calzone Chunks served with Sauce & Fries.',
-          'price': 1100,
-          'image': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=400&q=80',
-        },
-        {
-          'id': '11',
-          'name': 'Arabic Rolls',
-          'desc': 'Crispy golden rolls filled with spicy seasoned chicken and garlic sauce.',
-          'price': 950,
-          'image': 'https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=400&q=80',
-        },
-      ],
-    },
-    {
-      'title': 'Somewhat Local',
-      'items': [
-        {
-          'id': '12',
-          'name': 'Chicken Tikka Pizza',
-          'desc': 'Traditional chicken tikka topping with fresh onions and green peppers.',
-          'price': 1350,
-          'image': 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
-        },
-      ],
-    },
-    {
-      'title': 'Somewhat Sooper',
-      'items': [
-        {
-          'id': '13',
-          'name': 'Super Supreme Pizza',
-          'desc': 'Loaded with beef, chicken, black olives, mushrooms, capsicum and extra cheese.',
-          'price': 1590,
-          'image': 'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?auto=format&fit=crop&w=400&q=80',
-        },
-      ],
-    },
-  ];
+  final List<Map<String, dynamic>> _menuCategories = [];
 
   bool _isAutoScrolling = false;
 
@@ -243,12 +119,44 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
 
   Future<void> _fetchLiveMenu() async {
     try {
-      final response = await http.get(Uri.parse('${ApiService.baseUrl}/products'));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final list = data['data'] as List<dynamic>? ?? [];
-        if (list.isNotEmpty) {
-          // Live fallback updates if needed
+      final products = await ApiService.fetchProducts();
+      if (products.isNotEmpty && mounted) {
+        final Map<String, List<Map<String, dynamic>>> grouped = {};
+        for (final p in products) {
+          final catName = (p['category'] != null && p['category']['name'] != null)
+              ? p['category']['name'].toString()
+              : 'Specialties';
+
+          final images = p['images'] as List<dynamic>?;
+          final imgUrl = (images != null && images.isNotEmpty)
+              ? images.first.toString()
+              : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+
+          final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+
+          final item = {
+            'id': p['id'].toString(),
+            'name': p['name']?.toString() ?? 'Product',
+            'desc': p['description']?.toString() ?? '',
+            'price': priceNum.toInt(),
+            'image': imgUrl,
+          };
+
+          grouped.putIfAbsent(catName, () => []).add(item);
+        }
+
+        if (grouped.isNotEmpty) {
+          setState(() {
+            _menuCategories.clear();
+            for (final entry in grouped.entries) {
+              _menuCategories.add({
+                'title': entry.key,
+                'items': entry.value,
+              });
+            }
+            _categoryKeys.clear();
+            _categoryKeys.addAll(List.generate(_menuCategories.length, (_) => GlobalKey()));
+          });
         }
       }
     } catch (e) {
@@ -258,11 +166,6 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cartTotal = widget.cart.fold(
-      0,
-      (sum, item) => sum + (item['price'] as int) * (item['quantity'] as int),
-    );
-
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: PreferredSize(
@@ -411,7 +314,13 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               // ─── 2. CONTINUOUS VERTICAL SCROLLABLE MENU SECTIONS ──────
 
               Expanded(
-                child: ListView.builder(
+                child: _menuCategories.isEmpty
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFD600)),
+                        ),
+                      )
+                    : ListView.builder(
                   controller: _scrollController,
                   padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + MediaQuery.of(context).padding.bottom),
                   itemCount: _menuCategories.length,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class VouchersScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
@@ -13,8 +14,8 @@ class VouchersScreen extends StatefulWidget {
 class _VouchersScreenState extends State<VouchersScreen> {
   final TextEditingController _voucherController = TextEditingController();
 
-  void _applyVoucher() {
-    final code = _voucherController.text.trim();
+  Future<void> _applyVoucher([String? manualCode]) async {
+    final code = manualCode ?? _voucherController.text.trim();
     if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -27,23 +28,47 @@ class _VouchersScreenState extends State<VouchersScreen> {
 
     final upper = code.toUpperCase();
     int discount = 150;
-    if (upper.contains('30')) discount = 250;
-    if (upper.contains('50')) discount = 300;
+
+    // Validate with backend API
+    try {
+      final res = await ApiService.validateCoupon(code: upper, orderAmount: 1000);
+      if (res['success'] == true && res['data'] != null) {
+        final num disc = res['data']['discountAmount'] ?? 150;
+        discount = disc.toInt();
+      } else if (res['success'] == false) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['message'] ?? 'Invalid or expired coupon code'),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+    } catch (_) {
+      if (upper.contains('30')) discount = 250;
+      if (upper.contains('50')) discount = 300;
+    }
 
     if (widget.onVoucherApplied != null) {
       widget.onVoucherApplied!(upper, discount);
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Voucher "$upper" applied successfully! Saved PKR $discount'),
-        backgroundColor: const Color(0xFF2E7D32),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Voucher "$upper" applied successfully! Saved PKR $discount'),
+          backgroundColor: const Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override

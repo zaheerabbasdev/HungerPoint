@@ -1,51 +1,72 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/cart_service.dart';
+import '../services/api_service.dart';
 import 'cart_screen.dart';
 
-class OrderHistoryScreen extends StatelessWidget {
+class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});
 
-  static final List<Map<String, dynamic>> _mockOrders = [
-    {
-      'orderId': '#HP-9842',
-      'date': 'Today, 12:35 PM',
-      'status': 'In Progress',
-      'statusColor': Color(0xFFFF5722),
-      'statusBg': Color(0xFFFFF3ED),
-      'total': 1890,
-      'items': [
-        {'name': 'Thin Crust Beef Pepperoni (Large)', 'qty': 1, 'price': 1480, 'emoji': '🍕'},
-        {'name': 'Special Garlic Mayo Dip', 'qty': 2, 'price': 240, 'emoji': '🥣'},
-        {'name': 'Coca Cola 500ml', 'qty': 1, 'price': 170, 'emoji': '🥤'},
-      ],
-    },
-    {
-      'orderId': '#HP-7619',
-      'date': '04 Sep 2026, 08:45 PM',
-      'status': 'Delivered',
-      'statusColor': Color(0xFF2E7D32),
-      'statusBg': Color(0xFFE8F5E9),
-      'total': 2150,
-      'items': [
-        {'name': 'Deep Dish Chicken Tikka (Medium)', 'qty': 1, 'price': 1650, 'emoji': '🍕'},
-        {'name': 'Crispy Potato Fries', 'qty': 1, 'price': 350, 'emoji': '🍟'},
-        {'name': 'Sprite 500ml', 'qty': 1, 'price': 150, 'emoji': '🥤'},
-      ],
-    },
-    {
-      'orderId': '#HP-5120',
-      'date': '28 Aug 2026, 01:20 PM',
-      'status': 'Delivered',
-      'statusColor': Color(0xFF2E7D32),
-      'statusBg': Color(0xFFE8F5E9),
-      'total': 1480,
-      'items': [
-        {'name': 'Thin Crust Fajita Sicilian (Medium)', 'qty': 1, 'price': 1330, 'emoji': '🍕'},
-        {'name': 'Coca Cola 500ml', 'qty': 1, 'price': 150, 'emoji': '🥤'},
-      ],
-    },
-  ];
+  @override
+  State<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
+}
+
+class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _orders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLiveOrders();
+  }
+
+  Future<void> _fetchLiveOrders() async {
+    try {
+      final list = await ApiService.getMyOrders();
+      if (list.isNotEmpty && mounted) {
+        final serverOrders = list.map<Map<String, dynamic>>((order) {
+          final isDelivered = order['status'] == 'DELIVERED';
+          final itemsList = (order['items'] as List<dynamic>? ?? []).map((it) {
+            return {
+              'name': it['product']?['name']?.toString() ?? 'Food Item',
+              'qty': it['quantity'] ?? 1,
+              'price': (it['unitPrice'] as num?)?.toInt() ?? 0,
+              'emoji': '🍕',
+            };
+          }).toList();
+
+          final created = order['createdAt']?.toString() ?? '';
+          final dateStr = created.length > 10 ? created.substring(0, 10) : 'Recent';
+
+          return {
+            'orderId': '#${order['orderNumber'] ?? order['id']}',
+            'date': dateStr,
+            'status': (order['status'] as String? ?? 'In Progress').replaceAll('_', ' '),
+            'statusColor': isDelivered ? const Color(0xFF2E7D32) : const Color(0xFFFF5722),
+            'statusBg': isDelivered ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3ED),
+            'total': (order['totalAmount'] as num?)?.toInt() ?? 0,
+            'items': itemsList,
+          };
+        }).toList();
+
+        setState(() {
+          _orders = serverOrders;
+          _isLoading = false;
+        });
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error loading orders: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _orders = [];
+        _isLoading = false;
+      });
+    }
+  }
 
   void _reorder(BuildContext context, Map<String, dynamic> order) {
     for (var item in order['items']) {
@@ -97,16 +118,22 @@ class OrderHistoryScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: _mockOrders.isEmpty
-          ? _buildEmptyState(context)
-          : ListView.separated(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              itemCount: _mockOrders.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 14),
-              itemBuilder: (context, index) {
-                final order = _mockOrders[index];
-                final List items = order['items'];
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFD600)),
+              ),
+            )
+          : _orders.isEmpty
+              ? _buildEmptyState(context)
+              : ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  itemCount: _orders.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 14),
+                  itemBuilder: (context, index) {
+                    final order = _orders[index];
+                    final List items = order['items'];
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(

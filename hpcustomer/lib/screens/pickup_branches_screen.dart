@@ -18,7 +18,11 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
   @override
   void initState() {
     super.initState();
-    _highlightedBranch = BranchService().selectedBranch ?? BranchService().branches[1]; // default F-10 or selected
+    final list = BranchService().allBranches;
+    _highlightedBranch = BranchService().selectedBranch ?? (list.length > 1 ? list[1] : list.first);
+    BranchService().fetchBranchesFromBackend().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -28,7 +32,7 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
   }
 
   List<Branch> get _filteredBranches {
-    final all = BranchService().branches;
+    final all = BranchService().allBranches;
     final selected = BranchService().selectedBranch;
 
     // Show the selected branch on the top of the list

@@ -104,3 +104,49 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
+
+// ─── Send OTP ─────────────────────────────────────────────────
+export const sendOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      sendBadRequest(res, 'Phone number is required');
+      return;
+    }
+    const result = await AuthService.sendOtp(phone);
+    sendSuccess(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── Verify OTP ───────────────────────────────────────────────
+export const verifyOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) {
+      sendBadRequest(res, 'Phone and OTP are required');
+      return;
+    }
+    const result = await AuthService.verifyOtp(phone, otp);
+    sendSuccess(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── Complete Profile ─────────────────────────────────────────
+export const completeProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { phone, name, dateOfBirth, email, password } = req.body;
+    if (!phone || !name) {
+      sendBadRequest(res, 'Phone and full name are required');
+      return;
+    }
+    const result = await AuthService.completeProfile({ phone, name, dateOfBirth, email, password });
+    sendCreated(res, result, 'Profile completed successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+

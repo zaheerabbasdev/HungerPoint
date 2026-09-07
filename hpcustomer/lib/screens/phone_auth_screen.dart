@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import 'otp_screen.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
@@ -9,8 +10,9 @@ class PhoneAuthScreen extends StatefulWidget {
 }
 
 class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
-  final _phoneController = TextEditingController(text: '3139804929');
-  String _selectedCountryCode = '+92';
+  final _phoneController = TextEditingController();
+  final String _selectedCountryCode = '+92';
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -18,8 +20,9 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     super.dispose();
   }
 
-  void _onSendCode() {
-    final phone = _phoneController.text.trim();
+  Future<void> _onSendCode() async {
+    if (_isLoading) return;
+    String phone = _phoneController.text.trim().replaceAll(RegExp(r'[\s\-]'), '');
     if (phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -30,14 +33,53 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       return;
     }
 
+    // If user enters leading 0 (e.g. 0313...), strip it
+    if (phone.startsWith('0')) {
+      phone = phone.substring(1);
+    }
+
     final fullNumber = '$_selectedCountryCode$phone';
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OtpScreen(phoneNumber: fullNumber),
-      ),
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final res = await ApiService.sendOtp(fullNumber);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      if (res['success'] == true) {
+        final bool isExisting = res['data']?['isExistingUser'] ?? false;
+        final String? otp = res['data']?['otp']?.toString();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OtpScreen(
+              phoneNumber: fullNumber,
+              isExistingUser: isExisting,
+              initialOtp: otp,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Could not send verification code'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Network error. Please check your connection.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -161,7 +203,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                           color: Color(0xFF1E1B4B),
                         ),
                         decoration: const InputDecoration(
-                          hintText: '3139804929',
+                          hintText: '3XX XXXXXXX',
                           hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 16),
@@ -193,23 +235,38 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                   ],
                 ),
-                child: ElevatedButton.icon(
-                  onPressed: _onSendCode,
-                  icon: const Icon(Icons.chat, color: Color(0xFF1E1B4B), size: 18),
-                  label: const Text(
-                    'SEND CODE',
-                    style: TextStyle(
-                      color: Color(0xFF1E1B4B),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _onSendCode,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E1B4B)),
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.chat, color: Color(0xFF1E1B4B), size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'SEND CODE',
+                              style: TextStyle(
+                                color: Color(0xFF1E1B4B),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(height: 12),

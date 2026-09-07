@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import '../services/favorites_service.dart';
+import '../services/api_service.dart';
 import 'item_detail_screen.dart';
 import 'explore_tab.dart';
 
@@ -32,134 +33,41 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
     'Chicken Mushroom',
   ];
 
-  static final List<Map<String, dynamic>> _allItems = [
-    {
-      'id': '6',
-      'name': 'Beef Pepperoni Pan Pizza',
-      'desc': 'Freshly baked pan crust, soft inside and golden-crisp outside topped with beef pepperoni.',
-      'price': 1480,
-      'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '1',
-      'name': 'Thin Crust Beef Pepperoni',
-      'desc': 'A crispy thin crust topped with beef pepperoni, mozzarella cheese, and rich marinara sauce.',
-      'price': 1480,
-      'image': 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '14',
-      'name': 'Chicken Mushroom',
-      'desc': 'Tender Chunks of Marinated Grilled Chicken Tikka, Lots of Mushrooms, Onions and Rich Mozzarella.',
-      'price': 660,
-      'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '15',
-      'name': 'Chicken Pepperoni Pizza',
-      'desc': 'Fresh pan crust topped with spicy chicken pepperoni, mozzarella cheese and herbs.',
-      'price': 1480,
-      'image': 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '16',
-      'name': 'Reggy Burger',
-      'desc': 'Juicy tender patty with fresh lettuce, special house sauce in a soft toasted bun.',
-      'price': 550,
-      'image': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '17',
-      'name': 'Euro Pizza',
-      'desc': 'Loaded with smoked chicken, mozzarella, mushrooms and special creamy Euro sauce.',
-      'price': 1580,
-      'image': 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '3',
-      'name': 'Cheese Lover Pizza',
-      'desc': 'Extra special mozzarella blend and signature sauce on a crispy golden crust.',
-      'price': 1290,
-      'image': 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '18',
-      'name': 'Behari Kabab Pizza',
-      'desc': 'Tender behari kabab slices with onions, green chilies and special mint herb sauce.',
-      'price': 1550,
-      'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '2',
-      'name': 'Thin Crust Veggie Lover',
-      'desc': 'Cheese blend, mushrooms, sweet corn, black olives, onions, capsicum and tomatoes.',
-      'price': 1290,
-      'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '4',
-      'name': 'Thin Crust Fajita',
-      'desc': 'Tender fajita chicken with mozzarella blend, onions and fresh capsicum.',
-      'price': 1290,
-      'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '5',
-      'name': 'Malai Tikka',
-      'desc': 'A flavorful Pizza loaded with fresh BBQ Malai Tikka chunks and mozzarella cheese.',
-      'price': 1530,
-      'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '7',
-      'name': 'Cheezy Sticks',
-      'desc': 'Freshly baked bread filled with the yummiest Cheese blend and garlic butter.',
-      'price': 600,
-      'image': 'https://images.unsplash.com/photo-1541745537411-b8046dc6d66c?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '8',
-      'name': 'Oven Baked Wings',
-      'desc': 'Fresh Oven baked wings served with Dip Sauce.',
-      'price': 580,
-      'image': 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '9',
-      'name': 'Flaming Wings',
-      'desc': 'Fresh oven baked wings tossed in hot Peri Peri Sauce and served with dip.',
-      'price': 620,
-      'image': 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '10',
-      'name': 'Calzone Chunks',
-      'desc': '4 pcs Stuffed Calzone Chunks served with Sauce & Fries.',
-      'price': 1100,
-      'image': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '11',
-      'name': 'Arabic Rolls',
-      'desc': 'Crispy golden rolls filled with spicy seasoned chicken and garlic sauce.',
-      'price': 950,
-      'image': 'https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '12',
-      'name': 'Chicken Tikka Pizza',
-      'desc': 'Traditional chicken tikka topping with fresh onions and green peppers.',
-      'price': 1350,
-      'image': 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '13',
-      'name': 'Super Supreme Pizza',
-      'desc': 'Loaded with beef, chicken, black olives, mushrooms, capsicum and extra cheese.',
-      'price': 1590,
-      'image': 'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?auto=format&fit=crop&w=400&q=80',
-    },
-  ];
+  List<Map<String, dynamic>> _liveItems = [];
+  List<Map<String, dynamic>> get _currentItems => _liveItems;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLiveProducts();
+  }
+
+  Future<void> _fetchLiveProducts() async {
+    try {
+      final products = await ApiService.fetchProducts();
+      if (products.isNotEmpty && mounted) {
+        final list = products.map<Map<String, dynamic>>((p) {
+          final images = p['images'] as List<dynamic>?;
+          final imgUrl = (images != null && images.isNotEmpty)
+              ? images.first.toString()
+              : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+          final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+          return {
+            'id': p['id'].toString(),
+            'name': p['name']?.toString() ?? 'Product',
+            'desc': p['description']?.toString() ?? '',
+            'price': priceNum.toInt(),
+            'image': imgUrl,
+          };
+        }).toList();
+        setState(() {
+          _liveItems = list;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching live search items: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -173,7 +81,7 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
     final isSearching = query.isNotEmpty;
 
     final matchingItems = isSearching
-        ? _allItems.where((item) {
+        ? _currentItems.where((item) {
             final name = (item['name'] ?? '').toString().toLowerCase();
             final desc = (item['desc'] ?? '').toString().toLowerCase();
             return name.contains(query) || desc.contains(query);
@@ -312,12 +220,12 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: _popularSearches.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  separatorBuilder: (context, index) => const SizedBox(width: 10),
                   itemBuilder: (context, idx) {
                     final term = _popularSearches[idx];
                     return GestureDetector(
                       onTap: () {
-                        final matchingItem = _allItems.firstWhere(
+                        final matchingItem = _currentItems.firstWhere(
                           (it) {
                             final name = (it['name'] ?? '').toString().toLowerCase();
                             final t = term.toLowerCase();
@@ -384,7 +292,7 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                             itemCount: matchingItems.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 14),
+                            separatorBuilder: (context, index) => const SizedBox(height: 14),
                             itemBuilder: (context, index) {
                               final item = matchingItems[index];
                               return _buildItemCard(item);
@@ -693,7 +601,7 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
                         width: 82,
                         height: 82,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (context, error, stackTrace) => Container(
                           width: 82,
                           height: 82,
                           color: const Color(0xFFF3F4F6),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class FeedbackItem {
   final String id;
@@ -40,24 +41,7 @@ class _RatingsFeedbackScreenState extends State<RatingsFeedbackScreen> with Sing
     'Accurate Order 🎯',
   ];
 
-  final List<FeedbackItem> _feedbacks = [
-    const FeedbackItem(
-      id: 'fb_1',
-      orderId: 'Order #HP-8921',
-      date: '05 Sep 2026',
-      rating: 5,
-      comment: 'The Thin Crust Beef Pepperoni was super crispy and full of flavor! Delivery was within 25 minutes.',
-      tags: ['Delicious Food 🍕', 'Fast Delivery ⚡', 'Hot & Fresh 🔥'],
-    ),
-    const FeedbackItem(
-      id: 'fb_2',
-      orderId: 'Order #HP-8740',
-      date: '28 Aug 2026',
-      rating: 4,
-      comment: 'Really good burgers and dips. Packaging kept everything intact. Highly recommended!',
-      tags: ['Great Packaging 📦', 'Polite Rider 🛵'],
-    ),
-  ];
+  final List<FeedbackItem> _feedbacks = [];
 
   @override
   void initState() {
@@ -98,6 +82,10 @@ class _RatingsFeedbackScreenState extends State<RatingsFeedbackScreen> with Sing
       _feedbackController.clear();
       _selectedRating = 5;
     });
+
+    // Send review to backend API
+    final fullComment = _selectedTags.isNotEmpty ? '$text (${_selectedTags.join(", ")})' : text;
+    ApiService.submitReview(rating: _selectedRating, comment: fullComment);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

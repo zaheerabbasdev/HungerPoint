@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/profile_service.dart';
+import 'main_navigation_screen.dart';
 import 'welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -18,6 +21,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
+    _initializeApp();
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -33,16 +38,31 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    _timer = Timer(const Duration(milliseconds: 2200), _proceedToWelcome);
+    _timer = Timer(const Duration(milliseconds: 2200), _proceedToNextScreen);
   }
 
-  void _proceedToWelcome() {
+  Future<void> _initializeApp() async {
+    await ApiService.init();
+    if (ApiService.isLoggedIn) {
+      await ProfileService().syncWithBackend();
+    }
+  }
+
+  void _proceedToNextScreen() {
     if (!mounted) return;
     _timer?.cancel();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-    );
+
+    if (ApiService.isLoggedIn) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      );
+    }
   }
 
   @override
@@ -58,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       backgroundColor: Colors.white,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _proceedToWelcome,
+        onTap: _proceedToNextScreen,
         child: Center(
           child: FadeTransition(
             opacity: _fadeAnimation,

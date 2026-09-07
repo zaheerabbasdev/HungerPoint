@@ -198,7 +198,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               shrinkWrap: true,
                               itemCount: _suggestions.length,
-                              separatorBuilder: (_, __) => const Divider(
+                              separatorBuilder: (context, index) => const Divider(
                                 height: 1, indent: 50, endIndent: 16,
                                 color: Color(0xFFF3F4F6),
                               ),

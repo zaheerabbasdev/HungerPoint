@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'api_service.dart';
 
 class Branch {
   final String id;
@@ -272,9 +273,71 @@ class BranchService {
 
   final ValueNotifier<Branch?> selectedBranchNotifier = ValueNotifier<Branch?>(null);
   final ValueNotifier<bool> isPickupModeNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<List<Branch>> branchesNotifier = ValueNotifier<List<Branch>>([]);
 
   Branch? get selectedBranch => selectedBranchNotifier.value;
   bool get isPickupMode => isPickupModeNotifier.value;
+  List<Branch> get allBranches => branchesNotifier.value.isNotEmpty ? branchesNotifier.value : branches;
+
+  Future<void> fetchBranchesFromBackend() async {
+    try {
+      // Fetch live products for branch menus
+      List<Map<String, dynamic>> dynamicMenu = [];
+      try {
+        final products = await ApiService.fetchProducts();
+        if (products.isNotEmpty) {
+          dynamicMenu = products.map<Map<String, dynamic>>((p) {
+            final catName = (p['category'] != null && p['category']['name'] != null)
+                ? p['category']['name'].toString()
+                : 'Specialties';
+            final images = p['images'] as List<dynamic>?;
+            final imgUrl = (images != null && images.isNotEmpty)
+                ? images.first.toString()
+                : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+            final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+
+            return {
+              'id': p['id'].toString(),
+              'title': catName,
+              'name': p['name']?.toString() ?? 'Product',
+              'desc': p['description']?.toString() ?? '',
+              'price': priceNum.toInt(),
+              'image': imgUrl,
+            };
+          }).toList();
+        }
+      } catch (pe) {
+        debugPrint('Error loading dynamic products for branches: $pe');
+      }
+
+      final list = await ApiService.fetchBranches();
+      if (list.isNotEmpty) {
+        final serverBranches = list.map<Branch>((b) {
+          final bName = b['name']?.toString() ?? 'HungerPoint Branch';
+          final bAddr = b['address']?.toString() ?? 'Islamabad';
+          final num lat = b['latitude'] ?? 33.7215;
+          final num lng = b['longitude'] ?? 73.0565;
+          final bool isActive = b['isActive'] ?? true;
+
+          return Branch(
+            id: b['id'].toString(),
+            name: bName,
+            address: bAddr,
+            distance: 'Near you',
+            isOpen: isActive,
+            statusText: isActive ? 'Open Now' : 'Closed',
+            lat: lat.toDouble(),
+            lng: lng.toDouble(),
+            menuCategories: dynamicMenu.isNotEmpty ? dynamicMenu : _f10Categories,
+          );
+        }).toList();
+
+        branchesNotifier.value = serverBranches;
+      }
+    } catch (e) {
+      debugPrint('Error fetching branches from backend: $e');
+    }
+  }
 
   void selectBranch(Branch branch) {
     selectedBranchNotifier.value = branch;
@@ -284,7 +347,8 @@ class BranchService {
   void switchToPickup() {
     isPickupModeNotifier.value = true;
     if (selectedBranchNotifier.value == null) {
-      selectedBranchNotifier.value = branches[1]; // F-10 Markaz by default
+      final list = allBranches;
+      selectedBranchNotifier.value = list.length > 1 ? list[1] : list.first;
     }
   }
 

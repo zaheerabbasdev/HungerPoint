@@ -179,7 +179,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                               widget.item['image'],
                               fit: BoxFit.contain,
                               width: double.infinity,
-                              errorBuilder: (_, __, ___) => Container(
+                              errorBuilder: (context, error, stackTrace) => Container(
                                 height: 210,
                                 color: const Color(0xFFF9FAFB),
                                 child: const Center(

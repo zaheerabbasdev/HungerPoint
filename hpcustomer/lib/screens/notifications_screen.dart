@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class AppNotification {
   final String id;
@@ -30,48 +31,41 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final List<AppNotification> _notifications = [
-    AppNotification(
-      id: 'notif_1',
-      title: 'Weekend Special: 30% OFF! 🍕',
-      message: 'Craving delicious pizza? Enjoy 30% off on all Thin Crust Pizzas this weekend. Use code CRUST30 at checkout!',
-      time: '10 mins ago',
-      icon: Icons.local_offer_outlined,
-      iconColor: const Color(0xFFFF5722),
-      iconBgColor: const Color(0xFFFFF3ED),
-      isRead: false,
-    ),
-    AppNotification(
-      id: 'notif_2',
-      title: 'Order Delivered Successfully 🛵',
-      message: 'Your order #HP-8921 has been delivered to Executive Guest House. Enjoy your meal and please rate us!',
-      time: '2 hours ago',
-      icon: Icons.check_circle_outline,
-      iconColor: const Color(0xFF2E7D32),
-      iconBgColor: const Color(0xFFE8F5E9),
-      isRead: false,
-    ),
-    AppNotification(
-      id: 'notif_3',
-      title: 'New Voucher Added! 🎁',
-      message: 'A PKR 250 discount voucher has been added to your vouchers tab. Valid until end of month.',
-      time: 'Yesterday',
-      icon: Icons.card_giftcard,
-      iconColor: const Color(0xFF1E1B4B),
-      iconBgColor: const Color(0xFFEEF2FF),
-      isRead: true,
-    ),
-    AppNotification(
-      id: 'notif_4',
-      title: 'Order Confirmed 🔥',
-      message: 'HungerPoint Islamabad branch is preparing your order #HP-8921 fresh from the kitchen.',
-      time: '2 days ago',
-      icon: Icons.restaurant,
-      iconColor: const Color(0xFFFF9800),
-      iconBgColor: const Color(0xFFFFF8E1),
-      isRead: true,
-    ),
-  ];
+  final List<AppNotification> _notifications = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLiveNotifications();
+  }
+
+  Future<void> _fetchLiveNotifications() async {
+    try {
+      final list = await ApiService.fetchNotifications();
+      if (list.isNotEmpty && mounted) {
+        final serverList = list.map<AppNotification>((n) {
+          final isRead = n['isRead'] ?? false;
+          return AppNotification(
+            id: n['id'].toString(),
+            title: n['title'] ?? 'HungerPoint Alert',
+            message: n['message'] ?? '',
+            time: 'Recently',
+            icon: Icons.notifications_active_outlined,
+            iconColor: const Color(0xFFFF5722),
+            iconBgColor: const Color(0xFFFFF3ED),
+            isRead: isRead,
+          );
+        }).toList();
+
+        setState(() {
+          _notifications.clear();
+          _notifications.addAll(serverList);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading notifications: $e');
+    }
+  }
 
   void _markAllAsRead() {
     setState(() {
@@ -79,6 +73,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         n.isRead = true;
       }
     });
+    ApiService.markAllNotificationsAsRead();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('All notifications marked as read'),

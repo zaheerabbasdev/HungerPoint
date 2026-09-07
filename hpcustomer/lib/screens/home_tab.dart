@@ -4,6 +4,7 @@ import '../constants/app_colors.dart';
 import '../services/cart_service.dart';
 import '../services/address_service.dart';
 import '../services/branch_service.dart';
+import '../services/api_service.dart';
 import 'cart_screen.dart';
 import 'location_picker_screen.dart';
 import 'add_address_screen.dart';
@@ -34,8 +35,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _carouselTimer;
   int _currentPage = 0;
 
-  // Address
-  SavedAddress? _selectedAddress;
   static bool _hasShownInitialBottomSheet = false;
 
   final List<Map<String, dynamic>> _banners = [
@@ -62,62 +61,50 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   ];
 
-  final List<Map<String, dynamic>> _categories = [
-    {
-      'id': '1',
-      'title': 'Thin Crust Pizza',
-      'name': 'Thin Crust Beef Pepperoni',
-      'desc': 'A crispy thin crust topped with beef pepperoni, mozzarella cheese, and rich marinara sauce.',
-      'price': 1480,
-      'image': 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '5',
-      'title': 'Malai Tikka',
-      'name': 'Malai Tikka',
-      'desc': 'A flavorful Pizza loaded with fresh BBQ Malai Tikka chunks and mozzarella cheese.',
-      'price': 1530,
-      'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '6',
-      'title': 'Beef Peppero...',
-      'name': 'Beef Pepperoni Pan Pizza',
-      'desc': 'Freshly baked pan crust, soft inside and golden-crisp outside topped with beef pepperoni.',
-      'price': 1480,
-      'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '7',
-      'title': 'Starters',
-      'name': 'Cheezy Sticks',
-      'desc': 'Freshly baked bread filled with the yummiest Cheese blend and garlic butter.',
-      'price': 600,
-      'image': 'https://images.unsplash.com/photo-1541745537411-b8046dc6d66c?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '12',
-      'title': 'Somewhat Local',
-      'name': 'Chicken Tikka Pizza',
-      'desc': 'Traditional chicken tikka topping with fresh onions and green peppers.',
-      'price': 1350,
-      'image': 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '13',
-      'title': 'Somewhat Sooper',
-      'name': 'Super Supreme Pizza',
-      'desc': 'Loaded with beef, chicken, black olives, mushrooms, capsicum and extra cheese.',
-      'price': 1590,
-      'image': 'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?auto=format&fit=crop&w=400&q=80',
-    },
-  ];
+  List<Map<String, dynamic>> _dynamicCategories = [];
 
   List<Map<String, dynamic>> get _activeCategories {
     if (BranchService().isPickupMode && BranchService().selectedBranch != null) {
       return BranchService().selectedBranch!.menuCategories;
     }
-    return _categories;
+    return _dynamicCategories;
+  }
+
+  Future<void> _loadDynamicCategories() async {
+    try {
+      final products = await ApiService.fetchProducts();
+      if (products.isNotEmpty && mounted) {
+        final List<Map<String, dynamic>> dynamicList = [];
+        for (final p in products) {
+          final catName = (p['category'] != null && p['category']['name'] != null)
+              ? p['category']['name'].toString()
+              : 'Specialties';
+
+          final images = p['images'] as List<dynamic>?;
+          final imgUrl = (images != null && images.isNotEmpty)
+              ? images.first.toString()
+              : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+
+          final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+
+          dynamicList.add({
+            'id': p['id'].toString(),
+            'title': catName,
+            'name': p['name']?.toString() ?? 'Product',
+            'desc': p['description']?.toString() ?? '',
+            'price': priceNum.toInt(),
+            'image': imgUrl,
+          });
+        }
+        if (dynamicList.isNotEmpty) {
+          setState(() {
+            _dynamicCategories = dynamicList;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading dynamic categories for home: $e');
+    }
   }
 
   @override
@@ -126,9 +113,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _currentPage = 1000 * _banners.length;
     _pageController = PageController(initialPage: _currentPage);
     _startCarouselTimer();
+    _loadDynamicCategories();
 
     // Sync local state with AddressService
-    _selectedAddress = AddressService().selectedAddress;
     AddressService().selectedAddressNotifier.addListener(_onAddressChanged);
     AddressService().savedAddressesNotifier.addListener(_onAddressChanged);
     AddressService().customLocationNotifier.addListener(_onAddressChanged);
@@ -154,9 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onAddressChanged() {
     if (mounted) {
-      setState(() {
-        _selectedAddress = AddressService().selectedAddress;
-      });
+      setState(() {});
     }
   }
 

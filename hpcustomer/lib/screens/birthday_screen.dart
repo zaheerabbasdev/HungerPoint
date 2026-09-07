@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../services/api_service.dart';
+import '../services/profile_service.dart';
 import 'main_navigation_screen.dart';
 
 class BirthdayScreen extends StatefulWidget {
@@ -18,6 +20,8 @@ class BirthdayScreen extends StatefulWidget {
 
 class _BirthdayScreenState extends State<BirthdayScreen> {
   DateTime _selectedDate = DateTime(2002, 9, 20);
+
+  bool _isLoading = false;
 
   static const List<String> _months = [
     'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
@@ -59,14 +63,67 @@ class _BirthdayScreenState extends State<BirthdayScreen> {
     }
   }
 
-  void _onNext() {
-    // Per user instructions: location picker removed from onboarding.
-    // Directly proceed to the main application navigation.
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-      (route) => false,
-    );
+  Future<void> _onNext() async {
+    if (_isLoading) return;
+    final phone = widget.phoneNumber;
+    final name = widget.fullName;
+
+    if (phone == null || phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Missing phone number. Please try again.')),
+      );
+      return;
+    }
+    if (name == null || name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Missing name. Please go back and enter your name.')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final res = await ApiService.completeProfile(
+        phone: phone,
+        name: name,
+        dateOfBirth: _formattedDate,
+      );
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      if (res['success'] == true) {
+        final data = res['data'];
+        if (data?['user'] != null) {
+          ProfileService().setUserFromBackend(data['user'], data['customer']);
+        }
+        await ProfileService().syncWithBackend();
+        if (!mounted) return;
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Could not complete registration'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Network error. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -205,21 +262,30 @@ class _BirthdayScreenState extends State<BirthdayScreen> {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: _onNext,
+                  onPressed: _isLoading ? null : _onNext,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text(
-                    'NEXT',
-                    style: TextStyle(
-                      color: Color(0xFF1E1B4B),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E1B4B)),
+                          ),
+                        )
+                      : const Text(
+                          'NEXT',
+                          style: TextStyle(
+                            color: Color(0xFF1E1B4B),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 12),

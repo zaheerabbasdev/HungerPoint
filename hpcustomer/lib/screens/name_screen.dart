@@ -14,7 +14,7 @@ class NameScreen extends StatefulWidget {
 }
 
 class _NameScreenState extends State<NameScreen> {
-  final TextEditingController _nameController = TextEditingController(text: 'Zaheer Abbas');
+  final TextEditingController _nameController = TextEditingController();
 
   void _onNext() {
     final name = _nameController.text.trim();
@@ -145,7 +145,7 @@ class _NameScreenState extends State<NameScreen> {
                       color: Color(0xFF1E1B4B),
                     ),
                     decoration: const InputDecoration(
-                      hintText: 'Zaheer Abbas',
+                      hintText: 'Enter your full name',
                       hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontWeight: FontWeight.normal),
                       border: InputBorder.none,
                       isDense: true,

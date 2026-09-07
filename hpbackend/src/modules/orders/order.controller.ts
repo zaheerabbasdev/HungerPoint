@@ -5,11 +5,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { OrderService } from './order.service';
 import { OrderStatus } from '@prisma/client';
+import { CustomerService } from '../customers/customer.service';
 
 export class OrderController {
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const customerId = (req as any).user?.customerId || (req as any).user?.id;
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+      const customer = await CustomerService.getOrCreateCustomer(userId);
+      const customerId = customer.id;
       const order = await OrderService.createOrder({ ...req.body, customerId });
       res.status(201).json({ success: true, message: 'Order placed successfully', data: order });
     } catch (error) {
@@ -22,7 +25,14 @@ export class OrderController {
       const user = (req as any).user;
       const { branchId, status, page, limit } = req.query;
 
-      const customerId = user.role === 'CUSTOMER' ? (user.customerId || user.id) : (req.query.customerId as string);
+      const userId = user.userId || user.id;
+      let customerId: string | undefined;
+      if (user.role === 'CUSTOMER') {
+        const customer = await CustomerService.getOrCreateCustomer(userId);
+        customerId = customer.id;
+      } else {
+        customerId = req.query.customerId as string;
+      }
 
       const result = await OrderService.getOrders({
         customerId,
