@@ -1,36 +1,54 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
+import '../services/api_service.dart';
 import 'item_detail_screen.dart';
 import 'payment_screen.dart';
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   final VoidCallback? onNavigateToExplore;
 
   const CartScreen({super.key, this.onNavigateToExplore});
 
-  static final List<Map<String, dynamic>> _recommendedItems = [
-    {
-      'id': '1',
-      'name': 'Thin Crust Tikka',
-      'desc': 'Juicy tikka chicken, mozzarella and fresh herbs on a thin crust.',
-      'price': 1290,
-      'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '6',
-      'name': 'Beef Pepperoni Pan Pizza',
-      'desc': 'Freshly baked pan crust, soft inside and golden-crisp outside topped with beef pepperoni.',
-      'price': 1480,
-      'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': '7',
-      'name': 'Cheezy Sticks',
-      'desc': 'Freshly baked bread filled with the yummiest Cheese blend and garlic butter.',
-      'price': 600,
-      'image': 'https://images.unsplash.com/photo-1541745537411-b8046dc6d66c?auto=format&fit=crop&w=400&q=80',
-    },
-  ];
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  List<Map<String, dynamic>> _recommendedItems = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecommendations();
+  }
+
+  Future<void> _loadRecommendations() async {
+    try {
+      final products = await ApiService.fetchProducts();
+      if (products.isNotEmpty && mounted) {
+        final recs = products.take(5).map<Map<String, dynamic>>((p) {
+          final images = p['images'] as List<dynamic>?;
+          final imgUrl = (images != null && images.isNotEmpty)
+              ? images.first.toString()
+              : (p['image']?.toString() ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80');
+          final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+          return {
+            'id': p['id'].toString(),
+            'name': p['name']?.toString() ?? 'Product',
+            'desc': p['description']?.toString() ?? '',
+            'price': priceNum.toInt(),
+            'image': imgUrl,
+          };
+        }).toList();
+
+        setState(() {
+          _recommendedItems = recs;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading recommendations for cart: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,8 +134,8 @@ class CartScreen extends StatelessWidget {
                     ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        if (onNavigateToExplore != null) {
-                          onNavigateToExplore!();
+                        if (widget.onNavigateToExplore != null) {
+                          widget.onNavigateToExplore!();
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -439,8 +457,8 @@ class CartScreen extends StatelessWidget {
                       GestureDetector(
                         onTap: () {
                           Navigator.pop(context);
-                          if (onNavigateToExplore != null) {
-                            onNavigateToExplore!();
+                          if (widget.onNavigateToExplore != null) {
+                            widget.onNavigateToExplore!();
                           }
                         },
                         child: Container(

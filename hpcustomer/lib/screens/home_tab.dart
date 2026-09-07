@@ -64,7 +64,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _dynamicCategories = [];
 
   List<Map<String, dynamic>> get _activeCategories {
-    if (BranchService().isPickupMode && BranchService().selectedBranch != null) {
+    if (BranchService().isPickupMode &&
+        BranchService().selectedBranch != null &&
+        BranchService().selectedBranch!.menuCategories.isNotEmpty) {
       return BranchService().selectedBranch!.menuCategories;
     }
     return _dynamicCategories;
@@ -72,33 +74,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadDynamicCategories() async {
     try {
-      final products = await ApiService.fetchProducts();
-      if (products.isNotEmpty && mounted) {
+      // 1. Prioritize categories created from admin side / backend
+      final categories = await ApiService.fetchCategories();
+      if (categories.isNotEmpty && mounted) {
         final List<Map<String, dynamic>> dynamicList = [];
-        for (final p in products) {
-          final catName = (p['category'] != null && p['category']['name'] != null)
-              ? p['category']['name'].toString()
-              : 'Specialties';
-
-          final images = p['images'] as List<dynamic>?;
-          final imgUrl = (images != null && images.isNotEmpty)
-              ? images.first.toString()
-              : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
-
-          final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+        for (final c in categories) {
+          final catName = c['name']?.toString() ?? 'Category';
+          final imgUrl = (c['image'] != null && c['image'].toString().isNotEmpty)
+              ? c['image'].toString()
+              : 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80';
 
           dynamicList.add({
-            'id': p['id'].toString(),
+            'id': c['id']?.toString() ?? '',
             'title': catName,
-            'name': p['name']?.toString() ?? 'Product',
-            'desc': p['description']?.toString() ?? '',
-            'price': priceNum.toInt(),
+            'name': catName,
+            'desc': c['description']?.toString() ?? '',
             'image': imgUrl,
+            'itemCount': (c['products'] as List<dynamic>?)?.length ?? 0,
           });
         }
         if (dynamicList.isNotEmpty) {
           setState(() {
             _dynamicCategories = dynamicList;
+          });
+          return;
+        }
+      }
+
+      // 2. Fallback: extract distinct categories from products
+      final products = await ApiService.fetchProducts();
+      if (products.isNotEmpty && mounted) {
+        final Map<String, Map<String, dynamic>> categoryMap = {};
+        for (final p in products) {
+          final catObj = p['category'];
+          final catName = (catObj != null && catObj['name'] != null)
+              ? catObj['name'].toString()
+              : 'Specialties';
+
+          if (!categoryMap.containsKey(catName)) {
+            final images = p['images'] as List<dynamic>?;
+            final imgUrl = (images != null && images.isNotEmpty)
+                ? images.first.toString()
+                : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+
+            categoryMap[catName] = {
+              'id': catObj != null ? (catObj['id']?.toString() ?? '') : '',
+              'title': catName,
+              'name': catName,
+              'desc': catName,
+              'image': imgUrl,
+              'itemCount': 1,
+            };
+          } else {
+            categoryMap[catName]!['itemCount'] = (categoryMap[catName]!['itemCount'] as int) + 1;
+          }
+        }
+        if (categoryMap.isNotEmpty) {
+          setState(() {
+            _dynamicCategories = categoryMap.values.toList();
           });
         }
       }
@@ -114,6 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _pageController = PageController(initialPage: _currentPage);
     _startCarouselTimer();
     _loadDynamicCategories();
+    BranchService().fetchBranchesFromBackend();
 
     // Sync local state with AddressService
     AddressService().selectedAddressNotifier.addListener(_onAddressChanged);

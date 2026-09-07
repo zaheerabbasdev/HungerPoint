@@ -119,48 +119,105 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
 
   Future<void> _fetchLiveMenu() async {
     try {
+      // 1. Fetch categories from backend (admin defined categories with sortOrder)
+      final categories = await ApiService.fetchCategories();
       final products = await ApiService.fetchProducts();
-      if (products.isNotEmpty && mounted) {
-        final Map<String, List<Map<String, dynamic>>> grouped = {};
-        for (final p in products) {
-          final catName = (p['category'] != null && p['category']['name'] != null)
-              ? p['category']['name'].toString()
-              : 'Specialties';
 
-          final images = p['images'] as List<dynamic>?;
-          final imgUrl = (images != null && images.isNotEmpty)
-              ? images.first.toString()
-              : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+      if (mounted) {
+        final List<Map<String, dynamic>> menuCats = [];
 
-          final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+        if (categories.isNotEmpty) {
+          for (final cat in categories) {
+            final catId = cat['id']?.toString() ?? '';
+            final catName = cat['name']?.toString() ?? 'Category';
 
-          final item = {
-            'id': p['id'].toString(),
-            'name': p['name']?.toString() ?? 'Product',
-            'desc': p['description']?.toString() ?? '',
-            'price': priceNum.toInt(),
-            'image': imgUrl,
-          };
+            // Filter products belonging to this category
+            final catProducts = products.where((p) {
+              final pCatId = p['categoryId']?.toString();
+              final pCatName = p['category']?['name']?.toString();
+              return pCatId == catId ||
+                  (pCatName != null && pCatName.toLowerCase() == catName.toLowerCase());
+            }).toList();
 
-          grouped.putIfAbsent(catName, () => []).add(item);
+            final List<Map<String, dynamic>> items = catProducts.map<Map<String, dynamic>>((p) {
+              final images = p['images'] as List<dynamic>?;
+              final imgUrl = (images != null && images.isNotEmpty)
+                  ? images.first.toString()
+                  : (p['image']?.toString() ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80');
+              final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+              return {
+                'id': p['id'].toString(),
+                'name': p['name']?.toString() ?? 'Product',
+                'desc': p['description']?.toString() ?? '',
+                'price': priceNum.toInt(),
+                'image': imgUrl,
+              };
+            }).toList();
+
+            // Also check embedded products in category object from backend
+            if (items.isEmpty && cat['products'] != null && (cat['products'] as List).isNotEmpty) {
+              for (final cp in cat['products']) {
+                items.add({
+                  'id': cp['id'].toString(),
+                  'name': cp['name']?.toString() ?? 'Product',
+                  'desc': cp['description']?.toString() ?? '',
+                  'price': (cp['basePrice'] ?? 0).toInt(),
+                  'image': cp['image']?.toString() ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
+                });
+              }
+            }
+
+            menuCats.add({
+              'id': catId,
+              'title': catName,
+              'items': items,
+            });
+          }
+        } else if (products.isNotEmpty) {
+          // Fallback if categories endpoint is empty
+          final Map<String, List<Map<String, dynamic>>> grouped = {};
+          for (final p in products) {
+            final catName = (p['category'] != null && p['category']['name'] != null)
+                ? p['category']['name'].toString()
+                : 'Specialties';
+
+            final images = p['images'] as List<dynamic>?;
+            final imgUrl = (images != null && images.isNotEmpty)
+                ? images.first.toString()
+                : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+
+            final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+
+            final item = {
+              'id': p['id'].toString(),
+              'name': p['name']?.toString() ?? 'Product',
+              'desc': p['description']?.toString() ?? '',
+              'price': priceNum.toInt(),
+              'image': imgUrl,
+            };
+
+            grouped.putIfAbsent(catName, () => []).add(item);
+          }
+
+          for (final entry in grouped.entries) {
+            menuCats.add({
+              'title': entry.key,
+              'items': entry.value,
+            });
+          }
         }
 
-        if (grouped.isNotEmpty) {
+        if (menuCats.isNotEmpty) {
           setState(() {
             _menuCategories.clear();
-            for (final entry in grouped.entries) {
-              _menuCategories.add({
-                'title': entry.key,
-                'items': entry.value,
-              });
-            }
+            _menuCategories.addAll(menuCats);
             _categoryKeys.clear();
             _categoryKeys.addAll(List.generate(_menuCategories.length, (_) => GlobalKey()));
           });
         }
       }
     } catch (e) {
-      debugPrint('Live API fetch fallback: $e');
+      debugPrint('Live API fetch error in explore: $e');
     }
   }
 

@@ -13,6 +13,7 @@ This document tracks all identified and resolved bugs across the HungerPoint Cus
 | [BUG-003](./BUG-003-hardcoded-auth-and-mock-data.md) | Hardcoded Mock Authentication & Static Frontend Data Bypass | `hpcustomer/auth` | Critical | 2026-09-07 | **Resolved** |
 | [BUG-004](./BUG-004-undefined-identifiers-post-refactor.md) | Undefined Identifier Compilation Errors (`_proceedToWelcome`, `_allItems`) | `hpcustomer/screens` | High | 2026-09-07 | **Resolved** |
 | [BUG-005](./BUG-005-sms-delivery-simulation-gap.md) | SMS Delivery Gap & Missing In-App Verification Code Simulation | `hpbackend/auth` | High | 2026-09-07 | **Resolved** |
+| [BUG-006](./BUG-006-admin-categories-and-residual-mock-cleanup.md) | Residual Mock Data in Branch/Cart Services and Admin-Side Category Endpoint Ingestion | `hpcustomer/screens` | High | 2026-09-07 | **Resolved** |
 
 ---
 

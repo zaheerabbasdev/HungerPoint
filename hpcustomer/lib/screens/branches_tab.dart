@@ -22,11 +22,18 @@ class _BranchesScreenState extends State<BranchesScreen> {
   @override
   void initState() {
     super.initState();
-    // Default to F-7 Old Islamabad (Image 1)
-    _currentNearestBranch = BranchService().branches.firstWhere(
-      (b) => b.id == 'b_f7_old',
-      orElse: () => BranchService().branches[0],
-    );
+    _currentNearestBranch = BranchService().allBranches.isNotEmpty
+        ? BranchService().allBranches.first
+        : null;
+    BranchService().fetchBranchesFromBackend().then((_) {
+      if (mounted) {
+        setState(() {
+          _currentNearestBranch = BranchService().allBranches.isNotEmpty
+              ? BranchService().allBranches.first
+              : null;
+        });
+      }
+    });
   }
 
   /// Launch Google Maps directly for the given branch
@@ -81,7 +88,7 @@ class _BranchesScreenState extends State<BranchesScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
-        final branches = BranchService().branches;
+        final branches = BranchService().allBranches;
 
         return Container(
           constraints: BoxConstraints(
@@ -382,7 +389,8 @@ class _BranchesScreenState extends State<BranchesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final nearestBranch = _currentNearestBranch ?? BranchService().branches[0];
+    final nearestBranch = _currentNearestBranch ??
+        (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first : BranchService().branches[0]);
 
     return Scaffold(
       backgroundColor: Colors.white,

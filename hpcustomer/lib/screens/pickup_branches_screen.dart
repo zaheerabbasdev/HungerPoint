@@ -269,7 +269,10 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
                     left: 175,
                     child: GestureDetector(
                       onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_f7');
+                        final b = BranchService().allBranches.firstWhere(
+                          (x) => x.id == 'b_f7',
+                          orElse: () => BranchService().allBranches.first,
+                        );
                         _showConfirmBranchDialog(b);
                       },
                       child: _buildMapPin(
@@ -284,7 +287,10 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
                     left: 140,
                     child: GestureDetector(
                       onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_f10');
+                        final b = BranchService().allBranches.firstWhere(
+                          (x) => x.id == 'b_f10',
+                          orElse: () => BranchService().allBranches.first,
+                        );
                         _showConfirmBranchDialog(b);
                       },
                       child: _buildMapPin(
@@ -299,7 +305,10 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
                     left: 185,
                     child: GestureDetector(
                       onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_i8');
+                        final b = BranchService().allBranches.firstWhere(
+                          (x) => x.id == 'b_i8',
+                          orElse: () => BranchService().allBranches.first,
+                        );
                         _showConfirmBranchDialog(b);
                       },
                       child: _buildMapPin(
@@ -314,7 +323,10 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
                     left: 105,
                     child: GestureDetector(
                       onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_f11');
+                        final b = BranchService().allBranches.firstWhere(
+                          (x) => x.id == 'b_f11',
+                          orElse: () => BranchService().allBranches.first,
+                        );
                         _showConfirmBranchDialog(b);
                       },
                       child: _buildMapPin(
@@ -329,7 +341,10 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
                     left: 30,
                     child: GestureDetector(
                       onTap: () {
-                        final b = BranchService().branches.firstWhere((x) => x.id == 'b_swabi');
+                        final b = BranchService().allBranches.firstWhere(
+                          (x) => x.id == 'b_swabi',
+                          orElse: () => BranchService().allBranches.first,
+                        );
                         _showConfirmBranchDialog(b);
                       },
                       child: _buildMapPin(
