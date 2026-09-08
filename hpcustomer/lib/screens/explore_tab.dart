@@ -36,6 +36,19 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
 
   bool _isAutoScrolling = false;
 
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  int _parsePrice(dynamic raw) {
+    if (raw == null) return 0;
+    if (raw is num) return raw.toInt();
+    if (raw is String) {
+      final parsed = double.tryParse(raw);
+      if (parsed != null) return parsed.toInt();
+    }
+    return 0;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -43,12 +56,6 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
     _categoryKeys.addAll(List.generate(_menuCategories.length, (_) => GlobalKey()));
     _scrollController.addListener(_onScroll);
     _fetchLiveMenu();
-
-    if (widget.initialCategoryIndex > 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToCategory(widget.initialCategoryIndex);
-      });
-    }
   }
 
   @override
@@ -96,6 +103,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
   }
 
   void _scrollToCategory(int index) {
+    if (index < 0 || index >= _categoryKeys.length) return;
     _isAutoScrolling = true;
     setState(() {
       _selectedCategoryIndex = index;
@@ -118,13 +126,19 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
   }
 
   Future<void> _fetchLiveMenu() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
     try {
-      // 1. Fetch categories from backend (admin defined categories with sortOrder)
+      // 1. Fetch categories and products from backend
       final categories = await ApiService.fetchCategories();
       final products = await ApiService.fetchProducts();
 
       if (mounted) {
         final List<Map<String, dynamic>> menuCats = [];
+        final Set<String> matchedProductIds = {};
 
         if (categories.isNotEmpty) {
           for (final cat in categories) {
@@ -135,21 +149,21 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
             final catProducts = products.where((p) {
               final pCatId = p['categoryId']?.toString();
               final pCatName = p['category']?['name']?.toString();
-              return pCatId == catId ||
+              return (pCatId != null && pCatId == catId) ||
                   (pCatName != null && pCatName.toLowerCase() == catName.toLowerCase());
             }).toList();
 
             final List<Map<String, dynamic>> items = catProducts.map<Map<String, dynamic>>((p) {
+              matchedProductIds.add(p['id'].toString());
               final images = p['images'] as List<dynamic>?;
               final imgUrl = (images != null && images.isNotEmpty)
                   ? images.first.toString()
                   : (p['image']?.toString() ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80');
-              final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
               return {
                 'id': p['id'].toString(),
                 'name': p['name']?.toString() ?? 'Product',
                 'desc': p['description']?.toString() ?? '',
-                'price': priceNum.toInt(),
+                'price': _parsePrice(p['basePrice'] ?? p['price']),
                 'image': imgUrl,
               };
             }).toList();
@@ -157,26 +171,32 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
             // Also check embedded products in category object from backend
             if (items.isEmpty && cat['products'] != null && (cat['products'] as List).isNotEmpty) {
               for (final cp in cat['products']) {
+                matchedProductIds.add(cp['id'].toString());
                 items.add({
                   'id': cp['id'].toString(),
                   'name': cp['name']?.toString() ?? 'Product',
                   'desc': cp['description']?.toString() ?? '',
-                  'price': (cp['basePrice'] ?? 0).toInt(),
+                  'price': _parsePrice(cp['basePrice'] ?? cp['price']),
                   'image': cp['image']?.toString() ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
                 });
               }
             }
 
-            menuCats.add({
-              'id': catId,
-              'title': catName,
-              'items': items,
-            });
+            if (items.isNotEmpty) {
+              menuCats.add({
+                'id': catId,
+                'title': catName,
+                'items': items,
+              });
+            }
           }
-        } else if (products.isNotEmpty) {
-          // Fallback if categories endpoint is empty
+        }
+
+        // Include any remaining products not matched to existing categories
+        final remainingProducts = products.where((p) => !matchedProductIds.contains(p['id'].toString())).toList();
+        if (remainingProducts.isNotEmpty) {
           final Map<String, List<Map<String, dynamic>>> grouped = {};
-          for (final p in products) {
+          for (final p in remainingProducts) {
             final catName = (p['category'] != null && p['category']['name'] != null)
                 ? p['category']['name'].toString()
                 : 'Specialties';
@@ -186,13 +206,11 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                 ? images.first.toString()
                 : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
 
-            final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
-
             final item = {
               'id': p['id'].toString(),
               'name': p['name']?.toString() ?? 'Product',
               'desc': p['description']?.toString() ?? '',
-              'price': priceNum.toInt(),
+              'price': _parsePrice(p['basePrice'] ?? p['price']),
               'image': imgUrl,
             };
 
@@ -207,17 +225,32 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
           }
         }
 
-        if (menuCats.isNotEmpty) {
-          setState(() {
-            _menuCategories.clear();
-            _menuCategories.addAll(menuCats);
-            _categoryKeys.clear();
-            _categoryKeys.addAll(List.generate(_menuCategories.length, (_) => GlobalKey()));
+        setState(() {
+          _isLoading = false;
+          _hasError = false;
+          _menuCategories.clear();
+          _menuCategories.addAll(menuCats);
+          _categoryKeys.clear();
+          _categoryKeys.addAll(List.generate(_menuCategories.length, (_) => GlobalKey()));
+          if (_selectedCategoryIndex >= _menuCategories.length) {
+            _selectedCategoryIndex = 0;
+          }
+        });
+
+        if (widget.initialCategoryIndex > 0 && widget.initialCategoryIndex < _menuCategories.length) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _scrollToCategory(widget.initialCategoryIndex);
           });
         }
       }
     } catch (e) {
       debugPrint('Live API fetch error in explore: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
     }
   }
 
@@ -371,13 +404,64 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               // ─── 2. CONTINUOUS VERTICAL SCROLLABLE MENU SECTIONS ──────
 
               Expanded(
-                child: _menuCategories.isEmpty
+                child: _isLoading && _menuCategories.isEmpty
                     ? const Center(
                         child: CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFD600)),
                         ),
                       )
-                    : ListView.builder(
+                    : _menuCategories.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _hasError ? Icons.wifi_off_rounded : Icons.restaurant_menu_rounded,
+                                    size: 56,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _hasError ? 'Failed to load menu' : 'No menu items found',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E1B4B),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _hasError
+                                        ? 'Could not connect to the server. Please check your network.'
+                                        : 'Menu categories will appear here once added.',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF9CA3AF),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  ElevatedButton.icon(
+                                    onPressed: _fetchLiveMenu,
+                                    icon: const Icon(Icons.refresh, size: 18),
+                                    label: const Text('Try Again'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFFF5722),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
                   controller: _scrollController,
                   padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + MediaQuery.of(context).padding.bottom),
                   itemCount: _menuCategories.length,

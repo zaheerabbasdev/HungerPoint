@@ -374,6 +374,26 @@ class ApiService {
 
   // ─── CATEGORIES & PRODUCTS ───────────────────────────────────
 
+  static dynamic _normalizeProduct(dynamic p) {
+    if (p is! Map) return p;
+    final map = Map<String, dynamic>.from(p);
+    if (map['basePrice'] != null) {
+      if (map['basePrice'] is String) {
+        map['basePrice'] = double.tryParse(map['basePrice'] as String) ?? 0.0;
+      } else if (map['basePrice'] is num) {
+        map['basePrice'] = (map['basePrice'] as num).toDouble();
+      }
+    }
+    if (map['price'] != null) {
+      if (map['price'] is String) {
+        map['price'] = double.tryParse(map['price'] as String) ?? 0.0;
+      } else if (map['price'] is num) {
+        map['price'] = (map['price'] as num).toDouble();
+      }
+    }
+    return map;
+  }
+
   static Future<List<dynamic>> fetchCategories() async {
     try {
       final res = await http.get(
@@ -383,7 +403,15 @@ class ApiService {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        return data['data'] ?? [];
+        final list = data['data'] as List<dynamic>? ?? [];
+        return list.map((cat) {
+          if (cat is Map && cat['products'] is List) {
+            final catMap = Map<String, dynamic>.from(cat);
+            catMap['products'] = (cat['products'] as List).map(_normalizeProduct).toList();
+            return catMap;
+          }
+          return cat;
+        }).toList();
       }
     } catch (e) {
       debugPrint('API Error (fetchCategories): $e');
@@ -406,7 +434,8 @@ class ApiService {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        return data['data'] ?? [];
+        final list = data['data'] as List<dynamic>? ?? [];
+        return list.map(_normalizeProduct).toList();
       }
     } catch (e) {
       debugPrint('API Error (fetchProducts): $e');

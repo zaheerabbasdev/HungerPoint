@@ -14,6 +14,7 @@ This document tracks all identified and resolved bugs across the HungerPoint Cus
 | [BUG-004](./BUG-004-undefined-identifiers-post-refactor.md) | Undefined Identifier Compilation Errors (`_proceedToWelcome`, `_allItems`) | `hpcustomer/screens` | High | 2026-09-07 | **Resolved** |
 | [BUG-005](./BUG-005-sms-delivery-simulation-gap.md) | SMS Delivery Gap & Missing In-App Verification Code Simulation | `hpbackend/auth` | High | 2026-09-07 | **Resolved** |
 | [BUG-006](./BUG-006-admin-categories-and-residual-mock-cleanup.md) | Residual Mock Data in Branch/Cart Services and Admin-Side Category Endpoint Ingestion | `hpcustomer/screens` | High | 2026-09-07 | **Resolved** |
+| [BUG-007](./BUG-007-decimal-price-type-mismatch-freeze.md) | Prisma Decimal String Serialization Type Mismatch Inducing Infinite Loading Freeze | `hpcustomer/screens` | Critical | 2026-09-08 | **Resolved** |
 
 ---
 

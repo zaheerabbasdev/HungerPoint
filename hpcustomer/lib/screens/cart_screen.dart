@@ -31,12 +31,15 @@ class _CartScreenState extends State<CartScreen> {
           final imgUrl = (images != null && images.isNotEmpty)
               ? images.first.toString()
               : (p['image']?.toString() ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80');
-          final num priceNum = p['basePrice'] ?? p['price'] ?? 0;
+          final rawPrice = p['basePrice'] ?? p['price'];
+          final price = rawPrice is num
+              ? rawPrice.toInt()
+              : (rawPrice is String ? (double.tryParse(rawPrice)?.toInt() ?? 0) : 0);
           return {
             'id': p['id'].toString(),
             'name': p['name']?.toString() ?? 'Product',
             'desc': p['description']?.toString() ?? '',
-            'price': priceNum.toInt(),
+            'price': price,
             'image': imgUrl,
           };
         }).toList();
