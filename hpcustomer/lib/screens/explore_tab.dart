@@ -165,6 +165,9 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                 'desc': p['description']?.toString() ?? '',
                 'price': _parsePrice(p['basePrice'] ?? p['price']),
                 'image': imgUrl,
+                'category': catName,
+                'variants': p['variants'],
+                'addons': p['addons'],
               };
             }).toList();
 
@@ -178,6 +181,9 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                   'desc': cp['description']?.toString() ?? '',
                   'price': _parsePrice(cp['basePrice'] ?? cp['price']),
                   'image': cp['image']?.toString() ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
+                  'category': catName,
+                  'variants': cp['variants'],
+                  'addons': cp['addons'],
                 });
               }
             }
@@ -212,6 +218,9 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               'desc': p['description']?.toString() ?? '',
               'price': _parsePrice(p['basePrice'] ?? p['price']),
               'image': imgUrl,
+              'category': catName,
+              'variants': p['variants'],
+              'addons': p['addons'],
             };
 
             grouped.putIfAbsent(catName, () => []).add(item);

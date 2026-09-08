@@ -266,18 +266,46 @@ class _CartScreenState extends State<CartScreen> {
                                     ),
                                     const SizedBox(height: 4),
 
-                                    // Variation / Description
-                                    Text(
-                                      item['variation'] ?? item['desc'] ?? 'Regular',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Color(0xFF9CA3AF),
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                    // Customization details: Variation, Flavour, Drink, Toppings
+                                    Builder(
+                                      builder: (context) {
+                                        final parts = <String>[];
+                                        if (item['variation'] != null && item['variation'].toString().isNotEmpty) {
+                                          parts.add(item['variation'].toString());
+                                        }
+                                        if (item['flavour'] != null && item['flavour'].toString().isNotEmpty) {
+                                          parts.add(item['flavour'].toString());
+                                        }
+                                        if (item['drink'] != null && item['drink'].toString().isNotEmpty) {
+                                          parts.add(item['drink'].toString());
+                                        }
+                                        final toppings = item['toppings'] as List?;
+                                        if (toppings != null && toppings.isNotEmpty) {
+                                          final topNames = toppings
+                                              .map((t) => t is Map ? (t['name'] ?? '') : t.toString())
+                                              .where((s) => s.isNotEmpty)
+                                              .join(', ');
+                                          if (topNames.isNotEmpty) parts.add(topNames);
+                                        }
+
+                                        final text = parts.isNotEmpty
+                                            ? parts.join(' • ')
+                                            : (item['desc'] ?? 'Regular');
+
+                                        return Text(
+                                          text,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF6B7280),
+                                            fontWeight: FontWeight.w500,
+                                            height: 1.3,
+                                          ),
+                                        );
+                                      },
                                     ),
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: 10),
 
                                     // Price & Stepper
                                     Row(

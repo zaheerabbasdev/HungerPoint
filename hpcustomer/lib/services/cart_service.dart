@@ -28,9 +28,25 @@ class CartService {
     final currentList = List<Map<String, dynamic>>.from(cartNotifier.value);
     final variation = newItem['variation'] ?? 'Regular';
     final name = newItem['name'];
+    final flavour = newItem['flavour'] ?? '';
+    final drink = newItem['drink'] ?? '';
+    final toppings = (newItem['toppings'] as List?)
+            ?.map((t) => t is Map ? (t['name'] ?? '') : t.toString())
+            .join(',') ??
+        '';
 
     final index = currentList.indexWhere(
-      (it) => it['name'] == name && (it['variation'] ?? 'Regular') == variation,
+      (it) {
+        final itToppings = (it['toppings'] as List?)
+                ?.map((t) => t is Map ? (t['name'] ?? '') : t.toString())
+                .join(',') ??
+            '';
+        return it['name'] == name &&
+            (it['variation'] ?? 'Regular') == variation &&
+            (it['flavour'] ?? '') == flavour &&
+            (it['drink'] ?? '') == drink &&
+            itToppings == toppings;
+      },
     );
 
     if (index >= 0) {

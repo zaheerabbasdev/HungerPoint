@@ -61,6 +61,11 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
             'desc': p['description']?.toString() ?? '',
             'price': price,
             'image': imgUrl,
+            'category': (p['category'] != null && p['category']['name'] != null)
+                ? p['category']['name'].toString()
+                : '',
+            'variants': p['variants'],
+            'addons': p['addons'],
           };
         }).toList();
         setState(() {
