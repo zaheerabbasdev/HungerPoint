@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/favorites_service.dart';
 import '../services/cart_service.dart';
 import '../widgets/top_toast.dart';
+import '../services/api_service.dart';
 import 'cart_screen.dart';
 
 class ItemDetailScreen extends StatefulWidget {
@@ -29,6 +30,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   final Set<String> _selectedToppingIds = {};
   final TextEditingController _instructionsController = TextEditingController();
 
+  List<Map<String, dynamic>> _backendAddons = [];
+  List<Map<String, dynamic>> _backendDrinks = [];
+  List<Map<String, String>> _dynamicFlavours = [];
+
   bool get _isPizza {
     final name = (widget.item['name'] ?? '').toString().toLowerCase();
     final cat = (widget.item['category'] ?? '').toString().toLowerCase();
@@ -51,12 +56,18 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         ? rawPrice.toInt()
         : (int.tryParse(rawPrice?.toString() ?? '1450') ?? 1450);
 
-    // 1. Build size variations
+    // 1. Build size variations from actual backend data
     final backendVariants = widget.item['variants'] as List<dynamic>?;
     if (backendVariants != null && backendVariants.isNotEmpty) {
       _variations = backendVariants.map<Map<String, dynamic>>((v) {
         final rawP = v['price'];
-        final p = rawP is num ? rawP.toInt() : (double.tryParse(rawP.toString())?.toInt() ?? _basePrice);
+        int p = rawP is num ? rawP.toInt() : (double.tryParse(rawP?.toString() ?? '')?.toInt() ?? 0);
+        // If variant price is delta (0 or less than half base price), add base price
+        if (p == 0) {
+          p = _basePrice;
+        } else if (p < (_basePrice * 0.5) && _basePrice > 0) {
+          p = _basePrice + p;
+        }
         final name = v['name']?.toString() ?? 'Regular';
         return {
           'id': v['id']?.toString() ?? name,
@@ -65,23 +76,9 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           'sizeKey': _normalizeSizeKey(name),
         };
       }).toList();
-    } else if (_isPizza) {
-      _variations = [
-        {'id': 'v_small', 'name': 'Small', 'price': (_basePrice * 0.72).round(), 'sizeKey': 'small'},
-        {'id': 'v_regular', 'name': 'Regular', 'price': _basePrice, 'sizeKey': 'regular'},
-        {'id': 'v_large', 'name': 'Large', 'price': (_basePrice * 1.38).round(), 'sizeKey': 'large'},
-        {'id': 'v_party', 'name': 'Party Size', 'price': (_basePrice * 1.88).round(), 'sizeKey': 'party'},
-      ];
-    } else if (_isBurger) {
-      _variations = [
-        {'id': 'v_single', 'name': 'Single Patty', 'price': _basePrice, 'sizeKey': 'regular'},
-        {'id': 'v_double', 'name': 'Double Patty', 'price': (_basePrice * 1.40).round(), 'sizeKey': 'large'},
-        {'id': 'v_combo', 'name': 'Meal Combo (Fries & Drink)', 'price': (_basePrice * 1.60).round(), 'sizeKey': 'party'},
-      ];
     } else {
       _variations = [
         {'id': 'v_regular', 'name': 'Regular', 'price': _basePrice, 'sizeKey': 'regular'},
-        {'id': 'v_large', 'name': 'Large', 'price': (_basePrice * 1.35).round(), 'sizeKey': 'large'},
       ];
     }
 
@@ -93,6 +90,9 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
     // Initially uncheck drink selection
     _selectedDrink = null;
+
+    // Load real-time backend addons, drinks, and flavours
+    _loadBackendCustomizations();
   }
 
   @override
@@ -125,266 +125,183 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     return _variations[_selectedVariationIndex!]['name'] as String? ?? 'Regular';
   }
 
-  // ─── FLAVOURS ──────────────────────────────────────────────────
-  List<Map<String, String>> get _pizzaFlavours => [
-        {
-          'name': 'Chicken Tikka',
-          'desc': 'Traditional spicy marinated chicken with fresh onions & herbs',
-        },
-        {
-          'name': 'Chicken Fajita',
-          'desc': 'Mexican spiced chicken with crisp bell peppers & onions',
-        },
-        {
-          'name': 'Spicy Ranch',
-          'desc': 'Tender chicken strips drizzled with creamy garlic ranch sauce',
-        },
-        {
-          'name': 'BBQ Buzz',
-          'desc': 'Smokey barbecue chicken chunks with red onions & mushrooms',
-        },
-        {
-          'name': 'Creamy Afghani',
-          'desc': 'Rich creamy base, garlic chicken chunks & melted mozzarella',
-        },
-        {
-          'name': 'Pepperoni Passion',
-          'desc': 'Loaded beef pepperoni with premium double mozzarella cheese',
-        },
-        {
-          'name': 'Veggie Supreme',
-          'desc': 'Sweet corn, mushrooms, olives, bell peppers & juicy tomatoes',
-        },
-        {
-          'name': 'Cheese Feast',
-          'desc': 'Triple blend of melted mozzarella, cheddar & parmesan cheese',
-        },
-      ];
+  // ─── REAL-TIME BACKEND DATA LOADER ───────────────────────────
+  Future<void> _loadBackendCustomizations() async {
+    try {
+      // 1. Fetch real addons created in Admin Panel
+      final addons = await ApiService.fetchAddons();
+      if (addons.isNotEmpty && mounted) {
+        setState(() {
+          _backendAddons = addons.map<Map<String, dynamic>>((a) {
+            if (a is Map) {
+              return Map<String, dynamic>.from(a);
+            }
+            return <String, dynamic>{};
+          }).where((m) => m.isNotEmpty).toList();
+        });
+      }
 
-  List<Map<String, String>> get _burgerFlavours => [
-        {
-          'name': 'Classic Crispy',
-          'desc': 'Mildly seasoned crunchy recipe with signature sauce',
-        },
-        {
-          'name': 'Spicy Jalapeño',
-          'desc': 'Fiery chili glaze with pickled jalapeños & hot sauce',
-        },
-        {
-          'name': 'Smokey BBQ',
-          'desc': 'Sweet and smokey barbecue glaze with caramelized onions',
-        },
-      ];
+      // 2. Fetch real products for drinks and flavours
+      final prods = await ApiService.fetchProducts();
+      if (prods.isNotEmpty && mounted) {
+        // Real drinks from beverage/drinks categories or products
+        final drinks = prods.where((p) {
+          final cat = (p['category']?['name'] ?? '').toString().toLowerCase();
+          final n = (p['name'] ?? '').toString().toLowerCase();
+          return cat.contains('beverage') || cat.contains('drink') || cat.contains('shake') ||
+              n.contains('coke') || n.contains('pepsi') || n.contains('water') || n.contains('soda') || n.contains('fanta') || n.contains('sprite');
+        }).toList();
 
-  // ─── DRINKS ────────────────────────────────────────────────────
-  List<Map<String, dynamic>> get _drinkOptions => [
-        {'name': 'Coca-Cola (345ml)', 'price': 140, 'tag': 'Chilled'},
-        {'name': 'Sprite (345ml)', 'price': 140, 'tag': 'Chilled'},
-        {'name': 'Fanta (345ml)', 'price': 140, 'tag': 'Chilled'},
-        {'name': 'Diet Coke (345ml Can)', 'price': 160, 'tag': 'Sugar Free'},
-        {'name': 'Fresh Lime Soda', 'price': 180, 'tag': 'Refreshing'},
-        {'name': 'Mint Margarita', 'price': 220, 'tag': 'Signature'},
-        {'name': 'Nestle Mineral Water (500ml)', 'price': 80, 'tag': 'Pure'},
-      ];
+        final List<Map<String, dynamic>> mappedDrinks = drinks.map<Map<String, dynamic>>((d) {
+          final rawP = d['basePrice'] ?? d['price'];
+          final p = rawP is num ? rawP.toInt() : (double.tryParse(rawP?.toString() ?? '140')?.toInt() ?? 140);
+          return {
+            'id': d['id']?.toString(),
+            'name': d['name']?.toString() ?? 'Drink',
+            'price': p,
+            'tag': (d['description'] != null && d['description'].toString().isNotEmpty)
+                ? d['description'].toString()
+                : 'Chilled',
+          };
+        }).toList();
 
-  // ─── ALL TOPPINGS CATALOG (Size-tagged for dynamic filtering) ───
-  List<Map<String, dynamic>> _getAllToppingsCatalog() {
+        // Real flavours from other products in the same category
+        final currentCat = (widget.item['category'] ?? '').toString().toLowerCase();
+        final currentName = (widget.item['name'] ?? '').toString().toLowerCase();
+        final sameCatProds = prods.where((p) {
+          final pCat = (p['category']?['name'] ?? '').toString().toLowerCase();
+          final pName = (p['name'] ?? '').toString().toLowerCase();
+          return currentCat.isNotEmpty && pCat == currentCat && pName != currentName;
+        }).toList();
+
+        final List<Map<String, String>> mappedFlavours = sameCatProds.map<Map<String, String>>((p) {
+          return {
+            'name': p['name']?.toString() ?? '',
+            'desc': p['description']?.toString() ?? '',
+          };
+        }).where((f) => f['name']!.isNotEmpty).toList();
+
+        // Include current item name as first flavour option if applicable
+        if (widget.item['name'] != null && widget.item['name'].toString().isNotEmpty) {
+          mappedFlavours.insert(0, {
+            'name': widget.item['name'].toString(),
+            'desc': widget.item['desc']?.toString() ?? 'Signature Recipe',
+          });
+        }
+
+        setState(() {
+          if (mappedDrinks.isNotEmpty) {
+            _backendDrinks = mappedDrinks;
+          }
+          if (mappedFlavours.isNotEmpty) {
+            _dynamicFlavours = mappedFlavours;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading backend customizations: $e');
+    }
+  }
+
+  // ─── FLAVOURS (Backed by real database products) ───────────────
+  List<Map<String, String>> get _pizzaFlavours {
+    if (_dynamicFlavours.isNotEmpty && _isPizza) {
+      return _dynamicFlavours;
+    }
     return [
-      // Small Toppings
-      {
-        'id': 'top_cheese_small',
-        'name': 'Extra Cheese (Small)',
-        'price': 120,
-        'sizeKey': 'small',
-        'baseToppingKey': 'cheese',
-      },
-      {
-        'id': 'top_chicken_small',
-        'name': 'Extra Chicken / Meat (Small)',
-        'price': 150,
-        'sizeKey': 'small',
-        'baseToppingKey': 'chicken',
-      },
-      {
-        'id': 'top_olives_small',
-        'name': 'Black Olives & Mushrooms (Small)',
-        'price': 80,
-        'sizeKey': 'small',
-        'baseToppingKey': 'olives',
-      },
-      {
-        'id': 'top_jalapenos_small',
-        'name': 'Pickled Jalapeños (Small)',
-        'price': 60,
-        'sizeKey': 'small',
-        'baseToppingKey': 'jalapenos',
-      },
-
-      // Regular Toppings
-      {
-        'id': 'top_cheese_regular',
-        'name': 'Extra Cheese (Regular)',
-        'price': 180,
-        'sizeKey': 'regular',
-        'baseToppingKey': 'cheese',
-      },
-      {
-        'id': 'top_chicken_regular',
-        'name': 'Extra Chicken / Meat (Regular)',
-        'price': 220,
-        'sizeKey': 'regular',
-        'baseToppingKey': 'chicken',
-      },
-      {
-        'id': 'top_olives_regular',
-        'name': 'Black Olives & Mushrooms (Regular)',
-        'price': 120,
-        'sizeKey': 'regular',
-        'baseToppingKey': 'olives',
-      },
-      {
-        'id': 'top_jalapenos_regular',
-        'name': 'Pickled Jalapeños (Regular)',
-        'price': 90,
-        'sizeKey': 'regular',
-        'baseToppingKey': 'jalapenos',
-      },
-      {
-        'id': 'top_stuffed_crust_regular',
-        'name': 'Cheese Stuffed Crust (Regular)',
-        'price': 200,
-        'sizeKey': 'regular',
-        'baseToppingKey': 'stuffed_crust',
-      },
-
-      // Large Toppings
-      {
-        'id': 'top_cheese_large',
-        'name': 'Extra Cheese (Large)',
-        'price': 260,
-        'sizeKey': 'large',
-        'baseToppingKey': 'cheese',
-      },
-      {
-        'id': 'top_chicken_large',
-        'name': 'Extra Chicken / Meat (Large)',
-        'price': 320,
-        'sizeKey': 'large',
-        'baseToppingKey': 'chicken',
-      },
-      {
-        'id': 'top_olives_large',
-        'name': 'Black Olives & Mushrooms (Large)',
-        'price': 160,
-        'sizeKey': 'large',
-        'baseToppingKey': 'olives',
-      },
-      {
-        'id': 'top_jalapenos_large',
-        'name': 'Pickled Jalapeños (Large)',
-        'price': 120,
-        'sizeKey': 'large',
-        'baseToppingKey': 'jalapenos',
-      },
-      {
-        'id': 'top_cheese_crust_large',
-        'name': 'Cheese Stuffed Crust (Large)',
-        'price': 280,
-        'sizeKey': 'large',
-        'baseToppingKey': 'stuffed_crust',
-      },
-      {
-        'id': 'top_kabab_crust_large',
-        'name': 'Kabab Stuffed Crust (Large)',
-        'price': 330,
-        'sizeKey': 'large',
-        'baseToppingKey': 'kabab_crust',
-      },
-
-      // Party Size / Extra Large Toppings
-      {
-        'id': 'top_cheese_party',
-        'name': 'Extra Cheese (Party Size)',
-        'price': 360,
-        'sizeKey': 'party',
-        'baseToppingKey': 'cheese',
-      },
-      {
-        'id': 'top_chicken_party',
-        'name': 'Extra Chicken / Meat (Party Size)',
-        'price': 450,
-        'sizeKey': 'party',
-        'baseToppingKey': 'chicken',
-      },
-      {
-        'id': 'top_olives_party',
-        'name': 'Black Olives & Mushrooms (Party Size)',
-        'price': 220,
-        'sizeKey': 'party',
-        'baseToppingKey': 'olives',
-      },
-      {
-        'id': 'top_jalapenos_party',
-        'name': 'Pickled Jalapeños (Party Size)',
-        'price': 160,
-        'sizeKey': 'party',
-        'baseToppingKey': 'jalapenos',
-      },
-      {
-        'id': 'top_cheese_crust_party',
-        'name': 'Cheese Stuffed Crust (Party Size)',
-        'price': 380,
-        'sizeKey': 'party',
-        'baseToppingKey': 'stuffed_crust',
-      },
-      {
-        'id': 'top_kabab_crust_party',
-        'name': 'Kabab Stuffed Crust (Party Size)',
-        'price': 440,
-        'sizeKey': 'party',
-        'baseToppingKey': 'kabab_crust',
-      },
-
-      // Universal Dips & Sauces (available for all sizes)
-      {
-        'id': 'top_garlic_dip',
-        'name': 'Garlic Mayo Dip Cup',
-        'price': 70,
-        'sizeKey': 'all',
-        'baseToppingKey': 'garlic_dip',
-      },
-      {
-        'id': 'top_ranch_dip',
-        'name': 'Creamy Ranch Dip Cup',
-        'price': 80,
-        'sizeKey': 'all',
-        'baseToppingKey': 'ranch_dip',
-      },
-      {
-        'id': 'top_chipotle_dip',
-        'name': 'Smoky Chipotle Dip Cup',
-        'price': 80,
-        'sizeKey': 'all',
-        'baseToppingKey': 'chipotle_dip',
-      },
+      {'name': 'Chicken Tikka', 'desc': 'Traditional spicy marinated chicken with fresh onions & herbs'},
+      {'name': 'Chicken Fajita', 'desc': 'Mexican spiced chicken with crisp bell peppers & onions'},
+      {'name': 'Pepperoni Passion', 'desc': 'Loaded beef pepperoni with premium double mozzarella cheese'},
+      {'name': 'Veggie Supreme', 'desc': 'Sweet corn, mushrooms, olives, bell peppers & juicy tomatoes'},
+      {'name': 'Cheese Feast', 'desc': 'Triple blend of melted mozzarella, cheddar & parmesan cheese'},
     ];
   }
 
-  /// Returns only the toppings that match the currently selected size (or 'all')
+  List<Map<String, String>> get _burgerFlavours {
+    if (_dynamicFlavours.isNotEmpty && _isBurger) {
+      return _dynamicFlavours;
+    }
+    return [
+      {'name': 'Classic Crispy', 'desc': 'Mildly seasoned crunchy recipe with signature sauce'},
+      {'name': 'Spicy Jalapeño', 'desc': 'Fiery chili glaze with pickled jalapeños & hot sauce'},
+      {'name': 'Smokey BBQ', 'desc': 'Sweet and smokey barbecue glaze with caramelized onions'},
+    ];
+  }
+
+  // ─── DRINKS (Backed by real database beverages from admin panel) ─
+  List<Map<String, dynamic>> get _drinkOptions {
+    if (_backendDrinks.isNotEmpty) {
+      return _backendDrinks;
+    }
+    return [
+      {'name': 'Coca-Cola (345ml)', 'price': 140, 'tag': 'Chilled'},
+      {'name': 'Sprite (345ml)', 'price': 140, 'tag': 'Chilled'},
+      {'name': 'Fanta (345ml)', 'price': 140, 'tag': 'Chilled'},
+      {'name': 'Diet Coke (345ml Can)', 'price': 160, 'tag': 'Sugar Free'},
+      {'name': 'Fresh Lime Soda', 'price': 180, 'tag': 'Refreshing'},
+      {'name': 'Mint Margarita', 'price': 220, 'tag': 'Signature'},
+      {'name': 'Nestle Mineral Water (500ml)', 'price': 80, 'tag': 'Pure'},
+    ];
+  }
+
+  // ─── ADDONS / TOPPINGS (Backed by real admin add-ons) ───────────
   List<Map<String, dynamic>> get _filteredToppings {
-    final currentKey = _currentSizeKey;
-    final all = _getAllToppingsCatalog();
-    return all.where((t) {
-      final key = t['sizeKey'] as String;
-      return key == currentKey || key == 'all';
-    }).toList();
+    final List<Map<String, dynamic>> result = [];
+    final seen = <String>{};
+
+    void addAddon(dynamic a) {
+      if (a is! Map) return;
+      final obj = (a['addon'] is Map) ? Map<String, dynamic>.from(a['addon']) : Map<String, dynamic>.from(a);
+      final id = obj['id']?.toString() ?? '';
+      final name = obj['name']?.toString() ?? '';
+      if (id.isEmpty || name.isEmpty || seen.contains(name.toLowerCase())) return;
+      seen.add(name.toLowerCase());
+
+      final rawP = obj['price'];
+      final p = rawP is num ? rawP.toInt() : (double.tryParse(rawP?.toString() ?? '0')?.toInt() ?? 0);
+
+      result.add({
+        'id': id,
+        'name': name,
+        'price': p,
+        'sizeKey': 'all',
+        'baseToppingKey': id,
+      });
+    }
+
+    // 1. Linked addons for this product from admin panel
+    final prodAddons = widget.item['addons'] as List<dynamic>?;
+    if (prodAddons != null) {
+      for (final a in prodAddons) {
+        addAddon(a);
+      }
+    }
+
+    // 2. All active addons from backend
+    for (final a in _backendAddons) {
+      addAddon(a);
+    }
+
+    // 3. Fallback catalog if backend has not configured addons yet
+    if (result.isEmpty) {
+      return [
+        {'id': 'top_cheese', 'name': 'Extra Cheese', 'price': 120, 'sizeKey': 'all', 'baseToppingKey': 'cheese'},
+        {'id': 'top_chicken', 'name': 'Extra Chicken / Meat', 'price': 150, 'sizeKey': 'all', 'baseToppingKey': 'chicken'},
+        {'id': 'top_olives', 'name': 'Black Olives & Mushrooms', 'price': 80, 'sizeKey': 'all', 'baseToppingKey': 'olives'},
+        {'id': 'top_jalapenos', 'name': 'Pickled Jalapeños', 'price': 60, 'sizeKey': 'all', 'baseToppingKey': 'jalapenos'},
+        {'id': 'top_garlic_dip', 'name': 'Garlic Mayo Dip Cup', 'price': 70, 'sizeKey': 'all', 'baseToppingKey': 'garlic_dip'},
+        {'id': 'top_ranch_dip', 'name': 'Creamy Ranch Dip Cup', 'price': 80, 'sizeKey': 'all', 'baseToppingKey': 'ranch_dip'},
+      ];
+    }
+
+    return result;
   }
 
   /// When changing variation size, enable flavours and migrate toppings
   void _onVariationSelected(int newIndex) {
     final isFirstSelection = _selectedVariationIndex == null;
 
-    final allCatalog = _getAllToppingsCatalog();
+    final allCatalog = _filteredToppings;
     final selectedBaseKeys = <String>{};
 
     for (final id in _selectedToppingIds) {
@@ -410,7 +327,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       _selectedToppingIds.clear();
       final newAvailable = _filteredToppings;
       for (final t in newAvailable) {
-        if (selectedBaseKeys.contains(t['baseToppingKey'])) {
+        if (selectedBaseKeys.contains(t['baseToppingKey']) || selectedBaseKeys.contains(t['id'])) {
           _selectedToppingIds.add(t['id'] as String);
         }
       }
@@ -425,7 +342,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         : _basePrice;
 
     int toppingsPrice = 0;
-    final allCatalog = _getAllToppingsCatalog();
+    final allCatalog = _filteredToppings;
     for (final id in _selectedToppingIds) {
       final match = allCatalog.firstWhere((t) => t['id'] == id, orElse: () => {});
       if (match.isNotEmpty) {
@@ -456,7 +373,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    final allCatalog = _getAllToppingsCatalog();
+    final allCatalog = _filteredToppings;
     final selectedToppingsList = _selectedToppingIds.map((id) {
       return allCatalog.firstWhere(
         (t) => t['id'] == id,
@@ -875,17 +792,17 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                           }),
                           const SizedBox(height: 28),
 
-                          // ─── 4. DYNAMIC EXTRA TOPPINGS (MATCHED TO SELECTED SIZE) ───
+                          // ─── 4. DYNAMIC EXTRA ADD-ONS & TOPPINGS (FROM ADMIN PANEL) ───
                           _buildSectionHeader(
-                            title: 'Extra Toppings (for $_currentSizeName)',
+                            title: 'Extra Add-ons & Toppings',
                             badgeText: 'OPTIONAL • Multi-select',
                             badgeColor: const Color(0xFFF3F4F6),
                             badgeTextColor: const Color(0xFF4B5563),
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            'Toppings & crusts adapted dynamically for $_currentSizeName size:',
-                            style: const TextStyle(
+                          const Text(
+                            'Select extra sides, dips, and toppings for your meal:',
+                            style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFF9CA3AF),
                               fontWeight: FontWeight.w500,

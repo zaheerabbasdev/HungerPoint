@@ -443,6 +443,23 @@ class ApiService {
     return [];
   }
 
+  static Future<List<dynamic>> fetchAddons() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/products/addons/all'),
+        headers: _headers(),
+      ).timeout(const Duration(seconds: 6));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['data'] as List<dynamic>? ?? [];
+      }
+    } catch (e) {
+      debugPrint('API Error (fetchAddons): $e');
+    }
+    return [];
+  }
+
   // ─── ORDERS ──────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> createOrder({

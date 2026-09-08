@@ -188,13 +188,11 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               }
             }
 
-            if (items.isNotEmpty) {
-              menuCats.add({
-                'id': catId,
-                'title': catName,
-                'items': items,
-              });
-            }
+            menuCats.add({
+              'id': catId,
+              'title': catName,
+              'items': items,
+            });
           }
         }
 
@@ -497,10 +495,23 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                         ),
 
                         // Products in this Category
-                        ...items.map((item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 14.0),
-                              child: _buildMenuItemCard(item),
-                            )),
+                        if (items.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                            child: Text(
+                              'No products added to this category yet.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF9CA3AF),
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          )
+                        else
+                          ...items.map((item) => Padding(
+                                padding: const EdgeInsets.only(bottom: 14.0),
+                                child: _buildMenuItemCard(item),
+                              )),
                       ],
                     );
                   },
