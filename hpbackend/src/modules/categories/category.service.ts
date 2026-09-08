@@ -58,6 +58,14 @@ export class CategoryService {
 
   static async deleteCategory(id: string) {
     await this.getCategoryById(id);
-    return prisma.category.delete({ where: { id } });
+    try {
+      return await prisma.category.delete({ where: { id } });
+    } catch (e) {
+      // If products exist linked to this category, soft delete by marking inactive
+      return await prisma.category.update({
+        where: { id },
+        data: { isActive: false },
+      });
+    }
   }
 }

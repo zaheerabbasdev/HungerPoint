@@ -72,8 +72,9 @@ export class ProductService {
     basePrice: number;
     sortOrder?: number;
     variants?: { name: string; price: number; isDefault?: boolean }[];
+    addonIds?: string[];
   }) {
-    const { variants, ...productData } = data;
+    const { variants, addonIds, ...productData } = data;
 
     return prisma.product.create({
       data: {
@@ -81,28 +82,49 @@ export class ProductService {
         variants: variants && variants.length > 0 ? {
           create: variants.map((v, idx) => ({ ...v, sortOrder: idx })),
         } : undefined,
+        addons: addonIds && addonIds.length > 0 ? {
+          create: addonIds.map((addonId) => ({ addonId })),
+        } : undefined,
       },
       include: {
         category: true,
         variants: true,
+        addons: { include: { addon: true } },
       },
     });
   }
 
   static async updateProduct(id: string, data: any) {
     await this.getProductById(id);
-    const { variants, addons, ...updateData } = data;
+    const { variants, addons, addonIds, ...updateData } = data;
+
+    if (addonIds && Array.isArray(addonIds)) {
+      await prisma.productAddon.deleteMany({ where: { productId: id } });
+      if (addonIds.length > 0) {
+        await prisma.productAddon.createMany({
+          data: addonIds.map((addonId: string) => ({ productId: id, addonId })),
+        });
+      }
+    }
 
     return prisma.product.update({
       where: { id },
       data: updateData,
-      include: { category: true, variants: true },
+      include: { category: true, variants: true, addons: { include: { addon: true } } },
     });
   }
 
   static async deleteProduct(id: string) {
     await this.getProductById(id);
-    return prisma.product.delete({ where: { id } });
+    try {
+      return await prisma.product.delete({ where: { id } });
+    } catch (e) {
+      // If referenced in existing orders or carts, soft delete
+      return await prisma.product.update({
+        where: { id },
+        data: { isActive: false },
+      });
+    }
   }
 
   static async addVariant(productId: string, data: { name: string; price: number; isDefault?: boolean }) {
@@ -121,5 +143,30 @@ export class ProductService {
 
   static async deleteVariant(variantId: string) {
     return prisma.productVariant.delete({ where: { id: variantId } });
+  }
+
+  // ─── ADDONS MANAGEMENT ───────────────────────────────────────
+
+  static async getAllAddons() {
+    return prisma.addon.findMany({
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  static async createAddon(data: { name: string; price: number }) {
+    return prisma.addon.create({
+      data,
+    });
+  }
+
+  static async deleteAddon(id: string) {
+    try {
+      return await prisma.addon.delete({ where: { id } });
+    } catch (e) {
+      return await prisma.addon.update({
+        where: { id },
+        data: { isActive: false },
+      });
+    }
   }
 }

@@ -77,9 +77,15 @@ export const registerCustomer = async (data: {
 };
 
 // ─── Login ────────────────────────────────────────────────────
-export const login = async (data: { phone: string; password: string }) => {
-  const user = await prisma.user.findUnique({
-    where: { phone: data.phone },
+export const login = async (data: { phone?: string; email?: string; password: string }) => {
+  const identifier = (data.phone || data.email || '').trim();
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { phone: identifier },
+        { email: identifier },
+      ],
+    },
     select: {
       id: true, name: true, phone: true, email: true,
       role: true, isActive: true, isVerified: true,
@@ -87,11 +93,11 @@ export const login = async (data: { phone: string; password: string }) => {
     },
   });
 
-  if (!user) throw new AppError('Invalid phone number or password', 401);
+  if (!user) throw new AppError('Invalid credentials or account not found', 401);
   if (!user.isActive) throw new AppError('Account has been deactivated', 403);
 
   const isPasswordValid = await bcrypt.compare(data.password, user.password);
-  if (!isPasswordValid) throw new AppError('Invalid phone number or password', 401);
+  if (!isPasswordValid) throw new AppError('Invalid credentials or password', 401);
 
   const payload: AuthPayload = {
     userId: user.id,

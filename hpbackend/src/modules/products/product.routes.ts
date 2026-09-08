@@ -9,6 +9,11 @@ import { UserRole } from '@prisma/client';
 
 const router = Router();
 
+// Addons routes
+router.get('/addons/all', ProductController.getAllAddons);
+router.post('/addons', authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER), ProductController.createAddon);
+router.delete('/addons/:id', authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN), ProductController.deleteAddon);
+
 // Public routes
 router.get('/', ProductController.getAll);
 router.get('/:id', ProductController.getById);

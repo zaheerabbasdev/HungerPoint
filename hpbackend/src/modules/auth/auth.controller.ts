@@ -16,7 +16,12 @@ export const registerValidation = [
 ];
 
 export const loginValidation = [
-  body('phone').trim().notEmpty().withMessage('Phone is required'),
+  body().custom((value, { req }) => {
+    if (!req.body.phone && !req.body.email) {
+      throw new Error('Phone or Email is required');
+    }
+    return true;
+  }),
   body('password').notEmpty().withMessage('Password is required'),
 ];
 

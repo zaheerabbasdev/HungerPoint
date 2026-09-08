@@ -83,4 +83,33 @@ export class ProductController {
       next(error);
     }
   }
+
+  // ─── ADDONS ──────────────────────────────────────────────────
+
+  static async getAllAddons(req: Request, res: Response, next: NextFunction) {
+    try {
+      const addons = await ProductService.getAllAddons();
+      res.json({ success: true, count: addons.length, data: addons });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async createAddon(req: Request, res: Response, next: NextFunction) {
+    try {
+      const addon = await ProductService.createAddon(req.body);
+      res.status(201).json({ success: true, message: 'Add-on created successfully', data: addon });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteAddon(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ProductService.deleteAddon(req.params.id as string);
+      res.json({ success: true, message: 'Add-on deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
