@@ -331,46 +331,6 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               ],
             ),
             actions: [
-              // Refresh Icon Button
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: Center(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () async {
-                      await _fetchLiveMenu();
-                      await BranchService().fetchBranchesFromBackend();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Menu refreshed!'),
-                            duration: Duration(seconds: 1),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    },
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFFF3F4F6)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 14,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B), size: 20),
-                    ),
-                  ),
-                ),
-              ),
-
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: Center(

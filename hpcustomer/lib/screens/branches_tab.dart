@@ -429,28 +429,6 @@ class _BranchesScreenState extends State<BranchesScreen> {
                       color: Color(0xFF1E1B4B),
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B), size: 24),
-                    tooltip: 'Refresh Branches',
-                    onPressed: () async {
-                      await BranchService().fetchBranchesFromBackend();
-                      if (mounted) {
-                        setState(() {
-                          _currentNearestBranch = BranchService().allBranches.isNotEmpty
-                              ? BranchService().allBranches.first
-                              : null;
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Branches refreshed!'),
-                            duration: Duration(seconds: 1),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    },
-                  ),
                 ],
               ),
             ),

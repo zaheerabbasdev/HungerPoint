@@ -261,24 +261,6 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
                       color: Color(0xFF1E1B4B),
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B), size: 24),
-                    tooltip: 'Refresh Branches',
-                    onPressed: () async {
-                      await BranchService().fetchBranchesFromBackend();
-                      if (mounted) {
-                        setState(() {});
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Branches refreshed!'),
-                            duration: Duration(seconds: 1),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    },
-                  ),
                 ],
               ),
             ),

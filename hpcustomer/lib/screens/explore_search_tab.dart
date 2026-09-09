@@ -163,26 +163,6 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B)),
-            tooltip: 'Refresh Menu',
-            onPressed: () async {
-              await _fetchLiveProducts();
-              await BranchService().fetchBranchesFromBackend();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Menu items refreshed!'),
-                    duration: Duration(seconds: 1),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-          ),
-          const SizedBox(width: 4),
-        ],
       ),
       body: Stack(
         children: [

@@ -104,26 +104,6 @@ class _VouchersScreenState extends State<VouchersScreen> {
             color: Color(0xFF1E1B4B),
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B), size: 22),
-            tooltip: 'Refresh Vouchers',
-            onPressed: () async {
-              await ApiService.fetchCoupons();
-              if (mounted) {
-                setState(() {});
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Vouchers refreshed!'),
-                    duration: Duration(seconds: 1),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: RefreshIndicator(
         color: const Color(0xFFFF5722),
