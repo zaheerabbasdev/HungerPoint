@@ -398,7 +398,10 @@ class _BranchesScreenState extends State<BranchesScreen> {
   @override
   Widget build(BuildContext context) {
     final nearestBranch = _currentNearestBranch ??
-        (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first : BranchService().branches[0]);
+        BranchService().selectedBranch ??
+        (BranchService().allBranches.isNotEmpty
+            ? BranchService().allBranches.first
+            : const Branch(id: 'default', name: 'HungerPoint Branch', address: 'Main Location', distance: 'Near you'));
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -433,14 +436,14 @@ class _BranchesScreenState extends State<BranchesScreen> {
               ),
             ),
 
-            // ─── MAP SECTION (F-7 Markaz Street Level Map Matching Image 1) ───
+            // ─── MAP SECTION (Street Level Map) ───
             Expanded(
               child: Stack(
                 children: [
                   // Vector street map canvas
                   Positioned.fill(
                     child: CustomPaint(
-                      painter: _F7MarkazStreetPainter(),
+                      painter: _BranchStreetPainter(branch: nearestBranch),
                     ),
                   ),
 
@@ -672,8 +675,12 @@ class _BranchesScreenState extends State<BranchesScreen> {
   }
 }
 
-/// Custom painter for the detailed F-7 Markaz street-level map matching Image 1
-class _F7MarkazStreetPainter extends CustomPainter {
+/// Custom painter for the street-level map matching the actual branch
+class _BranchStreetPainter extends CustomPainter {
+  final Branch? branch;
+
+  const _BranchStreetPainter({this.branch});
+
   @override
   void paint(Canvas canvas, Size size) {
     // 1. Map base background
@@ -691,7 +698,7 @@ class _F7MarkazStreetPainter extends CustomPainter {
       }
     }
 
-    // 3. Roads / Streets (Diagonal and horizontal lines matching F-7 sector grid)
+    // 3. Roads / Streets
     final roadPaint = Paint()
       ..color = Colors.white
       ..strokeWidth = 14
@@ -710,62 +717,49 @@ class _F7MarkazStreetPainter extends CustomPainter {
     canvas.drawLine(Offset(size.width * 0.1, 0), Offset(size.width * 0.9, size.height), roadMinorPaint);
     canvas.drawLine(Offset(0, size.height * 0.35), Offset(size.width, size.height * 0.5), roadMinorPaint);
 
-    // 4. POI Map Icons and Labels (Matching Image 1)
-    _drawPoi(canvas, 'Berlin Nights', Offset(size.width * 0.12, 50), const Color(0xFFEA580C), Icons.restaurant);
-    _drawPoi(canvas, 'Ox & Grill\nSteakhouse', Offset(size.width * 0.28, size.height * 0.27), const Color(0xFFEA580C), Icons.restaurant);
-    _drawPoi(canvas, 'Mantra Safa\nGold Mall', Offset(size.width * 0.55, size.height * 0.26), const Color(0xFF2563EB), Icons.shopping_bag);
-    _drawPoi(canvas, 'Executive\nGuest House', Offset(size.width * 0.68, size.height * 0.33), const Color(0xFF7C3AED), Icons.hotel);
-    _drawPoi(canvas, 'English Tea\nHouse', Offset(size.width * 0.05, size.height * 0.30), const Color(0xFF7C3AED), Icons.hotel);
-    _drawPoi(canvas, 'Marble Stone\nIce Creamery', Offset(size.width * 0.22, size.height * 0.40), const Color(0xFF4B5563), Icons.build);
-    _drawPoi(canvas, 'Melberry Guest\nHouse', Offset(size.width * 0.65, size.height * 0.52), const Color(0xFF7C3AED), Icons.hotel);
-    _drawPoi(canvas, 'Sarfaraz Nawaz\nCricket Academy', Offset(size.width * 0.22, size.height * 0.55), const Color(0xFF7C3AED), Icons.sports_cricket);
-    _drawPoi(canvas, 'Kabul\nRestaurant', Offset(size.width * 0.60, 60), const Color(0xFFEA580C), Icons.restaurant);
-    _drawPoi(canvas, 'Saeed Book Bank', Offset(size.width * 0.82, 45), const Color(0xFF2563EB), Icons.shopping_bag);
-
-    // 5. Street Name Labels (Image 1)
-    _drawStreetLabel(canvas, 'F 7 MARKAZ', Offset(size.width * 0.65, 95));
-    _drawStreetLabel(canvas, 'Bhitai Road', Offset(size.width * 0.72, size.height * 0.27));
-    _drawStreetLabel(canvas, 'Street 41', Offset(size.width * 0.50, size.height * 0.40));
-    _drawStreetLabel(canvas, 'Street 40', Offset(size.width * 0.54, size.height * 0.45));
-    _drawStreetLabel(canvas, 'Street 46', Offset(size.width * 0.86, size.height * 0.36));
-    _drawStreetLabel(canvas, 'Street 45', Offset(size.width * 0.88, size.height * 0.41));
-    _drawStreetLabel(canvas, 'Street 21', Offset(size.width * 0.08, size.height * 0.22));
+    // 4. Actual Branch Name and Location POIs
+    if (branch != null) {
+      _drawPoi(canvas, branch!.name, Offset(size.width * 0.45, 60), const Color(0xFFFF5722), Icons.storefront);
+      if (branch!.address.isNotEmpty) {
+        _drawStreetLabel(canvas, branch!.address, Offset(size.width * 0.15, size.height * 0.75));
+      }
+    }
   }
 
   void _drawPoi(Canvas canvas, String title, Offset offset, Color iconColor, IconData icon) {
     // Circle container
     final circlePaint = Paint()..color = iconColor;
-    canvas.drawCircle(Offset(offset.dx + 10, offset.dy + 10), 10, circlePaint);
+    canvas.drawCircle(Offset(offset.dx + 12, offset.dy + 12), 12, circlePaint);
 
     // Icon
     final iconSpan = TextSpan(
       text: String.fromCharCode(icon.codePoint),
       style: TextStyle(
-        fontSize: 11,
+        fontSize: 13,
         fontFamily: icon.fontFamily,
         package: icon.fontPackage,
         color: Colors.white,
       ),
     );
     final iconPainter = TextPainter(text: iconSpan, textDirection: TextDirection.ltr)..layout();
-    iconPainter.paint(canvas, Offset(offset.dx + 4.5, offset.dy + 4.5));
+    iconPainter.paint(canvas, Offset(offset.dx + 5.5, offset.dy + 5.5));
 
     // Label Text
     final textSpan = TextSpan(
       text: title,
       style: TextStyle(
-        color: iconColor,
-        fontSize: 9,
-        fontWeight: FontWeight.w700,
-        height: 1.05,
+        color: const Color(0xFF1E1B4B),
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        height: 1.1,
       ),
     );
     final textPainter = TextPainter(
       text: textSpan,
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: 80);
-    textPainter.paint(canvas, Offset(offset.dx - 24, offset.dy + 23));
+    )..layout(maxWidth: 120);
+    textPainter.paint(canvas, Offset(offset.dx - 48, offset.dy + 28));
   }
 
   void _drawStreetLabel(Canvas canvas, String name, Offset offset) {
@@ -773,15 +767,15 @@ class _F7MarkazStreetPainter extends CustomPainter {
       text: name,
       style: const TextStyle(
         color: Color(0xFF6B7280),
-        fontSize: 9.5,
+        fontSize: 10,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.3,
       ),
     );
-    final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr)..layout();
+    final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr)..layout(maxWidth: 220);
     textPainter.paint(canvas, offset);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _BranchStreetPainter oldDelegate) => oldDelegate.branch != branch;
 }

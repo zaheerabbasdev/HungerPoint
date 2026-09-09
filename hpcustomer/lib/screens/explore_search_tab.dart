@@ -148,7 +148,7 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
             ValueListenableBuilder<Branch?>(
               valueListenable: BranchService().selectedBranchNotifier,
               builder: (context, branch, _) {
-                final branchTitle = branch?.name ?? (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'Islamabad');
+                final branchTitle = branch?.name ?? (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'HungerPoint');
                 return Text(
                   branchTitle,
                   maxLines: 1,

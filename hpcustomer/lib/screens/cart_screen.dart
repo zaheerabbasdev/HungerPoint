@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import '../services/api_service.dart';
+import '../services/branch_service.dart';
 import 'item_detail_screen.dart';
 import 'payment_screen.dart';
 
@@ -68,8 +69,8 @@ class _CartScreenState extends State<CartScreen> {
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Your Basket',
               style: TextStyle(
                 fontSize: 18,
@@ -77,14 +78,20 @@ class _CartScreenState extends State<CartScreen> {
                 color: Color(0xFF1E1B4B),
               ),
             ),
-            SizedBox(height: 2),
-            Text(
-              'F-7 Old Islamabad',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF9CA3AF),
-              ),
+            const SizedBox(height: 2),
+            ValueListenableBuilder<Branch?>(
+              valueListenable: BranchService().selectedBranchNotifier,
+              builder: (context, branch, _) {
+                final loc = branch?.name ?? (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'HungerPoint');
+                return Text(
+                  loc,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                );
+              },
             ),
           ],
         ),

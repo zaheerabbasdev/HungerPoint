@@ -666,15 +666,6 @@ class _PickupMapPainter extends CustomPainter {
     canvas.drawLine(Offset(size.width * 0.2, 40), Offset(size.width * 0.7, size.height * 0.85), roadPaint);
     canvas.drawLine(Offset(size.width * 0.35, 30), Offset(size.width * 0.85, size.height * 0.7), roadPaint);
     canvas.drawLine(Offset(size.width * 0.1, size.height * 0.6), Offset(size.width * 0.9, size.height * 0.2), roadPaint);
-
-    _drawText(canvas, 'Islamabad', Offset(size.width * 0.32, 50), 16, FontWeight.bold, const Color(0xFF1E1B4B));
-    _drawText(canvas, 'Rawalpindi', Offset(size.width * 0.28, size.height * 0.68), 16, FontWeight.bold, const Color(0xFF1E1B4B));
-    _drawText(canvas, 'Kahuta', Offset(size.width * 0.85, size.height * 0.65), 10, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'E 9', Offset(size.width * 0.38, 30), 9, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'Blue Area', Offset(size.width * 0.65, 35), 9, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'F 10', Offset(size.width * 0.36, 95), 9, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'E 11', Offset(size.width * 0.29, 82), 9, FontWeight.w600, const Color(0xFF6B7280));
-    _drawText(canvas, 'Tarnol', Offset(size.width * 0.05, 120), 9, FontWeight.w600, const Color(0xFF6B7280));
   }
 
   void _drawText(Canvas canvas, String text, Offset offset, double fontSize, FontWeight weight, Color color) {

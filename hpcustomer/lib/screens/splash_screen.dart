@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/profile_service.dart';
+import '../services/branch_service.dart';
+import '../services/address_service.dart';
 import 'main_navigation_screen.dart';
 import 'welcome_screen.dart';
 
@@ -43,6 +45,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _initializeApp() async {
     await ApiService.init();
+    await BranchService().fetchBranchesFromBackend();
+    await AddressService().fetchAddressesFromBackend();
     if (ApiService.isLoggedIn) {
       await ProfileService().syncWithBackend();
     }

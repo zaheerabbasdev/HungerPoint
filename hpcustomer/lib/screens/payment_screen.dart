@@ -419,7 +419,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     // Current branch name
-    final branchName = BranchService().selectedBranch?.name ?? 'F-7 Old Islamabad';
+    final branchName = BranchService().selectedBranch?.name ??
+        (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'HungerPoint');
 
     // Products price calculated from CartService
     final productsPrice = CartService().totalPrice > 0 ? CartService().totalPrice : 890;
@@ -430,9 +431,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final onlineTotal = (productsPrice * 1.05).round(); // slight variation for online options matching screenshot
 
     final address = _selectedAddress ?? AddressService().selectedAddress;
-    final addressLabel = address?.label ?? 'Work';
-    final addressText = address?.address ??
-        'Executive Guest House, Bhitai Road, F 7/1, F 7, Islamabad, Islamabad Capital Territory';
+    final addressLabel = address?.label ?? 'Delivery';
+    final addressText = address?.address ?? AddressService().activeDeliveryLabel;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),

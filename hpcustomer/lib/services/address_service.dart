@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
+import 'branch_service.dart';
 
 /// Represents a saved delivery address with label, full text, and id
 class SavedAddress {
@@ -50,12 +51,23 @@ class AddressService {
       customLocationNotifier.value ?? selectedAddressNotifier.value?.label ?? addressNotifier.value;
   List<SavedAddress> get savedAddresses => savedAddressesNotifier.value;
 
-  /// The active delivery label displayed on top header (e.g. "Work", "Home", or "House123")
+  /// The active delivery label displayed on top header (e.g. "Work", "Home", or real branch address)
   String get activeDeliveryLabel {
     if (customLocationNotifier.value != null && customLocationNotifier.value!.trim().isNotEmpty) {
       return customLocationNotifier.value!.trim();
     }
-    return selectedAddressNotifier.value?.label ?? (savedAddresses.isNotEmpty ? savedAddresses.first.label : 'Select Address');
+    if (selectedAddressNotifier.value != null) {
+      return selectedAddressNotifier.value!.label;
+    }
+    if (savedAddresses.isNotEmpty) {
+      return savedAddresses.first.label;
+    }
+    final branch = BranchService().selectedBranch ??
+        (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first : null);
+    if (branch != null) {
+      return branch.address.isNotEmpty ? branch.address : branch.name;
+    }
+    return 'Select Address';
   }
 
   bool get hasActiveLocation =>

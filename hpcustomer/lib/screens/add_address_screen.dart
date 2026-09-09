@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/address_service.dart';
+import '../services/branch_service.dart';
 import 'new_address_form_screen.dart';
 
 class AddAddressScreen extends StatefulWidget {
@@ -38,14 +39,27 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
   List<Map<String, String>> _suggestions = [];
   bool _showSuggestions = false;
-  String _selectedMapAddress = '27, Street 41, F 7/1, F 7, Islamabad Capital Territory';
+  String _selectedMapAddress = '';
 
   @override
   void initState() {
     super.initState();
     if (widget.existingAddress != null) {
       _selectedMapAddress = widget.existingAddress!.address;
+    } else if (AddressService().selectedAddress != null) {
+      _selectedMapAddress = AddressService().selectedAddress!.address;
+    } else if (BranchService().selectedBranch != null) {
+      _selectedMapAddress = BranchService().selectedBranch!.address.isNotEmpty
+          ? BranchService().selectedBranch!.address
+          : BranchService().selectedBranch!.name;
+    } else if (BranchService().allBranches.isNotEmpty) {
+      _selectedMapAddress = BranchService().allBranches.first.address.isNotEmpty
+          ? BranchService().allBranches.first.address
+          : BranchService().allBranches.first.name;
+    } else {
+      _selectedMapAddress = 'Select Location';
     }
+
     _searchController.addListener(_onSearchChanged);
     _searchFocusNode.addListener(() {
       setState(() {
@@ -60,7 +74,13 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       setState(() { _suggestions = []; _showSuggestions = false; });
       return;
     }
-    final filtered = _allAddresses.where((a) =>
+    final branchAddresses = BranchService().allBranches.map((b) => {
+      'name': b.name,
+      'detail': b.address.isNotEmpty ? b.address : 'Branch Location',
+    }).toList();
+    final combined = [...branchAddresses, ..._allAddresses];
+
+    final filtered = combined.where((a) =>
         a['name']!.toLowerCase().contains(query) ||
         a['detail']!.toLowerCase().contains(query)).toList();
     setState(() {

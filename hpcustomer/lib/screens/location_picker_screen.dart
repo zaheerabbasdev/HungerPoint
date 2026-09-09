@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/address_service.dart';
+import '../services/branch_service.dart';
 import 'main_navigation_screen.dart';
 
 /// Sample address data for search suggestions (simulating a location API)
@@ -36,13 +37,28 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
-  String _selectedAddress = '27, Street 41, F 7/1, F 7, Islamabad,\nIslamabad Capital Territory';
+  String _selectedAddress = '';
   List<Map<String, String>> _suggestions = [];
   bool _showSuggestions = false;
 
   @override
   void initState() {
     super.initState();
+    final active = AddressService().selectedAddress?.address ??
+        AddressService().customLocationNotifier.value ??
+        (BranchService().selectedBranch?.address.isNotEmpty == true
+            ? BranchService().selectedBranch!.address
+            : BranchService().selectedBranch?.name);
+    if (active != null && active.isNotEmpty) {
+      _selectedAddress = active;
+    } else {
+      _selectedAddress = BranchService().allBranches.isNotEmpty
+          ? (BranchService().allBranches.first.address.isNotEmpty
+              ? BranchService().allBranches.first.address
+              : BranchService().allBranches.first.name)
+          : 'Select Location';
+    }
+
     _searchController.addListener(_onSearchChanged);
     _searchFocusNode.addListener(() {
       setState(() {
@@ -60,7 +76,13 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       });
       return;
     }
-    final filtered = _allAddresses.where((addr) {
+    final branchAddresses = BranchService().allBranches.map((b) => {
+      'name': b.name,
+      'detail': b.address.isNotEmpty ? b.address : 'Branch Location',
+    }).toList();
+    final combined = [...branchAddresses, ..._allAddresses];
+
+    final filtered = combined.where((addr) {
       return addr['name']!.toLowerCase().contains(query) ||
           addr['detail']!.toLowerCase().contains(query);
     }).toList();

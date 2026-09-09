@@ -38,36 +38,14 @@ class BranchService {
   factory BranchService() => _instance;
   BranchService._internal();
 
-  final List<Branch> branches = const [
-    Branch(
-      id: 'HP-G11',
-      name: 'HungerPoint Main Branch - G-11 Markaz',
-      address: 'Shop 12, G-11 Markaz, Islamabad',
-      distance: 'Main Branch',
-      isOpen: true,
-      statusText: 'Open Now',
-      lat: 33.6844,
-      lng: 73.0039,
-    ),
-    Branch(
-      id: 'HP-F7',
-      name: 'HungerPoint F-7 Markaz',
-      address: 'Plot 4-B, F-7 Markaz (Jinnah Super), Islamabad',
-      distance: '1.2 KM away from you',
-      isOpen: true,
-      statusText: 'Open Now',
-      lat: 33.7215,
-      lng: 73.0567,
-    ),
-  ];
-
   final ValueNotifier<Branch?> selectedBranchNotifier = ValueNotifier<Branch?>(null);
   final ValueNotifier<bool> isPickupModeNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<List<Branch>> branchesNotifier = ValueNotifier<List<Branch>>([]);
 
-  Branch? get selectedBranch => selectedBranchNotifier.value;
+  Branch? get selectedBranch =>
+      selectedBranchNotifier.value ?? (branchesNotifier.value.isNotEmpty ? branchesNotifier.value.first : null);
   bool get isPickupMode => isPickupModeNotifier.value;
-  List<Branch> get allBranches => branchesNotifier.value.isNotEmpty ? branchesNotifier.value : branches;
+  List<Branch> get allBranches => branchesNotifier.value;
 
   Future<void> fetchBranchesFromBackend() async {
     try {
@@ -122,7 +100,7 @@ class BranchService {
       if (list.isNotEmpty) {
         final serverBranches = list.map<Branch>((b) {
           final bName = b['name']?.toString() ?? 'HungerPoint Branch';
-          final bAddr = b['address']?.toString() ?? 'Islamabad';
+          final bAddr = b['address']?.toString() ?? '';
           final double lat = double.tryParse(b['latitude']?.toString() ?? '') ?? 33.7215;
           final double lng = double.tryParse(b['longitude']?.toString() ?? '') ?? 73.0565;
           final bool isOpen = b['isOpen'] == true || (b['isOpen'] == null && b['isActive'] == true);
@@ -162,9 +140,8 @@ class BranchService {
 
   void switchToPickup() {
     isPickupModeNotifier.value = true;
-    if (selectedBranchNotifier.value == null) {
-      final list = allBranches;
-      selectedBranchNotifier.value = list.length > 1 ? list[1] : list.first;
+    if (selectedBranchNotifier.value == null && allBranches.isNotEmpty) {
+      selectedBranchNotifier.value = allBranches.first;
     }
   }
 

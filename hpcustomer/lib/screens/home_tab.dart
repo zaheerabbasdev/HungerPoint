@@ -37,29 +37,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static bool _hasShownInitialBottomSheet = false;
 
-  final List<Map<String, dynamic>> _banners = [
-    {
-      'title': 'NOW OPEN',
-      'subtitle': 'G-15, ISLAMABAD',
-      'brand': 'HungerPoint',
-      'gradient': [const Color(0xFFFA541C), const Color(0xFFD93800)],
-      'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'title': 'FLAT 30% OFF',
-      'subtitle': 'On All Gourmet Pizzas!',
-      'brand': 'SPECIAL OFFER',
-      'gradient': [const Color(0xFFFF9800), const Color(0xFFE65100)],
-      'image': 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'title': 'EXPLORE OUR MENU',
-      'subtitle': 'ORDER NOW',
-      'brand': 'FRESH & HOT',
-      'gradient': [const Color(0xFFFFC107), const Color(0xFFFF8F00)],
-      'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
-    },
-  ];
+  List<Map<String, dynamic>> get _banners {
+    final branchName = BranchService().selectedBranch?.name ??
+        (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'HungerPoint');
+    return [
+      {
+        'title': 'NOW OPEN',
+        'subtitle': branchName.toUpperCase(),
+        'brand': 'HungerPoint',
+        'gradient': [const Color(0xFFFA541C), const Color(0xFFD93800)],
+        'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
+      },
+      {
+        'title': 'FLAT 30% OFF',
+        'subtitle': 'On All Gourmet Pizzas!',
+        'brand': 'SPECIAL OFFER',
+        'gradient': [const Color(0xFFFF9800), const Color(0xFFE65100)],
+        'image': 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80',
+      },
+      {
+        'title': 'EXPLORE OUR MENU',
+        'subtitle': 'ORDER NOW',
+        'brand': 'FRESH & HOT',
+        'gradient': [const Color(0xFFFFC107), const Color(0xFFFF8F00)],
+        'image': 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80',
+      },
+    ];
+  }
 
   List<Map<String, dynamic>> _dynamicCategories = [];
 
@@ -473,7 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   TextSpan(
                                     text: BranchService().isPickupMode
-                                        ? (BranchService().selectedBranch?.name ?? 'F-10 Markaz...')
+                                        ? (BranchService().selectedBranch?.name ?? (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'Select Branch'))
                                         : AddressService().activeDeliveryLabel,
                                     style: const TextStyle(
                                       fontSize: 16,

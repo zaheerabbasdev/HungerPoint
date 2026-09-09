@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/favorites_service.dart';
 import '../services/cart_service.dart';
+import '../services/branch_service.dart';
 import 'item_detail_screen.dart';
 import 'cart_screen.dart';
 
@@ -25,8 +26,8 @@ class FavoritesScreen extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'My Favourites',
               style: TextStyle(
                 fontSize: 17,
@@ -34,14 +35,20 @@ class FavoritesScreen extends StatelessWidget {
                 color: Color(0xFF1E1B4B),
               ),
             ),
-            SizedBox(height: 3),
-            Text(
-              'F-7 Old Islamabad',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF9CA3AF),
-              ),
+            const SizedBox(height: 3),
+            ValueListenableBuilder<Branch?>(
+              valueListenable: BranchService().selectedBranchNotifier,
+              builder: (context, branch, _) {
+                final loc = branch?.name ?? (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'HungerPoint');
+                return Text(
+                  loc,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                );
+              },
             ),
           ],
         ),
