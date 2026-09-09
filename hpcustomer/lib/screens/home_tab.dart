@@ -80,9 +80,8 @@ class _HomeScreenState extends State<HomeScreen> {
         final List<Map<String, dynamic>> dynamicList = [];
         for (final c in categories) {
           final catName = c['name']?.toString() ?? 'Category';
-          final imgUrl = (c['image'] != null && c['image'].toString().isNotEmpty)
-              ? c['image'].toString()
-              : 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80';
+          final rawImg = c['image']?.toString();
+          final imgUrl = ApiService.resolveImageUrl(rawImg);
 
           dynamicList.add({
             'id': c['id']?.toString() ?? '',
@@ -113,9 +112,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (!categoryMap.containsKey(catName)) {
             final images = p['images'] as List<dynamic>?;
-            final imgUrl = (images != null && images.isNotEmpty)
+            final rawImg = (images != null && images.isNotEmpty)
                 ? images.first.toString()
-                : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+                : p['image']?.toString();
+            final imgUrl = ApiService.resolveImageUrl(rawImg);
 
             categoryMap[catName] = {
               'id': catObj != null ? (catObj['id']?.toString() ?? '') : '',

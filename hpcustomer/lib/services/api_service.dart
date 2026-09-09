@@ -24,14 +24,21 @@ class ApiService {
       return 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80';
     }
     String cleaned = url.trim();
-    if (cleaned.startsWith('/uploads/')) {
-      return 'http://$hostIp:$port$cleaned';
+    if (cleaned.startsWith('/uploads/') || cleaned.startsWith('uploads/')) {
+      final path = cleaned.startsWith('/') ? cleaned : '/$cleaned';
+      return 'http://$hostIp:$port$path';
     }
     if (cleaned.contains('localhost:5000')) {
       return cleaned.replaceAll('localhost:5000', '$hostIp:$port');
     }
     if (cleaned.contains('127.0.0.1:5000')) {
       return cleaned.replaceAll('127.0.0.1:5000', '$hostIp:$port');
+    }
+    if (cleaned.contains('localhost:')) {
+      return cleaned.replaceAll(RegExp(r'localhost:\d+'), '$hostIp:$port');
+    }
+    if (cleaned.contains('127.0.0.1:')) {
+      return cleaned.replaceAll(RegExp(r'127\.0\.0\.1:\d+'), '$hostIp:$port');
     }
     return cleaned;
   }

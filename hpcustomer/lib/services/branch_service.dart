@@ -78,9 +78,8 @@ class BranchService {
         if (categories.isNotEmpty) {
           dynamicMenu = categories.map<Map<String, dynamic>>((c) {
             final cName = c['name']?.toString() ?? 'Category';
-            final cImg = (c['image'] != null && c['image'].toString().isNotEmpty)
-                ? c['image'].toString()
-                : 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80';
+            final rawImg = c['image']?.toString();
+            final cImg = ApiService.resolveImageUrl(rawImg);
             return {
               'id': c['id']?.toString() ?? '',
               'title': cName,
@@ -100,9 +99,10 @@ class BranchService {
               if (!seen.contains(catName)) {
                 seen.add(catName);
                 final images = p['images'] as List<dynamic>?;
-                final imgUrl = (images != null && images.isNotEmpty)
+                final rawImg = (images != null && images.isNotEmpty)
                     ? images.first.toString()
-                    : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+                    : p['image']?.toString();
+                final imgUrl = ApiService.resolveImageUrl(rawImg);
                 dynamicMenu.add({
                   'id': p['id']?.toString() ?? '',
                   'title': catName,
@@ -123,24 +123,32 @@ class BranchService {
         final serverBranches = list.map<Branch>((b) {
           final bName = b['name']?.toString() ?? 'HungerPoint Branch';
           final bAddr = b['address']?.toString() ?? 'Islamabad';
-          final num lat = b['latitude'] ?? 33.7215;
-          final num lng = b['longitude'] ?? 73.0565;
-          final bool isActive = b['isActive'] ?? true;
+          final double lat = double.tryParse(b['latitude']?.toString() ?? '') ?? 33.7215;
+          final double lng = double.tryParse(b['longitude']?.toString() ?? '') ?? 73.0565;
+          final bool isOpen = b['isOpen'] == true || (b['isOpen'] == null && b['isActive'] == true);
 
           return Branch(
             id: b['id'].toString(),
             name: bName,
             address: bAddr,
             distance: 'Near you',
-            isOpen: isActive,
-            statusText: isActive ? 'Open Now' : 'Closed',
-            lat: lat.toDouble(),
-            lng: lng.toDouble(),
+            isOpen: isOpen,
+            statusText: isOpen ? 'Open Now' : 'Closed',
+            lat: lat,
+            lng: lng,
             menuCategories: dynamicMenu,
           );
         }).toList();
 
         branchesNotifier.value = serverBranches;
+        if (selectedBranchNotifier.value == null && serverBranches.isNotEmpty) {
+          selectedBranchNotifier.value = serverBranches.first;
+        } else if (selectedBranchNotifier.value != null) {
+          final match = serverBranches.where((sb) => sb.id == selectedBranchNotifier.value!.id).firstOrNull;
+          if (match != null) {
+            selectedBranchNotifier.value = match;
+          }
+        }
       }
     } catch (e) {
       debugPrint('Error fetching branches from backend: $e');
