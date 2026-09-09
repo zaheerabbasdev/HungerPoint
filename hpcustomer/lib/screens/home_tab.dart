@@ -494,7 +494,47 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
 
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+
+                  // Refresh Button
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () async {
+                      await _loadDynamicCategories();
+                      await BranchService().fetchBranchesFromBackend();
+                      if (mounted) {
+                        setState(() {});
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Menu and branches refreshed!'),
+                            duration: Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFF3F4F6)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B), size: 20),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
 
                   // White Circular Cart Button with Count Badge
                   GestureDetector(
@@ -693,10 +733,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // ─── 3. SCROLLABLE INNER CONTENT ─────────────────────────────
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              child: RefreshIndicator(
+                color: const Color(0xFFFF5722),
+                backgroundColor: Colors.white,
+                onRefresh: () async {
+                  await _loadDynamicCategories();
+                  await BranchService().fetchBranchesFromBackend();
+                  if (mounted) setState(() {});
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
 
 
               // ─── 3. CAROUSEL BANNER (Auto-sliding every 3 Seconds) ──────
@@ -909,7 +958,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(10),
                               child: Image.network(
-                                cat['image'] as String,
+                                ApiService.resolveImageUrl(cat['image']?.toString()),
                                 height: 52,
                                 width: 52,
                                 fit: BoxFit.cover,
@@ -1013,7 +1062,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    ],
+    ),
+  ],
   ),
 ),
     );

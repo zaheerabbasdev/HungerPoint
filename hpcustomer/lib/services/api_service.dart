@@ -23,7 +23,7 @@ class ApiService {
     if (url == null || url.trim().isEmpty) {
       return 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80';
     }
-    String cleaned = url.trim();
+    String cleaned = url.trim().replaceAll(r'\', '/');
     if (cleaned.startsWith('/uploads/') || cleaned.startsWith('uploads/')) {
       final path = cleaned.startsWith('/') ? cleaned : '/$cleaned';
       return 'http://$hostIp:$port$path';
@@ -416,6 +416,14 @@ class ApiService {
         map['price'] = (map['price'] as num).toDouble();
       }
     }
+    if (map['image'] != null) {
+      map['image'] = resolveImageUrl(map['image']?.toString());
+    }
+    if (map['images'] is List) {
+      map['images'] = (map['images'] as List)
+          .map((img) => resolveImageUrl(img?.toString()))
+          .toList();
+    }
     return map;
   }
 
@@ -430,9 +438,14 @@ class ApiService {
         final data = jsonDecode(res.body);
         final list = data['data'] as List<dynamic>? ?? [];
         return list.map((cat) {
-          if (cat is Map && cat['products'] is List) {
+          if (cat is Map) {
             final catMap = Map<String, dynamic>.from(cat);
-            catMap['products'] = (cat['products'] as List).map(_normalizeProduct).toList();
+            if (catMap['image'] != null) {
+              catMap['image'] = resolveImageUrl(catMap['image']?.toString());
+            }
+            if (catMap['products'] is List) {
+              catMap['products'] = (catMap['products'] as List).map(_normalizeProduct).toList();
+            }
             return catMap;
           }
           return cat;

@@ -117,14 +117,21 @@ class _BranchesScreenState extends State<BranchesScreen> {
 
                 // Branches list
                 Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: branches.length,
-                    separatorBuilder: (context, index) => const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: Color(0xFFF3F4F6),
-                    ),
+                  child: RefreshIndicator(
+                    color: const Color(0xFFFF5722),
+                    onRefresh: () async {
+                      await BranchService().fetchBranchesFromBackend();
+                      if (mounted) setState(() {});
+                    },
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: branches.length,
+                      separatorBuilder: (context, index) => const Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: Color(0xFFF3F4F6),
+                      ),
                     itemBuilder: (context, index) {
                       final branch = branches[index];
                       return InkWell(
@@ -204,7 +211,8 @@ class _BranchesScreenState extends State<BranchesScreen> {
                     },
                   ),
                 ),
-              ],
+              ),
+            ],
             ),
           ),
         );
@@ -420,6 +428,28 @@ class _BranchesScreenState extends State<BranchesScreen> {
                       fontWeight: FontWeight.w900,
                       color: Color(0xFF1E1B4B),
                     ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B), size: 24),
+                    tooltip: 'Refresh Branches',
+                    onPressed: () async {
+                      await BranchService().fetchBranchesFromBackend();
+                      if (mounted) {
+                        setState(() {
+                          _currentNearestBranch = BranchService().allBranches.isNotEmpty
+                              ? BranchService().allBranches.first
+                              : null;
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Branches refreshed!'),
+                            duration: Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),

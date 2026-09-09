@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import '../services/favorites_service.dart';
 import '../services/api_service.dart';
+import '../services/branch_service.dart';
 import 'item_detail_screen.dart';
 import 'explore_tab.dart';
 
@@ -24,14 +25,26 @@ class ExploreSearchScreen extends StatefulWidget {
 class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> _popularSearches = [
-    'Chicken Pepperoni Pizza',
-    'Reggy Burger',
-    'Euro',
-    'Cheese Lover Pizza',
-    'Behari Kabab',
-    'Chicken Mushroom',
-  ];
+  List<String> get _popularSearches {
+    if (_liveItems.isNotEmpty) {
+      final names = <String>[];
+      for (final it in _liveItems) {
+        final n = it['name']?.toString().trim();
+        if (n != null && n.isNotEmpty && !names.contains(n)) {
+          names.add(n);
+        }
+      }
+      if (names.isNotEmpty) return names.take(8).toList();
+    }
+    return [
+      'Chicken Pepperoni Pizza',
+      'Reggy Burger',
+      'Euro',
+      'Cheese Lover Pizza',
+      'Behari Kabab',
+      'Chicken Mushroom',
+    ];
+  }
 
   List<Map<String, dynamic>> _liveItems = [];
   List<Map<String, dynamic>> get _currentItems => _liveItems;
@@ -40,6 +53,7 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
   void initState() {
     super.initState();
     _fetchLiveProducts();
+    BranchService().fetchBranchesFromBackend();
   }
 
   Future<void> _fetchLiveProducts() async {
@@ -48,9 +62,10 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
       if (products.isNotEmpty && mounted) {
         final list = products.map<Map<String, dynamic>>((p) {
           final images = p['images'] as List<dynamic>?;
-          final imgUrl = (images != null && images.isNotEmpty)
+          final rawImg = (images != null && images.isNotEmpty)
               ? images.first.toString()
-              : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+              : p['image']?.toString();
+          final imgUrl = ApiService.resolveImageUrl(rawImg);
           final rawPrice = p['basePrice'] ?? p['price'];
           final price = rawPrice is num
               ? rawPrice.toInt()
@@ -92,7 +107,8 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
         ? _currentItems.where((item) {
             final name = (item['name'] ?? '').toString().toLowerCase();
             final desc = (item['desc'] ?? '').toString().toLowerCase();
-            return name.contains(query) || desc.contains(query);
+            final cat = (item['category'] ?? '').toString().toLowerCase();
+            return name.contains(query) || desc.contains(query) || cat.contains(query);
           }).toList()
         : <Map<String, dynamic>>[];
 
@@ -119,26 +135,54 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Text(
-              'Find Cheezious Items',
+          children: [
+            const Text(
+              'Find HungerPoint Items',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF1E1B4B),
               ),
             ),
-            SizedBox(height: 2),
-            Text(
-              'F-7 Old Islamabad',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF9CA3AF),
-              ),
+            const SizedBox(height: 2),
+            ValueListenableBuilder<Branch?>(
+              valueListenable: BranchService().selectedBranchNotifier,
+              builder: (context, branch, _) {
+                final branchTitle = branch?.name ?? (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'Islamabad');
+                return Text(
+                  branchTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                );
+              },
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B)),
+            tooltip: 'Refresh Menu',
+            onPressed: () async {
+              await _fetchLiveProducts();
+              await BranchService().fetchBranchesFromBackend();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Menu items refreshed!'),
+                    duration: Duration(seconds: 1),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: Stack(
         children: [
@@ -233,30 +277,11 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
                     final term = _popularSearches[idx];
                     return GestureDetector(
                       onTap: () {
-                        final matchingItem = _currentItems.firstWhere(
-                          (it) {
-                            final name = (it['name'] ?? '').toString().toLowerCase();
-                            final t = term.toLowerCase();
-                            return name.contains(t) || t.contains(name);
-                          },
-                          orElse: () => {
-                            'id': 'pop_$idx',
-                            'name': term,
-                            'desc': 'Delicious gourmet item freshly prepared for you.',
-                            'price': 1480,
-                            'image': 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-                          },
+                        _searchController.text = term;
+                        _searchController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: term.length),
                         );
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ItemDetailScreen(
-                              item: matchingItem,
-                              onAddToCart: widget.onAddToCart,
-                            ),
-                          ),
-                        );
+                        setState(() {});
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -293,80 +318,95 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
               Expanded(
                 child: isSearching
                     ? (matchingItems.isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: _buildCheeziousEmptyState(),
+                        ? RefreshIndicator(
+                            color: const Color(0xFFFF5722),
+                            onRefresh: _fetchLiveProducts,
+                            child: SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              child: _buildEmptyState(),
+                            ),
                           )
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                            itemCount: matchingItems.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 14),
-                            itemBuilder: (context, index) {
-                              final item = matchingItems[index];
-                              return _buildItemCard(item);
-                            },
+                        : RefreshIndicator(
+                            color: const Color(0xFFFF5722),
+                            onRefresh: _fetchLiveProducts,
+                            child: ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                              itemCount: matchingItems.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 14),
+                              itemBuilder: (context, index) {
+                                final item = matchingItems[index];
+                                return _buildItemCard(item);
+                              },
+                            ),
                           ))
-                    : ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                        children: [
-                          // "Explore Menu >" Card (Matching First Image)
-                          GestureDetector(
-                            onTap: () {
-                              if (widget.onOpenExploreMenu != null) {
-                                widget.onOpenExploreMenu!();
-                              } else {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ExploreMenuScreen(
-                                      onAddToCart: widget.onAddToCart,
-                                      cart: CartService().items,
-                                      initialCategoryIndex: 0,
-                                      onBackToHome: () => Navigator.pop(context),
+                    : RefreshIndicator(
+                        color: const Color(0xFFFF5722),
+                        onRefresh: _fetchLiveProducts,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                          children: [
+                            // "Explore Menu >" Card (Matching First Image)
+                            GestureDetector(
+                              onTap: () {
+                                if (widget.onOpenExploreMenu != null) {
+                                  widget.onOpenExploreMenu!();
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ExploreMenuScreen(
+                                        onAddToCart: widget.onAddToCart,
+                                        cart: CartService().items,
+                                        initialCategoryIndex: 0,
+                                        onBackToHome: () => Navigator.pop(context),
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFF3F4F6)),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.03),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: const [
-                                  Text(
-                                    'Explore Menu',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
+                                  );
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: const Color(0xFFF3F4F6)),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.03),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: const [
+                                    Text(
+                                      'Explore Menu',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF1E1B4B),
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 16,
                                       color: Color(0xFF1E1B4B),
                                     ),
-                                  ),
-                                  Icon(
-                                    Icons.arrow_forward_ios,
-                                    size: 16,
-                                    color: Color(0xFF1E1B4B),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 18),
+                            const SizedBox(height: 18),
 
-                          // "Cheezious - No Products Found" Card (Matching First Image)
-                          _buildCheeziousEmptyState(),
-                        ],
+                            // "HungerPoint - No Products Found" Card
+                            _buildEmptyState(),
+                          ],
+                        ),
                       ),
               ),
             ],
@@ -376,11 +416,11 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
     );
   }
 
-  // ─── CHEEZIOUS LOGO & NO PRODUCTS FOUND CARD (Matching First Image) ───
-  Widget _buildCheeziousEmptyState() {
+  // ─── HUNGERPOINT LOGO & NO PRODUCTS FOUND CARD ───
+  Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -399,7 +439,7 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
           // Illustration of Pizza, Burger & Drink
           SizedBox(
             width: 140,
-            height: 120,
+            height: 110,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -542,21 +582,21 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
 
           // Brand Title
           const Text(
-            'Cheezious',
+            'HungerPoint',
             style: TextStyle(
-              fontSize: 26,
+              fontSize: 24,
               fontWeight: FontWeight.w900,
               color: Color(0xFF4E2A1D),
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
 
           // No Products Found
           const Text(
             'No Products Found',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.bold,
               color: Color(0xFF1E1B4B),
             ),
@@ -605,7 +645,7 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: Image.network(
-                        item['image'],
+                        ApiService.resolveImageUrl(item['image']?.toString()),
                         width: 82,
                         height: 82,
                         fit: BoxFit.contain,

@@ -261,6 +261,24 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
                       color: Color(0xFF1E1B4B),
                     ),
                   ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B), size: 24),
+                    tooltip: 'Refresh Branches',
+                    onPressed: () async {
+                      await BranchService().fetchBranchesFromBackend();
+                      if (mounted) {
+                        setState(() {});
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Branches refreshed!'),
+                            duration: Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ],
               ),
             ),
@@ -489,91 +507,99 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
 
             // ─── BRANCHES LIST ────────────────────────────────────────
             Expanded(
-              child: ListView.separated(
-                itemCount: branches.length,
-                separatorBuilder: (context, index) => const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Color(0xFFF3F4F6),
-                ),
-                itemBuilder: (context, index) {
-                  final branch = branches[index];
-                  final isCurrentlySelected = selectedBranch?.id == branch.id ||
-                      (selectedBranch == null && index == 0);
-
-                  return InkWell(
-                    onTap: () {
-                      setState(() => _highlightedBranch = branch);
-                      _showConfirmBranchDialog(branch);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: isCurrentlySelected ? const Color(0xFFFFD600) : Colors.transparent,
-                              shape: BoxShape.circle,
-                              border: isCurrentlySelected
-                                  ? null
-                                  : Border.all(color: const Color(0xFF1E1B4B), width: 1.5),
-                            ),
-                            child: Icon(
-                              Icons.storefront_outlined,
-                              color: const Color(0xFF1E1B4B),
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  branch.name,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF1E1B4B),
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                const Text(
-                                  'Open Now',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF6B7280),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  branch.distance,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF9CA3AF),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                            color: isCurrentlySelected
-                                ? const Color(0xFFFFD600)
-                                : const Color(0xFF1E1B4B),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+              child: RefreshIndicator(
+                color: const Color(0xFFFF5722),
+                onRefresh: () async {
+                  await BranchService().fetchBranchesFromBackend();
+                  if (mounted) setState(() {});
                 },
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  itemCount: branches.length,
+                  separatorBuilder: (context, index) => const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFF3F4F6),
+                  ),
+                  itemBuilder: (context, index) {
+                    final branch = branches[index];
+                    final isCurrentlySelected = selectedBranch?.id == branch.id ||
+                        (selectedBranch == null && index == 0);
+
+                    return InkWell(
+                      onTap: () {
+                        setState(() => _highlightedBranch = branch);
+                        _showConfirmBranchDialog(branch);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: isCurrentlySelected ? const Color(0xFFFFD600) : Colors.transparent,
+                                shape: BoxShape.circle,
+                                border: isCurrentlySelected
+                                    ? null
+                                    : Border.all(color: const Color(0xFF1E1B4B), width: 1.5),
+                              ),
+                              child: Icon(
+                                Icons.storefront_outlined,
+                                color: const Color(0xFF1E1B4B),
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    branch.name,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1E1B4B),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  const Text(
+                                    'Open Now',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF6B7280),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    branch.distance,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF9CA3AF),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                              color: isCurrentlySelected
+                                  ? const Color(0xFFFFD600)
+                                  : const Color(0xFF1E1B4B),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ],

@@ -203,7 +203,7 @@ class _CartScreenState extends State<CartScreen> {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(16),
                                   child: Image.network(
-                                    item['image'] ?? '',
+                                    ApiService.resolveImageUrl(item['image']?.toString()),
                                     fit: BoxFit.contain,
                                     errorBuilder: (context, error, stackTrace) => const Center(
                                       child: Icon(Icons.fastfood, color: Colors.grey, size: 36),

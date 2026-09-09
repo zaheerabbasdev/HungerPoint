@@ -5,6 +5,7 @@ import 'explore_search_tab.dart';
 import '../services/api_service.dart';
 import '../services/favorites_service.dart';
 import '../services/cart_service.dart';
+import '../services/branch_service.dart';
 
 
 class ExploreMenuScreen extends StatefulWidget {
@@ -156,9 +157,10 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
             final List<Map<String, dynamic>> items = catProducts.map<Map<String, dynamic>>((p) {
               matchedProductIds.add(p['id'].toString());
               final images = p['images'] as List<dynamic>?;
-              final imgUrl = (images != null && images.isNotEmpty)
+              final rawImg = (images != null && images.isNotEmpty)
                   ? images.first.toString()
-                  : (p['image']?.toString() ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80');
+                  : p['image']?.toString();
+              final imgUrl = ApiService.resolveImageUrl(rawImg);
               return {
                 'id': p['id'].toString(),
                 'name': p['name']?.toString() ?? 'Product',
@@ -175,12 +177,13 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
             if (items.isEmpty && cat['products'] != null && (cat['products'] as List).isNotEmpty) {
               for (final cp in cat['products']) {
                 matchedProductIds.add(cp['id'].toString());
+                final cpRaw = cp['image']?.toString();
                 items.add({
                   'id': cp['id'].toString(),
                   'name': cp['name']?.toString() ?? 'Product',
                   'desc': cp['description']?.toString() ?? '',
                   'price': _parsePrice(cp['basePrice'] ?? cp['price']),
-                  'image': cp['image']?.toString() ?? 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
+                  'image': ApiService.resolveImageUrl(cpRaw),
                   'category': catName,
                   'variants': cp['variants'],
                   'addons': cp['addons'],
@@ -206,9 +209,10 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                 : 'Specialties';
 
             final images = p['images'] as List<dynamic>?;
-            final imgUrl = (images != null && images.isNotEmpty)
+            final rawImg = (images != null && images.isNotEmpty)
                 ? images.first.toString()
-                : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80';
+                : p['image']?.toString();
+            final imgUrl = ApiService.resolveImageUrl(rawImg);
 
             final item = {
               'id': p['id'].toString(),
@@ -298,8 +302,8 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   'Explore Menu',
                   style: TextStyle(
                     fontSize: 17,
@@ -307,18 +311,66 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                     color: Color(0xFF1E1B4B),
                   ),
                 ),
-                SizedBox(height: 3),
-                Text(
-                  'No branch found',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF9CA3AF),
-                  ),
+                const SizedBox(height: 3),
+                ValueListenableBuilder<Branch?>(
+                  valueListenable: BranchService().selectedBranchNotifier,
+                  builder: (context, branch, _) {
+                    final title = branch?.name ?? (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'HungerPoint');
+                    return Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
             actions: [
+              // Refresh Icon Button
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Center(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () async {
+                      await _fetchLiveMenu();
+                      await BranchService().fetchBranchesFromBackend();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Menu refreshed!'),
+                            duration: Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFF3F4F6)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 14,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.refresh_rounded, color: Color(0xFF1E1B4B), size: 20),
+                    ),
+                  ),
+                ),
+              ),
+
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: Center(
@@ -468,54 +520,59 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                               ),
                             ),
                           )
-                        : ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + MediaQuery.of(context).padding.bottom),
-                  itemCount: _menuCategories.length,
-                  itemBuilder: (context, catIdx) {
-                    final cat = _menuCategories[catIdx];
-                    final catTitle = cat['title'] as String;
-                    final items = cat['items'] as List<Map<String, dynamic>>;
+                        : RefreshIndicator(
+                            color: const Color(0xFFFF5722),
+                            onRefresh: _fetchLiveMenu,
+                            child: ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                              controller: _scrollController,
+                              padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + MediaQuery.of(context).padding.bottom),
+                              itemCount: _menuCategories.length,
+                              itemBuilder: (context, catIdx) {
+                                final cat = _menuCategories[catIdx];
+                                final catTitle = cat['title'] as String;
+                                final items = cat['items'] as List<Map<String, dynamic>>;
 
-                    return Column(
-                      key: _categoryKeys[catIdx],
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Orange Category Section Title (as in screenshots)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16, bottom: 12),
-                          child: Text(
-                            catTitle,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFFFF5722),
+                                return Column(
+                                  key: _categoryKeys[catIdx],
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Orange Category Section Title (as in screenshots)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 16, bottom: 12),
+                                      child: Text(
+                                        catTitle,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFFFF5722),
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Products in this Category
+                                    if (items.isEmpty)
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                        child: Text(
+                                          'No products added to this category yet.',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF9CA3AF),
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      ...items.map((item) => Padding(
+                                            padding: const EdgeInsets.only(bottom: 14.0),
+                                            child: _buildMenuItemCard(item),
+                                          )),
+                                  ],
+                                );
+                              },
                             ),
                           ),
-                        ),
-
-                        // Products in this Category
-                        if (items.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                            child: Text(
-                              'No products added to this category yet.',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF9CA3AF),
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          )
-                        else
-                          ...items.map((item) => Padding(
-                                padding: const EdgeInsets.only(bottom: 14.0),
-                                child: _buildMenuItemCard(item),
-                              )),
-                      ],
-                    );
-                  },
-                ),
               ),
             ],
           ),
