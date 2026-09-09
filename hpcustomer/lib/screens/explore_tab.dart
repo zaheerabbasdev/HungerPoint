@@ -561,7 +561,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
-                            lastImg,
+                            ApiService.resolveImageUrl(lastImg),
                             width: 36,
                             height: 36,
                             fit: BoxFit.cover,
@@ -651,7 +651,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(
-                      item['image'],
+                      ApiService.resolveImageUrl(item['image']?.toString()),
                       width: 90,
                       height: 90,
                       fit: BoxFit.cover,

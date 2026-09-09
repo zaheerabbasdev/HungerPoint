@@ -19,14 +19,27 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
   void initState() {
     super.initState();
     final list = BranchService().allBranches;
-    _highlightedBranch = BranchService().selectedBranch ?? (list.length > 1 ? list[1] : list.first);
+    _highlightedBranch = BranchService().selectedBranch ?? (list.isNotEmpty ? list.first : null);
     BranchService().fetchBranchesFromBackend().then((_) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {
+          final updated = BranchService().allBranches;
+          if (_highlightedBranch == null && updated.isNotEmpty) {
+            _highlightedBranch = BranchService().selectedBranch ?? updated.first;
+          }
+        });
+      }
     });
+    BranchService().branchesNotifier.addListener(_onBranchesChanged);
+  }
+
+  void _onBranchesChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    BranchService().branchesNotifier.removeListener(_onBranchesChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -263,117 +276,98 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
                     ),
                   ),
 
-                  // Pins on map
-                  Positioned(
-                    top: 55,
-                    left: 175,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().allBranches.firstWhere(
-                          (x) => x.id == 'b_f7',
-                          orElse: () => BranchService().allBranches.first,
-                        );
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_f7') || (selectedBranch?.id == 'b_f7'),
-                        size: 36,
-                      ),
-                    ),
-                  ),
+                  // Dynamic real branch pins on map
+                  Positioned.fill(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final all = BranchService().allBranches;
+                        if (all.isEmpty) return const SizedBox.shrink();
 
-                  Positioned(
-                    top: 105,
-                    left: 140,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().allBranches.firstWhere(
-                          (x) => x.id == 'b_f10',
-                          orElse: () => BranchService().allBranches.first,
-                        );
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_f10') || (selectedBranch?.id == 'b_f10'),
-                        size: 36,
-                      ),
-                    ),
-                  ),
+                        double minLat = all.first.lat;
+                        double maxLat = all.first.lat;
+                        double minLng = all.first.lng;
+                        double maxLng = all.first.lng;
 
-                  Positioned(
-                    top: 130,
-                    left: 185,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().allBranches.firstWhere(
-                          (x) => x.id == 'b_i8',
-                          orElse: () => BranchService().allBranches.first,
-                        );
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_i8') || (selectedBranch?.id == 'b_i8'),
-                        size: 32,
-                      ),
-                    ),
-                  ),
+                        for (final b in all) {
+                          if (b.lat < minLat) minLat = b.lat;
+                          if (b.lat > maxLat) maxLat = b.lat;
+                          if (b.lng < minLng) minLng = b.lng;
+                          if (b.lng > maxLng) maxLng = b.lng;
+                        }
 
-                  Positioned(
-                    top: 90,
-                    left: 105,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().allBranches.firstWhere(
-                          (x) => x.id == 'b_f11',
-                          orElse: () => BranchService().allBranches.first,
-                        );
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_f11') || (selectedBranch?.id == 'b_f11'),
-                        size: 32,
-                      ),
-                    ),
-                  ),
+                        final latSpan = (maxLat - minLat).abs() < 0.005 ? 0.04 : (maxLat - minLat);
+                        final lngSpan = (maxLng - minLng).abs() < 0.005 ? 0.04 : (maxLng - minLng);
+                        final centerLat = (maxLat + minLat) / 2;
+                        final centerLng = (maxLng + minLng) / 2;
 
-                  Positioned(
-                    top: 30,
-                    left: 30,
-                    child: GestureDetector(
-                      onTap: () {
-                        final b = BranchService().allBranches.firstWhere(
-                          (x) => x.id == 'b_swabi',
-                          orElse: () => BranchService().allBranches.first,
-                        );
-                        _showConfirmBranchDialog(b);
-                      },
-                      child: _buildMapPin(
-                        isActive: (_highlightedBranch?.id == 'b_swabi') || (selectedBranch?.id == 'b_swabi'),
-                        size: 32,
-                      ),
-                    ),
-                  ),
+                        return Stack(
+                          children: all.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final branch = entry.value;
+                            final isSelected = (_highlightedBranch?.id == branch.id) ||
+                                (selectedBranch?.id == branch.id) ||
+                                (_highlightedBranch == null && selectedBranch == null && idx == 0);
 
-                  // Decorative cluster pins
-                  Positioned(
-                    top: 70,
-                    right: 140,
-                    child: _buildMapPin(isActive: false, size: 28),
-                  ),
-                  Positioned(
-                    top: 120,
-                    right: 110,
-                    child: _buildMapPin(isActive: false, size: 28),
-                  ),
-                  Positioned(
-                    top: 135,
-                    right: 130,
-                    child: _buildMapPin(isActive: false, size: 28),
-                  ),
-                  Positioned(
-                    bottom: 30,
-                    left: 170,
-                    child: _buildMapPin(isActive: false, size: 28),
+                            double relX = 0.5 + (branch.lng - centerLng) / (lngSpan * 1.4);
+                            double relY = 0.5 - (branch.lat - centerLat) / (latSpan * 1.4);
+
+                            if (all.length > 1 && (maxLat - minLat).abs() < 0.001) {
+                              relX = 0.3 + (idx % 3) * 0.25;
+                              relY = 0.35 + (idx ~/ 3) * 0.25;
+                            }
+
+                            final posX = (relX.clamp(0.08, 0.82) * (constraints.maxWidth - 60));
+                            final posY = (relY.clamp(0.12, 0.72) * 190);
+
+                            return Positioned(
+                              top: posY,
+                              left: posX,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() => _highlightedBranch = branch);
+                                  _showConfirmBranchDialog(branch);
+                                },
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildMapPin(
+                                      isActive: isSelected,
+                                      size: isSelected ? 36 : 30,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? const Color(0xFF1E1B4B) : Colors.white,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isSelected ? const Color(0xFFFFD600) : const Color(0xFFE5E7EB),
+                                          width: 1,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.1),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        branch.name.replaceAll('HungerPoint ', '').split('-').first.trim(),
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: isSelected ? const Color(0xFFFFD600) : const Color(0xFF1E1B4B),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
                   ),
 
                   // TPL Maps Watermark (Bottom Left)

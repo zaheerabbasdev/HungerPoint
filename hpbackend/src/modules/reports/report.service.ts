@@ -27,7 +27,6 @@ export class ReportService {
       orderBy: { createdAt: 'desc' },
       include: {
         customer: { include: { user: { select: { name: true, phone: true } } } },
-        branch: { select: { name: true } },
       },
     });
 

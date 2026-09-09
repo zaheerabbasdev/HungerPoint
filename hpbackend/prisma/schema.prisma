@@ -301,7 +301,7 @@ model Category {
   id          String    @id @default(uuid())
   name        String    @unique
   description String?
-  image       String?
+  image       String?   @db.LongText
   sortOrder   Int       @default(0)
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
@@ -318,14 +318,14 @@ model Product {
   categoryId  String
   name        String
   description String?  @db.Text
-  image       String?
+  image       String?  @db.LongText
   basePrice   Decimal  @db.Decimal(10, 2)
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  category       Category        @relation(fields: [categoryId], references: [id])
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   variants       ProductVariant[]
   addons         ProductAddon[]
   branchProducts BranchProduct[]
@@ -459,7 +459,7 @@ model Order {
   id              String        @id @default(uuid())
   orderNumber     String        @unique
   customerId      String?
-  branchId        String
+  branchId        String?
   addressId       String?
   status          OrderStatus   @default(PENDING)
   source          OrderSource   @default(MOBILE_APP)
@@ -491,7 +491,7 @@ model Order {
   updatedAt       DateTime      @updatedAt
 
   customer       Customer?            @relation(fields: [customerId], references: [id])
-  branch         Branch               @relation(fields: [branchId], references: [id])
+  branch         Branch?              @relation(fields: [branchId], references: [id])
   address        Address?             @relation(fields: [addressId], references: [id])
   coupon         Coupon?              @relation(fields: [couponId], references: [id])
   items          OrderItem[]
@@ -502,7 +502,7 @@ model Order {
   loyaltyTxns    LoyaltyTransaction[]
 
   @@index([customerId])
-  @@index([branchId])
+  @@index([branchId], map: "orders_branchId_idx")
   @@index([status])
   @@index([createdAt])
   @@map("orders")

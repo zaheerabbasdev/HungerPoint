@@ -31,6 +31,8 @@ import {
   ShieldCheck,
   Phone,
   Lock,
+  Upload,
+  ImageIcon,
 } from 'lucide-react';
 
 interface Category {
@@ -155,6 +157,22 @@ export default function AdminPortalPage() {
     price: 0,
   });
 
+  const [showBranchModal, setShowBranchModal] = useState(false);
+  const [branchForm, setBranchForm] = useState({
+    name: '',
+    code: '',
+    address: '',
+    city: 'Islamabad',
+    area: '',
+    latitude: 33.6844,
+    longitude: 73.0039,
+    phone: '+923001234567',
+    deliveryRadius: 8,
+    isOpen: true,
+    isActive: true,
+  });
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   // Action status toast
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -172,12 +190,30 @@ export default function AdminPortalPage() {
         const u = JSON.parse(userStr);
         setAuthToken(token);
         setCurrentUser(u);
+        // Validate token with backend
+        fetchApi('/auth/me').catch(() => {
+          localStorage.removeItem('hp_access_token');
+          localStorage.removeItem('hp_refresh_token');
+          localStorage.removeItem('hp_user');
+          setAuthToken(null);
+          setCurrentUser(null);
+          setLoginError('Session expired. Please log in again.');
+        });
       } catch {
         localStorage.removeItem('hp_access_token');
+        localStorage.removeItem('hp_refresh_token');
         localStorage.removeItem('hp_user');
       }
     }
     setAuthLoading(false);
+
+    const handleAuthExpired = () => {
+      setAuthToken(null);
+      setCurrentUser(null);
+      setLoginError('Your session has expired. Please sign in again.');
+    };
+    window.addEventListener('hp_auth_expired', handleAuthExpired);
+    return () => window.removeEventListener('hp_auth_expired', handleAuthExpired);
   }, []);
 
   // ─── 2. Fetch Data when authenticated ────────────────────────
@@ -244,11 +280,14 @@ export default function AdminPortalPage() {
       });
 
       if (res.success && res.data) {
-        const { user, accessToken } = res.data;
+        const { user, accessToken, refreshToken } = res.data;
         if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && user.role !== 'BRANCH_MANAGER') {
           throw new Error('Access denied: You need administrative privileges to access this console.');
         }
         localStorage.setItem('hp_access_token', accessToken);
+        if (refreshToken) {
+          localStorage.setItem('hp_refresh_token', refreshToken);
+        }
         localStorage.setItem('hp_user', JSON.stringify(user));
         setAuthToken(accessToken);
         setCurrentUser(user);
@@ -265,6 +304,7 @@ export default function AdminPortalPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('hp_access_token');
+    localStorage.removeItem('hp_refresh_token');
     localStorage.removeItem('hp_user');
     setAuthToken(null);
     setCurrentUser(null);
@@ -287,7 +327,7 @@ export default function AdminPortalPage() {
       setCategoryForm({
         name: '',
         description: '',
-        image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
+        image: '',
         sortOrder: categories.length + 1,
         isActive: true,
       });
@@ -385,7 +425,7 @@ export default function AdminPortalPage() {
         categoryId: categories[0]?.id || '',
         name: '',
         description: '',
-        image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=600&q=80',
+        image: '',
         basePrice: 500,
         sortOrder: products.length + 1,
         isActive: true,
@@ -508,6 +548,91 @@ export default function AdminPortalPage() {
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to update order status', 'error');
+    }
+  };
+
+  // ─── 8. Image Upload Handler ──────────────────────────────────
+  const handleFileUpload = async (file: File, onSuccess: (url: string) => void) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('hp_access_token') : null;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+      let uploadedUrl = '';
+      try {
+        const res = await fetch(`${apiUrl}/upload`, {
+          method: 'POST',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.data?.url) {
+          uploadedUrl = data.data.url;
+        }
+      } catch (uploadErr) {
+        console.warn('Backend upload failed, converting to local DataURL', uploadErr);
+      }
+
+      if (!uploadedUrl) {
+        const reader = new FileReader();
+        uploadedUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      onSuccess(uploadedUrl);
+      showToast('Image uploaded successfully!');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to process local image', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // ─── 9. Branch CRUD ──────────────────────────────────────────
+  const openBranchModal = () => {
+    setBranchForm({
+      name: '',
+      code: `HP-B${Math.floor(100 + Math.random() * 900)}`,
+      address: '',
+      city: 'Islamabad',
+      area: '',
+      latitude: Number((33.68 + Math.random() * 0.05).toFixed(4)),
+      longitude: Number((73.00 + Math.random() * 0.06).toFixed(4)),
+      phone: '+923001234567',
+      deliveryRadius: 8,
+      isOpen: true,
+      isActive: true,
+    });
+    setShowBranchModal(true);
+  };
+
+  const handleSaveBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!branchForm.name.trim() || !branchForm.code.trim() || !branchForm.address.trim()) {
+      showToast('Branch name, code, and address are required', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetchApi('/branches', {
+        method: 'POST',
+        body: JSON.stringify(branchForm),
+      });
+      if (res.success) {
+        showToast(`Branch "${branchForm.name}" created successfully!`);
+        setShowBranchModal(false);
+        loadAllData();
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to create branch', 'error');
     }
   };
 
@@ -1321,11 +1446,20 @@ export default function AdminPortalPage() {
         {/* ────────────────────────────────────────────────────────── */}
         {activeTab === 'branches' && (
           <div className="space-y-4 animate-in fade-in duration-300">
-            <div>
-              <h3 className="text-lg font-black text-stone-100">Outlets & Branch Performance</h3>
-              <p className="text-xs text-stone-400">
-                Operating locations, delivery zones and live availability
-              </p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="text-lg font-black text-stone-100">Outlets & Branch Performance</h3>
+                <p className="text-xs text-stone-400">
+                  Operating locations, delivery zones and live availability
+                </p>
+              </div>
+              <button
+                onClick={openBranchModal}
+                className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 font-black rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Branch</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1375,21 +1509,21 @@ export default function AdminPortalPage() {
       {/* MODAL: ADD / EDIT CATEGORY                                 */}
       {/* ────────────────────────────────────────────────────────── */}
       {showCategoryModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 max-w-lg w-full rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
-            <div className="flex justify-between items-center pb-3 border-b border-stone-800">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-stone-900 border border-stone-800 max-w-lg w-full rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-stone-800 shrink-0">
               <h3 className="text-lg font-black text-stone-100">
                 {editingCategory ? `Edit Category: ${editingCategory.name}` : 'Create Menu Category'}
               </h3>
               <button
                 onClick={() => setShowCategoryModal(false)}
-                className="p-1.5 text-stone-500 hover:text-stone-300 rounded-xl hover:bg-stone-800"
+                className="p-1.5 text-stone-500 hover:text-stone-300 rounded-xl hover:bg-stone-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCategory} className="space-y-4 text-xs">
+            <form id="categoryForm" onSubmit={handleSaveCategory} className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
               <div>
                 <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
                   Category Name *
@@ -1399,7 +1533,7 @@ export default function AdminPortalPage() {
                   value={categoryForm.name}
                   onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
                   placeholder="e.g. Gourmet Burgers, Artisan Pizzas"
-                  className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-amber-500 font-bold"
                   required
                 />
               </div>
@@ -1419,19 +1553,59 @@ export default function AdminPortalPage() {
 
               <div>
                 <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
-                  Cover Image URL
+                  Cover Photo / Image
                 </label>
-                <input
-                  type="url"
-                  value={categoryForm.image}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, image: e.target.value })}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-amber-500"
-                />
-                {categoryForm.image && (
-                  <div className="mt-2 h-24 w-full rounded-xl overflow-hidden border border-stone-800 bg-stone-950">
-                    <img src={categoryForm.image} alt="Preview" className="w-full h-full object-cover" />
+                {categoryForm.image ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-stone-800 bg-stone-950 group">
+                    <img src={categoryForm.image} alt="Preview" className="w-full h-36 object-cover" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <label className="cursor-pointer px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs rounded-xl shadow transition-colors">
+                        Change Photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleFileUpload(f, (url) => setCategoryForm({ ...categoryForm, image: url }));
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCategoryForm({ ...categoryForm, image: '' })}
+                        className="px-3.5 py-1.5 bg-red-500 hover:bg-red-400 text-white font-bold text-xs rounded-xl shadow transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <label className="border-2 border-dashed border-stone-800 hover:border-amber-500/60 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-stone-950/60 hover:bg-stone-950 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-stone-200">
+                      Click to upload category image from device
+                    </p>
+                    <p className="text-[10px] text-stone-500">
+                      PNG, JPG, JPEG, WEBP up to 10MB
+                    </p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFileUpload(f, (url) => setCategoryForm({ ...categoryForm, image: url }));
+                      }}
+                    />
+                  </label>
+                )}
+                {uploadingImage && (
+                  <p className="text-[10px] text-amber-400 flex items-center gap-1.5 mt-1.5 animate-pulse">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Uploading image...
+                  </p>
                 )}
               </div>
 
@@ -1461,23 +1635,24 @@ export default function AdminPortalPage() {
                   </label>
                 </div>
               </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-stone-800">
-                <button
-                  type="button"
-                  onClick={() => setShowCategoryModal(false)}
-                  className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded-xl font-black shadow-md shadow-orange-500/20"
-                >
-                  {editingCategory ? 'Save Changes' : 'Create Category'}
-                </button>
-              </div>
             </form>
+
+            <div className="px-6 py-4 border-t border-stone-800 bg-stone-900/90 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowCategoryModal(false)}
+                className="px-4 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="categoryForm"
+                className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 rounded-xl font-black shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+              >
+                {editingCategory ? 'Save Changes' : 'Create Category'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1486,21 +1661,21 @@ export default function AdminPortalPage() {
       {/* MODAL: ADD / EDIT PRODUCT                                  */}
       {/* ────────────────────────────────────────────────────────── */}
       {showProductModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-stone-900 border border-stone-800 max-w-2xl w-full rounded-3xl p-6 shadow-2xl space-y-5 my-8 animate-in zoom-in-95 duration-150">
-            <div className="flex justify-between items-center pb-3 border-b border-stone-800">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-stone-900 border border-stone-800 max-w-2xl w-full rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-stone-800 shrink-0">
               <h3 className="text-lg font-black text-stone-100">
                 {editingProduct ? `Edit Item: ${editingProduct.name}` : 'Add New Menu Item'}
               </h3>
               <button
                 onClick={() => setShowProductModal(false)}
-                className="p-1.5 text-stone-500 hover:text-stone-300 rounded-xl hover:bg-stone-800"
+                className="p-1.5 text-stone-500 hover:text-stone-300 rounded-xl hover:bg-stone-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
+            <form id="productForm" onSubmit={handleSaveProduct} className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
@@ -1565,19 +1740,59 @@ export default function AdminPortalPage() {
 
               <div>
                 <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
-                  Product Image URL
+                  Product Photo / Image
                 </label>
-                <input
-                  type="url"
-                  value={productForm.image}
-                  onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-amber-500"
-                />
-                {productForm.image && (
-                  <div className="mt-2 h-28 w-full rounded-xl overflow-hidden border border-stone-800 bg-stone-950">
-                    <img src={productForm.image} alt="Preview" className="w-full h-full object-cover" />
+                {productForm.image ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-stone-800 bg-stone-950 group">
+                    <img src={productForm.image} alt="Preview" className="w-full h-40 object-cover" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <label className="cursor-pointer px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs rounded-xl shadow transition-colors">
+                        Change Photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleFileUpload(f, (url) => setProductForm({ ...productForm, image: url }));
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setProductForm({ ...productForm, image: '' })}
+                        className="px-3.5 py-1.5 bg-red-500 hover:bg-red-400 text-white font-bold text-xs rounded-xl shadow transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <label className="border-2 border-dashed border-stone-800 hover:border-amber-500/60 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-stone-950/60 hover:bg-stone-950 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-stone-200">
+                      Click to upload product image from device
+                    </p>
+                    <p className="text-[10px] text-stone-500">
+                      PNG, JPG, JPEG, WEBP up to 10MB
+                    </p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFileUpload(f, (url) => setProductForm({ ...productForm, image: url }));
+                      }}
+                    />
+                  </label>
+                )}
+                {uploadingImage && (
+                  <p className="text-[10px] text-amber-400 flex items-center gap-1.5 mt-1.5 animate-pulse">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Uploading image...
+                  </p>
                 )}
               </div>
 
@@ -1708,23 +1923,206 @@ export default function AdminPortalPage() {
                   Available for Ordering (In-Stock)
                 </label>
               </div>
+            </form>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-stone-800">
-                <button
-                  type="button"
-                  onClick={() => setShowProductModal(false)}
-                  className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded-xl font-black shadow-md shadow-orange-500/20"
-                >
-                  {editingProduct ? 'Save Product' : 'Add to Menu'}
-                </button>
+            <div className="px-6 py-4 border-t border-stone-800 bg-stone-900/90 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowProductModal(false)}
+                className="px-4 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="productForm"
+                className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 rounded-xl font-black shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+              >
+                {editingProduct ? 'Save Product' : 'Add to Menu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ────────────────────────────────────────────────────────── */}
+      {/* MODAL: ADD BRANCH                                          */}
+      {/* ────────────────────────────────────────────────────────── */}
+      {showBranchModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-stone-900 border border-stone-800 max-w-xl w-full rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-stone-800 shrink-0">
+              <h3 className="text-lg font-black text-stone-100">Create New Branch Outlet</h3>
+              <button
+                onClick={() => setShowBranchModal(false)}
+                className="p-1.5 text-stone-500 hover:text-stone-300 rounded-xl hover:bg-stone-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form id="branchForm" onSubmit={handleSaveBranch} className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
+                    Branch Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={branchForm.name}
+                    onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
+                    placeholder="e.g. HungerPoint F-10 Markaz"
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-amber-500 font-bold"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
+                    Branch Code *
+                  </label>
+                  <input
+                    type="text"
+                    value={branchForm.code}
+                    onChange={(e) => setBranchForm({ ...branchForm, code: e.target.value })}
+                    placeholder="e.g. HP-F10"
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-amber-500 font-mono font-bold"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
+                  Full Address *
+                </label>
+                <input
+                  type="text"
+                  value={branchForm.address}
+                  onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })}
+                  placeholder="e.g. Shop 15, Street 18, F-10 Markaz, Islamabad"
+                  className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-amber-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
+                    City *
+                  </label>
+                  <input
+                    type="text"
+                    value={branchForm.city}
+                    onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })}
+                    placeholder="e.g. Islamabad"
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
+                    Direct Contact Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={branchForm.phone}
+                    onChange={(e) => setBranchForm({ ...branchForm, phone: e.target.value })}
+                    placeholder="+923001234567"
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
+                    Latitude
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={branchForm.latitude}
+                    onChange={(e) => setBranchForm({ ...branchForm, latitude: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-100 font-mono focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
+                    Longitude
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={branchForm.longitude}
+                    onChange={(e) => setBranchForm({ ...branchForm, longitude: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-100 font-mono focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-stone-400 font-bold uppercase tracking-wider mb-1">
+                    Radius (KM)
+                  </label>
+                  <input
+                    type="number"
+                    value={branchForm.deliveryRadius}
+                    onChange={(e) => setBranchForm({ ...branchForm, deliveryRadius: Number(e.target.value) })}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-100 font-mono focus:outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6 pt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="branchIsOpen"
+                    checked={branchForm.isOpen}
+                    onChange={(e) => setBranchForm({ ...branchForm, isOpen: e.target.checked })}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <label htmlFor="branchIsOpen" className="text-stone-300 font-bold cursor-pointer">
+                    Open for Orders Now
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="branchIsActive"
+                    checked={branchForm.isActive}
+                    onChange={(e) => setBranchForm({ ...branchForm, isActive: e.target.checked })}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <label htmlFor="branchIsActive" className="text-stone-300 font-bold cursor-pointer">
+                    Active in Customer App
+                  </label>
+                </div>
               </div>
             </form>
+
+            <div className="px-6 py-4 border-t border-stone-800 bg-stone-900/90 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowBranchModal(false)}
+                className="px-4 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="branchForm"
+                className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 rounded-xl font-black shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+              >
+                Create Branch Outlet
+              </button>
+            </div>
           </div>
         </div>
       )}

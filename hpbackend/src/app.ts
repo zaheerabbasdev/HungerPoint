@@ -33,11 +33,23 @@ import reportRoutes from './modules/reports/report.routes';
 // Middleware imports
 import { errorHandler } from './middleware/error.middleware';
 import { notFound } from './middleware/notFound.middleware';
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
 
 const app: Application = express();
 
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 // ─── Security ────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
+
+// ─── Static Uploads ──────────────────────────────────────────
+app.use('/uploads', express.static(uploadDir));
 
 // ─── CORS ────────────────────────────────────────────────────
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',');
@@ -104,6 +116,41 @@ app.use(`${API}/reviews`,       reviewRoutes);
 app.use(`${API}/loyalty`,       loyaltyRoutes);
 app.use(`${API}/notifications`, notificationRoutes);
 app.use(`${API}/reports`,       reportRoutes);
+
+// ─── Local File Upload Route ──────────────────────────────────
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg';
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'img-' + uniqueSuffix + ext);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
+app.post(`${API}/upload`, upload.single('image'), (req: Request, res: Response) => {
+  if (!req.file) {
+    res.status(400).json({ success: false, message: 'No file uploaded' });
+    return;
+  }
+  const host = req.get('host') || 'localhost:5000';
+  const protocol = req.protocol || 'http';
+  const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+  res.json({
+    success: true,
+    message: 'File uploaded successfully',
+    data: {
+      url: fileUrl,
+      filename: req.file.filename,
+      size: req.file.size,
+    },
+  });
+});
 
 // ─── Error Handlers ──────────────────────────────────────────
 app.use(notFound);

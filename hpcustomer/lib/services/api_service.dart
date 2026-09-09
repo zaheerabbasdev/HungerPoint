@@ -18,6 +18,24 @@ class ApiService {
     return 'http://$hostIp:$port/api/v1';
   }
 
+  /// Resolves image URLs for local backend uploads on mobile devices
+  static String resolveImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) {
+      return 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80';
+    }
+    String cleaned = url.trim();
+    if (cleaned.startsWith('/uploads/')) {
+      return 'http://$hostIp:$port$cleaned';
+    }
+    if (cleaned.contains('localhost:5000')) {
+      return cleaned.replaceAll('localhost:5000', '$hostIp:$port');
+    }
+    if (cleaned.contains('127.0.0.1:5000')) {
+      return cleaned.replaceAll('127.0.0.1:5000', '$hostIp:$port');
+    }
+    return cleaned;
+  }
+
   // Auth tokens in memory and persistent in SharedPreferences
   static String? _accessToken;
   static String? _refreshToken;

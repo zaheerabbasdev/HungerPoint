@@ -15,12 +15,12 @@ const SALT_ROUNDS = 12;
 // ─── Token Helpers ────────────────────────────────────────────
 const generateAccessToken = (payload: AuthPayload): string =>
   jwt.sign(payload, process.env.JWT_SECRET as string, {
-    expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as jwt.SignOptions['expiresIn'],
+    expiresIn: (process.env.JWT_EXPIRES_IN || '30d') as jwt.SignOptions['expiresIn'],
   });
 
 const generateRefreshToken = (payload: AuthPayload): string =>
   jwt.sign(payload, process.env.JWT_REFRESH_SECRET as string, {
-    expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'],
+    expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '30d') as jwt.SignOptions['expiresIn'],
   });
 
 // ─── Register Customer ────────────────────────────────────────

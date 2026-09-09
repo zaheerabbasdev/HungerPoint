@@ -537,7 +537,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                               minHeight: 190,
                             ),
                             child: Image.network(
-                              widget.item['image'] ?? '',
+                              ApiService.resolveImageUrl(widget.item['image']?.toString()),
                               fit: BoxFit.contain,
                               width: double.infinity,
                               errorBuilder: (context, error, stackTrace) => Container(
