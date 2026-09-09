@@ -91,8 +91,12 @@ interface Branch {
   name: string;
   code: string;
   address: string;
+  city?: string;
+  area?: string;
+  latitude?: number | string;
+  longitude?: number | string;
   phone?: string;
-  deliveryRadius: number;
+  deliveryRadius: number | string;
   isOpen: boolean;
   isActive: boolean;
 }
@@ -129,7 +133,13 @@ export default function AdminPortalPage() {
   // Modals States
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [categoryForm, setCategoryForm] = useState({
+  const [categoryForm, setCategoryForm] = useState<{
+    name: string;
+    description: string;
+    image: string;
+    sortOrder: number | string;
+    isActive: boolean;
+  }>({
     name: '',
     description: '',
     image: '',
@@ -139,7 +149,17 @@ export default function AdminPortalPage() {
 
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [productForm, setProductForm] = useState({
+  const [productForm, setProductForm] = useState<{
+    categoryId: string;
+    name: string;
+    description: string;
+    image: string;
+    basePrice: number | string;
+    sortOrder: number | string;
+    isActive: boolean;
+    variants: { name: string; price: number | string; isDefault: boolean }[];
+    addonIds: string[];
+  }>({
     categoryId: '',
     name: '',
     description: '',
@@ -147,18 +167,34 @@ export default function AdminPortalPage() {
     basePrice: 0,
     sortOrder: 0,
     isActive: true,
-    variants: [] as { name: string; price: number; isDefault: boolean }[],
+    variants: [] as { name: string; price: number | string; isDefault: boolean }[],
     addonIds: [] as string[],
   });
 
   const [showAddonModal, setShowAddonModal] = useState(false);
-  const [addonForm, setAddonForm] = useState({
+  const [addonForm, setAddonForm] = useState<{
+    name: string;
+    price: number | string;
+  }>({
     name: '',
     price: 0,
   });
 
   const [showBranchModal, setShowBranchModal] = useState(false);
-  const [branchForm, setBranchForm] = useState({
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [branchForm, setBranchForm] = useState<{
+    name: string;
+    code: string;
+    address: string;
+    city: string;
+    area: string;
+    latitude: number | string;
+    longitude: number | string;
+    phone: string;
+    deliveryRadius: number | string;
+    isOpen: boolean;
+    isActive: boolean;
+  }>({
     name: '',
     code: '',
     address: '',
@@ -319,7 +355,7 @@ export default function AdminPortalPage() {
         name: cat.name,
         description: cat.description || '',
         image: cat.image || '',
-        sortOrder: cat.sortOrder || 0,
+        sortOrder: cat.sortOrder ?? 0,
         isActive: cat.isActive,
       });
     } else {
@@ -342,12 +378,23 @@ export default function AdminPortalPage() {
       return;
     }
 
+    const payload = {
+      name: categoryForm.name.trim(),
+      description: categoryForm.description.trim(),
+      image: categoryForm.image,
+      sortOrder:
+        typeof categoryForm.sortOrder === 'string'
+          ? parseInt(categoryForm.sortOrder, 10) || 0
+          : categoryForm.sortOrder,
+      isActive: categoryForm.isActive,
+    };
+
     try {
       if (editingCategory) {
         // Update
         const res = await fetchApi(`/categories/${editingCategory.id}`, {
           method: 'PUT',
-          body: JSON.stringify(categoryForm),
+          body: JSON.stringify(payload),
         });
         if (res.success) {
           showToast(`Category "${categoryForm.name}" updated successfully`);
@@ -356,7 +403,7 @@ export default function AdminPortalPage() {
         // Create
         const res = await fetchApi('/categories', {
           method: 'POST',
-          body: JSON.stringify(categoryForm),
+          body: JSON.stringify(payload),
         });
         if (res.success) {
           showToast(`Category "${categoryForm.name}" created successfully`);
@@ -443,12 +490,21 @@ export default function AdminPortalPage() {
       return;
     }
 
+    const payload = {
+      ...productForm,
+      basePrice: Number(productForm.basePrice) || 0,
+      variants: productForm.variants.map((v) => ({
+        ...v,
+        price: Number(v.price) || 0,
+      })),
+    };
+
     try {
       if (editingProduct) {
         // Update product
         const res = await fetchApi(`/products/${editingProduct.id}`, {
           method: 'PUT',
-          body: JSON.stringify(productForm),
+          body: JSON.stringify(payload),
         });
         if (res.success) {
           showToast(`Product "${productForm.name}" updated successfully`);
@@ -457,7 +513,7 @@ export default function AdminPortalPage() {
         // Create product
         const res = await fetchApi('/products', {
           method: 'POST',
-          body: JSON.stringify(productForm),
+          body: JSON.stringify(payload),
         });
         if (res.success) {
           showToast(`Product "${productForm.name}" added to menu!`);
@@ -507,7 +563,10 @@ export default function AdminPortalPage() {
     try {
       const res = await fetchApi('/products/addons', {
         method: 'POST',
-        body: JSON.stringify(addonForm),
+        body: JSON.stringify({
+          name: addonForm.name.trim(),
+          price: Number(addonForm.price) || 0,
+        }),
       });
       if (res.success) {
         showToast(`Add-on "${addonForm.name}" created`);
@@ -597,20 +656,38 @@ export default function AdminPortalPage() {
   };
 
   // ─── 9. Branch CRUD ──────────────────────────────────────────
-  const openBranchModal = () => {
-    setBranchForm({
-      name: '',
-      code: `HP-B${Math.floor(100 + Math.random() * 900)}`,
-      address: '',
-      city: 'Islamabad',
-      area: '',
-      latitude: Number((33.68 + Math.random() * 0.05).toFixed(4)),
-      longitude: Number((73.00 + Math.random() * 0.06).toFixed(4)),
-      phone: '+923001234567',
-      deliveryRadius: 8,
-      isOpen: true,
-      isActive: true,
-    });
+  const openBranchModal = (branch?: Branch) => {
+    if (branch) {
+      setEditingBranch(branch);
+      setBranchForm({
+        name: branch.name,
+        code: branch.code,
+        address: branch.address,
+        city: branch.city || 'Islamabad',
+        area: branch.area || '',
+        latitude: Number(branch.latitude) || 33.6844,
+        longitude: Number(branch.longitude) || 73.0039,
+        phone: branch.phone || '',
+        deliveryRadius: Number(branch.deliveryRadius) || 5,
+        isOpen: branch.isOpen ?? true,
+        isActive: branch.isActive ?? true,
+      });
+    } else {
+      setEditingBranch(null);
+      setBranchForm({
+        name: '',
+        code: `HP-B${Math.floor(100 + Math.random() * 900)}`,
+        address: '',
+        city: 'Islamabad',
+        area: '',
+        latitude: Number((33.68 + Math.random() * 0.05).toFixed(4)),
+        longitude: Number((73.00 + Math.random() * 0.06).toFixed(4)),
+        phone: '+923001234567',
+        deliveryRadius: 8,
+        isOpen: true,
+        isActive: true,
+      });
+    }
     setShowBranchModal(true);
   };
 
@@ -621,18 +698,77 @@ export default function AdminPortalPage() {
       return;
     }
 
+    const payload = {
+      name: branchForm.name.trim(),
+      code: branchForm.code.trim(),
+      address: branchForm.address.trim(),
+      city: branchForm.city.trim() || 'Islamabad',
+      area: branchForm.area?.trim() || undefined,
+      latitude: Number(branchForm.latitude) || 33.6844,
+      longitude: Number(branchForm.longitude) || 73.0039,
+      phone: branchForm.phone?.trim() || undefined,
+      deliveryRadius: Number(branchForm.deliveryRadius) || 5,
+      isOpen: Boolean(branchForm.isOpen),
+      isActive: Boolean(branchForm.isActive),
+    };
+
     try {
-      const res = await fetchApi('/branches', {
-        method: 'POST',
-        body: JSON.stringify(branchForm),
+      if (editingBranch) {
+        const res = await fetchApi(`/branches/${editingBranch.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        if (res.success) {
+          showToast(`Branch "${branchForm.name}" updated successfully!`);
+          setShowBranchModal(false);
+          setEditingBranch(null);
+          loadAllData();
+        }
+      } else {
+        const res = await fetchApi('/branches', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        if (res.success) {
+          showToast(`Branch "${branchForm.name}" created successfully!`);
+          setShowBranchModal(false);
+          loadAllData();
+        }
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save branch', 'error');
+    }
+  };
+
+  const handleDeleteBranch = async (branch: Branch) => {
+    if (!confirm(`Are you sure you want to delete branch "${branch.name}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      const res = await fetchApi(`/branches/${branch.id}`, {
+        method: 'DELETE',
       });
       if (res.success) {
-        showToast(`Branch "${branchForm.name}" created successfully!`);
-        setShowBranchModal(false);
+        showToast(`Branch "${branch.name}" deleted successfully!`);
         loadAllData();
       }
     } catch (err: any) {
-      showToast(err.message || 'Failed to create branch', 'error');
+      showToast(err.message || 'Failed to delete branch', 'error');
+    }
+  };
+
+  const handleToggleBranchOpen = async (branch: Branch) => {
+    try {
+      const res = await fetchApi(`/branches/${branch.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ isOpen: !branch.isOpen }),
+      });
+      if (res.success) {
+        showToast(`Branch marked ${!branch.isOpen ? 'Open' : 'Closed'}`);
+        loadAllData();
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update branch status', 'error');
     }
   };
 
@@ -1454,7 +1590,7 @@ export default function AdminPortalPage() {
                 </p>
               </div>
               <button
-                onClick={openBranchModal}
+                onClick={() => openBranchModal()}
                 className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 font-black rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
@@ -1464,42 +1600,72 @@ export default function AdminPortalPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {branches.map((b) => (
-                <div key={b.id} className="bg-stone-900 border border-stone-800 p-6 rounded-3xl space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="font-mono text-[10px] font-bold text-amber-400 uppercase tracking-widest block">
-                        {b.code}
-                      </span>
-                      <h4 className="text-base font-black text-stone-100">{b.name}</h4>
+                <div key={b.id} className="bg-stone-900 border border-stone-800 p-6 rounded-3xl space-y-4 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-mono text-[10px] font-bold text-amber-400 uppercase tracking-widest block">
+                          {b.code}
+                        </span>
+                        <h4 className="text-base font-black text-stone-100">{b.name}</h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleBranchOpen(b)}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer ${
+                          b.isOpen
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                            : 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20'
+                        }`}
+                        title="Click to toggle open/closed status"
+                      >
+                        {b.isOpen ? 'Open Now' : 'Closed'}
+                      </button>
                     </div>
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                        b.isOpen
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                          : 'bg-red-500/10 text-red-400 border-red-500/30'
-                      }`}
-                    >
-                      {b.isOpen ? 'Open Now' : 'Closed'}
-                    </span>
+
+                    <p className="text-xs text-stone-400 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                      <span>{b.address}</span>
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-800/80 text-xs">
+                      <div>
+                        <span className="text-[10px] text-stone-500 block font-bold">Delivery Radius</span>
+                        <span className="font-bold text-stone-200">{Number(b.deliveryRadius)} km</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-stone-500 block font-bold">Direct Phone</span>
+                        <span className="font-bold text-stone-200">{b.phone || '—'}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <p className="text-xs text-stone-400 flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-stone-500 shrink-0" />
-                    <span>{b.address}</span>
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-800/80 text-xs">
-                    <div>
-                      <span className="text-[10px] text-stone-500 block font-bold">Delivery Radius</span>
-                      <span className="font-bold text-stone-200">{Number(b.deliveryRadius)} km</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-stone-500 block font-bold">Direct Phone</span>
-                      <span className="font-bold text-stone-200">{b.phone || '—'}</span>
-                    </div>
+                  <div className="flex items-center gap-2 pt-3 border-t border-stone-800/80">
+                    <button
+                      type="button"
+                      onClick={() => openBranchModal(b)}
+                      className="flex-1 py-2 bg-stone-800 hover:bg-amber-500 hover:text-stone-950 text-stone-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      title="Edit Branch"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Edit Branch</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBranch(b)}
+                      className="px-3.5 py-2 bg-stone-800 hover:bg-red-500/20 text-stone-400 hover:text-red-400 border border-transparent hover:border-red-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      title="Delete Branch"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               ))}
+              {branches.length === 0 && (
+                <div className="col-span-full py-12 text-center text-stone-500 bg-stone-900 border border-stone-800 rounded-3xl">
+                  No branch outlets found. Click "Add Branch" above to register your first branch.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1616,9 +1782,22 @@ export default function AdminPortalPage() {
                   </label>
                   <input
                     type="number"
+                    min="0"
                     value={categoryForm.sortOrder}
-                    onChange={(e) => setCategoryForm({ ...categoryForm, sortOrder: Number(e.target.value) })}
-                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2 text-stone-100 focus:outline-none focus:border-amber-500"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setCategoryForm({ ...categoryForm, sortOrder: '' });
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        setCategoryForm({
+                          ...categoryForm,
+                          sortOrder: isNaN(parsed) ? '' : Math.max(0, parsed),
+                        });
+                      }
+                    }}
+                    placeholder="1"
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2 text-stone-100 focus:outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
 
@@ -1704,7 +1883,19 @@ export default function AdminPortalPage() {
                     min="0"
                     step="1"
                     value={productForm.basePrice}
-                    onChange={(e) => setProductForm({ ...productForm, basePrice: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setProductForm({ ...productForm, basePrice: '' });
+                      } else {
+                        const parsed = parseFloat(val);
+                        setProductForm({
+                          ...productForm,
+                          basePrice: isNaN(parsed) ? '' : Math.max(0, parsed),
+                        });
+                      }
+                    }}
+                    placeholder="450"
                     className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 font-mono font-bold focus:outline-none focus:border-amber-500"
                     required
                   />
@@ -1840,8 +2031,14 @@ export default function AdminPortalPage() {
                         placeholder="Offset"
                         value={v.price}
                         onChange={(e) => {
+                          const val = e.target.value;
                           const newVars = [...productForm.variants];
-                          newVars[idx].price = Number(e.target.value);
+                          if (val === '') {
+                            (newVars[idx] as any).price = '';
+                          } else {
+                            const parsed = parseFloat(val);
+                            newVars[idx].price = isNaN(parsed) ? ('' as any) : parsed;
+                          }
                           setProductForm({ ...productForm, variants: newVars });
                         }}
                         className="w-20 bg-stone-900 border border-stone-800 rounded-lg px-2 py-1.5 text-stone-200 font-mono"
@@ -1952,9 +2149,14 @@ export default function AdminPortalPage() {
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
           <div className="bg-stone-900 border border-stone-800 max-w-xl w-full rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-150">
             <div className="flex justify-between items-center px-6 py-4 border-b border-stone-800 shrink-0">
-              <h3 className="text-lg font-black text-stone-100">Create New Branch Outlet</h3>
+              <h3 className="text-lg font-black text-stone-100">
+                {editingBranch ? `Edit Branch: ${editingBranch.name}` : 'Create New Branch Outlet'}
+              </h3>
               <button
-                onClick={() => setShowBranchModal(false)}
+                onClick={() => {
+                  setShowBranchModal(false);
+                  setEditingBranch(null);
+                }}
                 className="p-1.5 text-stone-500 hover:text-stone-300 rounded-xl hover:bg-stone-800 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -2044,7 +2246,15 @@ export default function AdminPortalPage() {
                     type="number"
                     step="0.0001"
                     value={branchForm.latitude}
-                    onChange={(e) => setBranchForm({ ...branchForm, latitude: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setBranchForm({ ...branchForm, latitude: '' });
+                      } else {
+                        const parsed = parseFloat(val);
+                        setBranchForm({ ...branchForm, latitude: isNaN(parsed) ? '' : parsed });
+                      }
+                    }}
                     className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-100 font-mono focus:outline-none focus:border-amber-500"
                     required
                   />
@@ -2058,7 +2268,15 @@ export default function AdminPortalPage() {
                     type="number"
                     step="0.0001"
                     value={branchForm.longitude}
-                    onChange={(e) => setBranchForm({ ...branchForm, longitude: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setBranchForm({ ...branchForm, longitude: '' });
+                      } else {
+                        const parsed = parseFloat(val);
+                        setBranchForm({ ...branchForm, longitude: isNaN(parsed) ? '' : parsed });
+                      }
+                    }}
                     className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-100 font-mono focus:outline-none focus:border-amber-500"
                     required
                   />
@@ -2070,8 +2288,18 @@ export default function AdminPortalPage() {
                   </label>
                   <input
                     type="number"
+                    min="0.5"
+                    step="0.5"
                     value={branchForm.deliveryRadius}
-                    onChange={(e) => setBranchForm({ ...branchForm, deliveryRadius: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setBranchForm({ ...branchForm, deliveryRadius: '' });
+                      } else {
+                        const parsed = parseFloat(val);
+                        setBranchForm({ ...branchForm, deliveryRadius: isNaN(parsed) ? '' : Math.max(0.5, parsed) });
+                      }
+                    }}
                     className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-stone-100 font-mono focus:outline-none focus:border-amber-500"
                     required
                   />
@@ -2110,7 +2338,10 @@ export default function AdminPortalPage() {
             <div className="px-6 py-4 border-t border-stone-800 bg-stone-900/90 flex justify-end gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setShowBranchModal(false)}
+                onClick={() => {
+                  setShowBranchModal(false);
+                  setEditingBranch(null);
+                }}
                 className="px-4 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl font-bold transition-colors"
               >
                 Cancel
@@ -2120,7 +2351,7 @@ export default function AdminPortalPage() {
                 form="branchForm"
                 className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 rounded-xl font-black shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
               >
-                Create Branch Outlet
+                {editingBranch ? 'Save Branch Changes' : 'Create Branch Outlet'}
               </button>
             </div>
           </div>
@@ -2166,7 +2397,15 @@ export default function AdminPortalPage() {
                   type="number"
                   min="0"
                   value={addonForm.price}
-                  onChange={(e) => setAddonForm({ ...addonForm, price: Number(e.target.value) })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setAddonForm({ ...addonForm, price: '' });
+                    } else {
+                      const parsed = parseFloat(val);
+                      setAddonForm({ ...addonForm, price: isNaN(parsed) ? '' : Math.max(0, parsed) });
+                    }
+                  }}
                   className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 font-mono font-bold focus:outline-none focus:border-amber-500"
                   required
                 />
