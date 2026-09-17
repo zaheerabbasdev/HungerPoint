@@ -173,9 +173,13 @@ class _InteractiveMapViewState extends State<InteractiveMapView> {
           ),
           children: [
             TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.hungerpoint.app',
+              urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+              subdomains: const ['a', 'b', 'c', 'd'],
+              userAgentPackageName: 'com.example.hpcustomer',
               maxZoom: 19,
+              errorTileCallback: (tile, error, stackTrace) {
+                debugPrint('Map tile failed to load (${tile.coordinates}): $error');
+              },
             ),
           ],
         ),

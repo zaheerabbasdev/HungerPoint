@@ -21,12 +21,30 @@ class GeocodingService {
   static const Map<String, String> _headers = {
     'User-Agent': 'HungerPointApp/1.0 (contact: support@hungerpoint.pk)',
   };
+  static const Duration _requestTimeout = Duration(seconds: 12);
+
+  /// Runs [request] and retries it once on timeout/network error, since
+  /// mobile connections routinely have brief drop-outs that a single retry
+  /// recovers from.
+  static Future<T?> _withRetry<T>(Future<T> Function() request) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await request();
+      } catch (e) {
+        final isLastAttempt = attempt == 1;
+        debugPrint('GeocodingService request ${isLastAttempt ? 'failed' : 'retrying after error'}: $e');
+        if (isLastAttempt) return null;
+      }
+    }
+    return null;
+  }
 
   /// Forward geocoding: turns a free-text search query into candidate locations.
   /// Biased towards Pakistan since that's where HungerPoint operates.
   static Future<List<GeoResult>> search(String query) async {
     if (query.trim().isEmpty) return [];
-    try {
+
+    final results = await _withRetry(() async {
       final uri = Uri.parse('$_baseUrl/search').replace(queryParameters: {
         'q': query,
         'format': 'jsonv2',
@@ -34,39 +52,34 @@ class GeocodingService {
         'limit': '8',
         'addressdetails': '0',
       });
-      final res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 8));
-      if (res.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(res.body);
-        return data.map((item) {
-          return GeoResult(
-            lat: double.tryParse(item['lat']?.toString() ?? '') ?? 0,
-            lng: double.tryParse(item['lon']?.toString() ?? '') ?? 0,
-            displayName: item['display_name']?.toString() ?? query,
-          );
-        }).toList();
-      }
-    } catch (e) {
-      debugPrint('GeocodingService.search error: $e');
-    }
-    return [];
+      final res = await http.get(uri, headers: _headers).timeout(_requestTimeout);
+      if (res.statusCode != 200) return <GeoResult>[];
+
+      final List<dynamic> data = jsonDecode(res.body);
+      return data.map((item) {
+        return GeoResult(
+          lat: double.tryParse(item['lat']?.toString() ?? '') ?? 0,
+          lng: double.tryParse(item['lon']?.toString() ?? '') ?? 0,
+          displayName: item['display_name']?.toString() ?? query,
+        );
+      }).toList();
+    });
+
+    return results ?? [];
   }
 
   /// Reverse geocoding: turns coordinates into a human-readable address.
-  static Future<String?> reverseGeocode(double lat, double lng) async {
-    try {
+  static Future<String?> reverseGeocode(double lat, double lng) {
+    return _withRetry<String?>(() async {
       final uri = Uri.parse('$_baseUrl/reverse').replace(queryParameters: {
         'lat': lat.toString(),
         'lon': lng.toString(),
         'format': 'jsonv2',
       });
-      final res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 8));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        return data['display_name']?.toString();
-      }
-    } catch (e) {
-      debugPrint('GeocodingService.reverseGeocode error: $e');
-    }
-    return null;
+      final res = await http.get(uri, headers: _headers).timeout(_requestTimeout);
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body);
+      return data['display_name']?.toString();
+    });
   }
 }
