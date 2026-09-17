@@ -52,6 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (res.success) {
       localStorage.setItem('hp_access_token', res.data.accessToken);
+      if (res.data.refreshToken) {
+        localStorage.setItem('hp_refresh_token', res.data.refreshToken);
+      }
       localStorage.setItem('hp_user', JSON.stringify(res.data.user));
       setUser(res.data.user);
     }
@@ -65,6 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (res.success) {
       localStorage.setItem('hp_access_token', res.data.accessToken);
+      if (res.data.refreshToken) {
+        localStorage.setItem('hp_refresh_token', res.data.refreshToken);
+      }
       localStorage.setItem('hp_user', JSON.stringify(res.data.user));
       setUser(res.data.user);
     }
@@ -72,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('hp_access_token');
+    localStorage.removeItem('hp_refresh_token');
     localStorage.removeItem('hp_user');
     setUser(null);
   };

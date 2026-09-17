@@ -34,19 +34,6 @@ export const authenticate = async (
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      if (process.env.NODE_ENV === 'development') {
-        const devAdmin = await prisma.user.findFirst({
-          where: { role: 'SUPER_ADMIN', isActive: true },
-        });
-        if (devAdmin) {
-          req.user = {
-            userId: devAdmin.id,
-            role: devAdmin.role,
-            branchId: devAdmin.branchId ?? undefined,
-          };
-          return next();
-        }
-      }
       sendUnauthorized(res, 'No token provided');
       return;
     }
@@ -107,37 +94,10 @@ export const authenticate = async (
         // Continue to fallback
       }
 
-      if (process.env.NODE_ENV === 'development') {
-        const devAdmin = await prisma.user.findFirst({
-          where: { role: 'SUPER_ADMIN', isActive: true },
-        });
-        if (devAdmin) {
-          req.user = {
-            userId: devAdmin.id,
-            role: devAdmin.role,
-            branchId: devAdmin.branchId ?? undefined,
-          };
-          return next();
-        }
-      }
-
       sendUnauthorized(res, 'Token expired');
       return;
     }
     if (error instanceof jwt.JsonWebTokenError) {
-      if (process.env.NODE_ENV === 'development') {
-        const devAdmin = await prisma.user.findFirst({
-          where: { role: 'SUPER_ADMIN', isActive: true },
-        });
-        if (devAdmin) {
-          req.user = {
-            userId: devAdmin.id,
-            role: devAdmin.role,
-            branchId: devAdmin.branchId ?? undefined,
-          };
-          return next();
-        }
-      }
       sendUnauthorized(res, 'Invalid token');
       return;
     }

@@ -6,6 +6,13 @@ import { prisma } from '../../config/database';
 import { InventoryTransactionType } from '@prisma/client';
 
 export class InventoryService {
+  static async getAllItems() {
+    return prisma.inventoryItem.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   static async getBranchInventory(branchId: string) {
     return prisma.inventoryStock.findMany({
       where: { branchId },

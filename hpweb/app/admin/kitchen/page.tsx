@@ -5,14 +5,43 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { fetchApi } from '../../../lib/api';
+import { getSocket } from '../../../lib/socket';
 import Link from 'next/link';
 
+const KITCHEN_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'KITCHEN_STAFF'];
+
 export default function KitchenDisplayPage() {
+  const router = useRouter();
   const [queue, setQueue] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
+    const token = localStorage.getItem('hp_access_token');
+    const userStr = localStorage.getItem('hp_user');
+    let role: string | null = null;
+    if (userStr) {
+      try {
+        role = JSON.parse(userStr)?.role ?? null;
+      } catch {
+        role = null;
+      }
+    }
+
+    if (!token || !role || !KITCHEN_ALLOWED_ROLES.includes(role)) {
+      router.replace('/admin');
+      return;
+    }
+    setAuthorized(true);
+    setCheckingAuth(false);
+  }, [router]);
+
+  useEffect(() => {
+    if (!authorized) return;
+
     async function loadKitchenQueue() {
       try {
         const res = await fetchApi('/kitchen/queue');
@@ -25,10 +54,31 @@ export default function KitchenDisplayPage() {
     }
     loadKitchenQueue();
 
-    // Auto-refresh queue every 10s
-    const interval = setInterval(loadKitchenQueue, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    // Real-time queue updates via Socket.IO (new orders + prepare/ready transitions)
+    const socket = getSocket();
+    const handleQueueEvent = () => loadKitchenQueue();
+    socket.on('order.created', handleQueueEvent);
+    socket.on('kitchen.queue_updated', handleQueueEvent);
+
+    // Fallback safety-net refresh in case a socket event is missed/disconnected
+    const interval = setInterval(loadKitchenQueue, 30000);
+
+    return () => {
+      socket.off('order.created', handleQueueEvent);
+      socket.off('kitchen.queue_updated', handleQueueEvent);
+      clearInterval(interval);
+    };
+  }, [authorized]);
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center">
+        <p className="text-stone-500 text-sm">Checking access...</p>
+      </div>
+    );
+  }
+
+  if (!authorized) return null;
 
   const handleStartPrepare = async (orderId: string) => {
     try {

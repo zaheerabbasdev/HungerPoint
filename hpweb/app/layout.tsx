@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 
 import { AuthProvider } from "../context/AuthContext";
 import { CartProvider } from "../context/CartContext";
+import { BranchProvider } from "../context/BranchContext";
 
 export const metadata: Metadata = {
   title: "HungerPoint — Gourmet Food & Fast Delivery",
@@ -28,9 +29,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="min-h-full flex flex-col bg-stone-950 text-stone-100">
         <AuthProvider>
-          <CartProvider>
-            {children}
-          </CartProvider>
+          <BranchProvider>
+            <CartProvider>
+              {children}
+            </CartProvider>
+          </BranchProvider>
         </AuthProvider>
       </body>
     </html>

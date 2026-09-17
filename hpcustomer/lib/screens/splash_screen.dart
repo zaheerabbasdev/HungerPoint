@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../services/profile_service.dart';
 import '../services/branch_service.dart';
 import '../services/address_service.dart';
+import '../services/favorites_service.dart';
 import 'main_navigation_screen.dart';
 import 'welcome_screen.dart';
 
@@ -49,6 +50,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await AddressService().fetchAddressesFromBackend();
     if (ApiService.isLoggedIn) {
       await ProfileService().syncWithBackend();
+      await FavoritesService().syncWithBackend();
     }
   }
 

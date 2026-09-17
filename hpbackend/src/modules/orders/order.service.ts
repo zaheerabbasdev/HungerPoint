@@ -3,15 +3,17 @@
 // ============================================================
 
 import { prisma } from '../../config/database';
-import { OrderStatus, PaymentMethod, OrderType, OrderSource } from '@prisma/client';
+import { OrderStatus, PaymentMethod, OrderType, OrderSource, LoyaltyTransactionType } from '@prisma/client';
 import { emitToKitchen, emitToAdmins, emitToOrder, SOCKET_EVENTS } from '../../sockets';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 
 export class OrderService {
   static async createOrder(data: {
-    customerId: string;
+    customerId?: string | null;
     branchId: string;
     addressId?: string;
     type?: OrderType;
+    source?: OrderSource;
     paymentMethod?: PaymentMethod;
     notes?: string;
     items: {
@@ -62,10 +64,11 @@ export class OrderService {
     const order = await prisma.order.create({
       data: {
         orderNumber,
-        customerId: data.customerId,
+        customerId: data.customerId || undefined,
         branchId: data.branchId,
         addressId: data.addressId,
         type: data.type || OrderType.DELIVERY,
+        source: data.source || OrderSource.MOBILE_APP,
         paymentMethod: data.paymentMethod || PaymentMethod.CASH_ON_DELIVERY,
         subtotal,
         deliveryFee,
@@ -90,7 +93,10 @@ export class OrderService {
     });
 
     // Broadcast Real-Time Socket.IO Events
-    emitToKitchen(order.branchId, SOCKET_EVENTS.ORDER_CREATED, order);
+    if (order.branchId) {
+      emitToKitchen(order.branchId, SOCKET_EVENTS.ORDER_CREATED, order);
+      emitToKitchen(order.branchId, 'kitchen.queue_updated', order);
+    }
     emitToAdmins(SOCKET_EVENTS.ORDER_CREATED, order);
 
     return order;
@@ -181,6 +187,21 @@ export class OrderService {
 
     emitToOrder(id, `order.${status.toLowerCase()}`, updated);
     emitToAdmins(`order.${status.toLowerCase()}`, updated);
+
+    // Award loyalty points on successful delivery (1 point per PKR 100 spent).
+    // Loyalty is purely additive here and never blocks the order flow.
+    if (status === OrderStatus.DELIVERED && updated.customerId) {
+      const points = Math.floor(Number(updated.total) / 100);
+      if (points > 0) {
+        LoyaltyService.adjustPoints(
+          updated.customerId,
+          points,
+          LoyaltyTransactionType.EARNED,
+          `Earned from order ${updated.orderNumber}`,
+          updated.id
+        ).catch((err) => console.error('Failed to award loyalty points:', err));
+      }
+    }
 
     return updated;
   }

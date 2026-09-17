@@ -69,4 +69,28 @@ export class CustomerController {
       next(error);
     }
   }
+
+  static async searchByPhone(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const phone = (req.query.phone as string || '').trim();
+      if (!phone) {
+        res.status(400).json({ success: false, message: 'phone query param is required' });
+        return;
+      }
+      const result = await CustomerService.searchByPhone(phone);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deactivateAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+      await CustomerService.deactivateAccount(userId);
+      res.json({ success: true, message: 'Account deactivated successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

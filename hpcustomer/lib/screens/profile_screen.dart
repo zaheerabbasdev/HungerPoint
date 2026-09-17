@@ -1,8 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../services/api_service.dart';
+import '../services/cart_service.dart';
+import '../services/favorites_service.dart';
 import '../services/profile_service.dart';
 import 'edit_profile_field_screen.dart';
+import 'welcome_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -17,12 +21,20 @@ class ProfileScreen extends StatelessWidget {
         imageQuality: 85,
       );
       if (pickedFile != null) {
-        ProfileService().updateProfileImage(imagePath: pickedFile.path);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Profile picture updated successfully!'),
+              content: Text('Uploading profile picture...'),
               duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        final ok = await ProfileService().uploadAndSetProfileImage(File(pickedFile.path));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(ok ? 'Profile picture updated successfully!' : 'Could not upload profile picture. Please try again.'),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -265,14 +277,31 @@ class ProfileScreen extends StatelessWidget {
             child: const Text('CANCEL', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6B7280))),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(dialogCtx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Account deletion request submitted'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
+              final ok = await ProfileService().deleteAccount();
+              if (!context.mounted) return;
+              if (ok) {
+                CartService().clearCart();
+                FavoritesService().clear();
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                  (route) => false,
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Your account has been deleted.'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Could not delete account. Please try again.'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             },
             child: const Text('DELETE', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFEF4444))),
           ),
@@ -288,7 +317,9 @@ class ProfileScreen extends StatelessWidget {
       body: ValueListenableBuilder<UserProfile>(
         valueListenable: ProfileService().userProfileNotifier,
         builder: (context, profile, _) {
-          final hasFileImage = profile.profileImagePath != null && File(profile.profileImagePath!).existsSync();
+          final imagePath = profile.profileImagePath;
+          final isNetworkImage = imagePath != null && (imagePath.startsWith('http://') || imagePath.startsWith('https://'));
+          final hasFileImage = !isNetworkImage && imagePath != null && File(imagePath).existsSync();
           final hasAvatarEmoji = profile.avatarEmoji != null && profile.avatarEmoji!.isNotEmpty;
 
           return SingleChildScrollView(
@@ -372,12 +403,17 @@ class ProfileScreen extends StatelessWidget {
                                   shape: BoxShape.circle,
                                   color: hasAvatarEmoji ? const Color(0xFFFFFBEB) : const Color(0xFFD1D5DB),
                                   border: Border.all(color: Colors.white, width: 4),
-                                  image: hasFileImage
+                                  image: isNetworkImage
                                       ? DecorationImage(
-                                          image: FileImage(File(profile.profileImagePath!)),
+                                          image: NetworkImage(ApiService.resolveImageUrl(imagePath)),
                                           fit: BoxFit.cover,
                                         )
-                                      : null,
+                                      : hasFileImage
+                                          ? DecorationImage(
+                                              image: FileImage(File(imagePath)),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : null,
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(alpha: 0.12),
@@ -386,7 +422,7 @@ class ProfileScreen extends StatelessWidget {
                                     ),
                                   ],
                                 ),
-                                child: hasFileImage
+                                child: (hasFileImage || isNetworkImage)
                                     ? null
                                     : hasAvatarEmoji
                                         ? Center(

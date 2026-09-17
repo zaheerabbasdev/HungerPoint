@@ -7,11 +7,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useBranch } from '../context/BranchContext';
 
 export function Navbar({ onOpenAuth }: { onOpenAuth: () => void }) {
   const { user, logout } = useAuth();
   const { items, setIsCartOpen } = useCart();
-  const [selectedBranch, setSelectedBranch] = useState('G-11 Markaz');
+  const { branches, selectedBranchId, setSelectedBranchId } = useBranch();
   const [orderType, setOrderType] = useState<'DELIVERY' | 'PICKUP'>('DELIVERY');
 
   const totalItemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -38,12 +39,19 @@ export function Navbar({ onOpenAuth }: { onOpenAuth: () => void }) {
           <div className="flex items-center gap-1 bg-stone-900 px-3 py-1.5 rounded-xl text-xs text-amber-400 font-medium">
             <span>📍</span>
             <select
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
+              value={selectedBranchId ?? ''}
+              onChange={(e) => setSelectedBranchId(e.target.value)}
+              disabled={branches.length === 0}
               className="bg-transparent outline-none cursor-pointer font-semibold text-stone-200"
             >
-              <option value="G-11 Markaz" className="bg-stone-900">G-11 Markaz, Islamabad</option>
-              <option value="F-7 Markaz" className="bg-stone-900">F-7 Markaz (Jinnah Super)</option>
+              {branches.length === 0 && (
+                <option value="" className="bg-stone-900">Loading branches...</option>
+              )}
+              {branches.map((b) => (
+                <option key={b.id} value={b.id} className="bg-stone-900">
+                  {b.name}{b.city ? `, ${b.city}` : ''}
+                </option>
+              ))}
             </select>
           </div>
 

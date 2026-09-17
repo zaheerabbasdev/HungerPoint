@@ -54,6 +54,50 @@ export class CouponService {
     });
   }
 
+  static async getAllCoupons() {
+    await this.ensureDefaultCoupons();
+    return prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
+  }
+
+  static async createCoupon(data: {
+    code: string;
+    description?: string;
+    type: PromotionType;
+    value: number;
+    minOrderAmount?: number;
+    maxDiscount?: number;
+    usageLimit?: number;
+    perUserLimit?: number;
+    startsAt?: string | Date;
+    expiresAt?: string | Date;
+  }) {
+    return prisma.coupon.create({
+      data: {
+        ...data,
+        code: data.code.toUpperCase().trim(),
+        startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
+      },
+    });
+  }
+
+  static async updateCoupon(id: string, data: any) {
+    const { code, startsAt, expiresAt, ...rest } = data;
+    return prisma.coupon.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(code !== undefined ? { code: code.toUpperCase().trim() } : {}),
+        ...(startsAt !== undefined ? { startsAt: startsAt ? new Date(startsAt) : null } : {}),
+        ...(expiresAt !== undefined ? { expiresAt: expiresAt ? new Date(expiresAt) : null } : {}),
+      },
+    });
+  }
+
+  static async deleteCoupon(id: string) {
+    return prisma.coupon.update({ where: { id }, data: { isActive: false } });
+  }
+
   static async validateCoupon(code: string, orderAmount: number = 0) {
     await this.ensureDefaultCoupons();
 

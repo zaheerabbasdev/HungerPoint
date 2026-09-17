@@ -3,6 +3,7 @@ import '../constants/app_colors.dart';
 import '../services/cart_service.dart';
 import '../services/api_service.dart';
 import 'cart_screen.dart';
+import 'order_tracking_screen.dart';
 
 class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});
@@ -31,7 +32,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             return {
               'name': it['product']?['name']?.toString() ?? 'Food Item',
               'qty': it['quantity'] ?? 1,
-              'price': (it['unitPrice'] as num?)?.toInt() ?? 0,
+              'price': num.tryParse(it['unitPrice']?.toString() ?? '')?.toInt() ?? 0,
               'emoji': '🍕',
             };
           }).toList();
@@ -40,12 +41,14 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           final dateStr = created.length > 10 ? created.substring(0, 10) : 'Recent';
 
           return {
+            'id': order['id']?.toString() ?? '',
             'orderId': '#${order['orderNumber'] ?? order['id']}',
             'date': dateStr,
             'status': (order['status'] as String? ?? 'In Progress').replaceAll('_', ' '),
+            'rawStatus': order['status']?.toString() ?? 'PENDING',
             'statusColor': isDelivered ? const Color(0xFF2E7D32) : const Color(0xFFFF5722),
             'statusBg': isDelivered ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3ED),
-            'total': (order['totalAmount'] as num?)?.toInt() ?? 0,
+            'total': num.tryParse(order['total']?.toString() ?? '')?.toInt() ?? 0,
             'items': itemsList,
           };
         }).toList();
@@ -134,7 +137,17 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   itemBuilder: (context, index) {
                     final order = _orders[index];
                     final List items = order['items'];
-                return Container(
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    final orderId = order['id']?.toString() ?? '';
+                    if (orderId.isEmpty) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => OrderTrackingScreen(orderId: orderId)),
+                    );
+                  },
+                  child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -274,6 +287,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         ],
                       ),
                     ],
+                  ),
                   ),
                 );
               },

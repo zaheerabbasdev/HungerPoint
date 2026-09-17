@@ -40,4 +40,55 @@ export class ReportService {
       recentOrders,
     };
   }
+
+  static async getOrdersByStatus(branchId?: string) {
+    const where: any = {};
+    if (branchId) where.branchId = branchId;
+
+    const grouped = await prisma.order.groupBy({
+      by: ['status'],
+      where,
+      _count: { _all: true },
+    });
+
+    return grouped.map((g) => ({ status: g.status, count: g._count._all }));
+  }
+
+  static async getTopProducts(branchId?: string, limit = 10) {
+    const where: any = {};
+    if (branchId) where.order = { branchId };
+
+    const grouped = await prisma.orderItem.groupBy({
+      by: ['productId'],
+      where,
+      _sum: { quantity: true, totalPrice: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: limit,
+    });
+
+    const products = await prisma.product.findMany({
+      where: { id: { in: grouped.map((g) => g.productId) } },
+      select: { id: true, name: true, image: true },
+    });
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    return grouped.map((g) => ({
+      product: productMap.get(g.productId) || null,
+      quantitySold: g._sum.quantity || 0,
+      revenue: Number(g._sum.totalPrice || 0),
+    }));
+  }
+
+  static async getOrdersBySource(branchId?: string) {
+    const where: any = {};
+    if (branchId) where.branchId = branchId;
+
+    const grouped = await prisma.order.groupBy({
+      by: ['source'],
+      where,
+      _count: { _all: true },
+    });
+
+    return grouped.map((g) => ({ source: g.source, count: g._count._all }));
+  }
 }

@@ -6,7 +6,14 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { fetchApi } from '../../../lib/api';
+import { getSocket } from '../../../lib/socket';
 import Link from 'next/link';
+
+const ORDER_STATUS_EVENTS = [
+  'order.pending', 'order.confirmed', 'order.accepted', 'order.preparing', 'order.ready',
+  'order.assigned', 'order.picked_up', 'order.out_for_delivery', 'order.delivered',
+  'order.completed', 'order.cancelled', 'order.rejected', 'order.payment_failed', 'order.refunded',
+];
 
 const STATUS_STEPS = [
   { key: 'PENDING', label: 'Order Received', icon: '📝' },
@@ -35,9 +42,22 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
     }
     loadOrder();
 
-    // Auto-poll for live status updates
-    const interval = setInterval(loadOrder, 5000);
-    return () => clearInterval(interval);
+    // Real-time status updates via Socket.IO
+    const socket = getSocket();
+    socket.emit('order:track', { orderId: id });
+
+    const handleStatusEvent = (updatedOrder: any) => {
+      if (updatedOrder?.id === id) setOrder(updatedOrder);
+    };
+    ORDER_STATUS_EVENTS.forEach((evt) => socket.on(evt, handleStatusEvent));
+
+    // Fallback safety-net poll in case a socket event is missed/disconnected
+    const interval = setInterval(loadOrder, 30000);
+
+    return () => {
+      ORDER_STATUS_EVENTS.forEach((evt) => socket.off(evt, handleStatusEvent));
+      clearInterval(interval);
+    };
   }, [id]);
 
   if (loading) {

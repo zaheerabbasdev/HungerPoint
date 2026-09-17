@@ -7,6 +7,7 @@ import 'location_picker_screen.dart';
 import 'add_address_screen.dart';
 import 'vouchers_tab.dart';
 import 'main_navigation_screen.dart';
+import 'order_tracking_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -311,10 +312,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
     // Dismiss loading dialog
     if (mounted) Navigator.pop(context);
 
-    String orderNum = '';
-    if (res['success'] == true && res['data'] != null) {
-      orderNum = res['data']['orderNumber'] ?? '';
+    final bool orderSucceeded = res['success'] == true && res['data'] != null;
+
+    if (!orderSucceeded) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Order Failed',
+            style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E1B4B)),
+          ),
+          content: Text(
+            res['message']?.toString() ?? 'We could not place your order. Please try again.',
+            style: const TextStyle(color: Color(0xFF6B7280)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFF5722))),
+            ),
+          ],
+        ),
+      );
+      return;
     }
+
+    final String orderNum = res['data']['orderNumber'] ?? '';
+    final String orderId = res['data']['id']?.toString() ?? '';
 
     CartService().clearCart();
 
@@ -385,14 +411,42 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  if (orderId.isNotEmpty) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF5722),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          final rootNav = Navigator.of(dialogCtx, rootNavigator: true);
+                          rootNav.pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                            (route) => false,
+                          );
+                          rootNav.push(
+                            MaterialPageRoute(builder: (_) => OrderTrackingScreen(orderId: orderId)),
+                          );
+                        },
+                        child: const Text(
+                          'Track Order',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   SizedBox(
                     width: double.infinity,
                     height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFD600),
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF1E1B4B),
-                        elevation: 0,
+                        side: const BorderSide(color: Color(0xFFFFD600), width: 1.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () {
@@ -423,7 +477,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'HungerPoint');
 
     // Products price calculated from CartService
-    final productsPrice = CartService().totalPrice > 0 ? CartService().totalPrice : 890;
+    final productsPrice = CartService().totalPrice;
     final discount = _appliedDiscount;
     const deliveryFee = 0;
     final tax = (productsPrice * 0.15).round(); // 15% tax

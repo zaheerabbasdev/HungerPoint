@@ -7,11 +7,13 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useBranch } from '../context/BranchContext';
 import { fetchApi } from '../lib/api';
 
 export function CartDrawer() {
   const { items, isCartOpen, setIsCartOpen, updateQuantity, removeItem, clearCart, subtotal, deliveryFee, tax, total } = useCart();
   const { user } = useAuth();
+  const { selectedBranchId } = useBranch();
 
   const [paymentMethod, setPaymentMethod] = useState<'CASH_ON_DELIVERY' | 'ONLINE_CARD'>('CASH_ON_DELIVERY');
   const [address, setAddress] = useState('Flat 402, Al-Rehman Heights, G-11/3, Islamabad');
@@ -29,11 +31,17 @@ export function CartDrawer() {
 
     if (items.length === 0) return;
 
+    if (!selectedBranchId) {
+      alert('Please select a branch before checking out.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const orderPayload = {
-        branchId: 'd664551d-d2bf-4f29-ae1e-450f3b49ecfb', // Default G-11 branch
+        branchId: selectedBranchId,
         paymentMethod,
+        source: 'WEBSITE',
         notes,
         items: items.map((i) => ({
           productId: i.productId,
@@ -50,7 +58,7 @@ export function CartDrawer() {
 
       if (res.success) {
         setOrderSuccess(res.data);
-        clearCart();
+        await clearCart();
       }
     } catch (error: any) {
       alert(error.message || 'Failed to place order.');

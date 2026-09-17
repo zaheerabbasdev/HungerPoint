@@ -11,6 +11,7 @@ import '../screens/order_history_screen.dart';
 import '../screens/welcome_screen.dart';
 import '../services/cart_service.dart';
 import '../services/profile_service.dart';
+import '../services/favorites_service.dart';
 
 class SideProfileDrawer extends StatelessWidget {
   final VoidCallback onClose;
@@ -55,6 +56,7 @@ class SideProfileDrawer extends StatelessWidget {
               Navigator.pop(dialogCtx);
               ProfileService().resetToDefault();
               CartService().clearCart();
+              FavoritesService().clear();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const WelcomeScreen()),
                 (route) => false,

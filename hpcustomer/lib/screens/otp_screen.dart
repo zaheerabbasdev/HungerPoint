@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/profile_service.dart';
+import '../services/favorites_service.dart';
 import 'main_navigation_screen.dart';
 import 'name_screen.dart';
 
@@ -168,6 +169,7 @@ class _OtpScreenState extends State<OtpScreen> {
           // Existing customer - session is established and tokens saved
           ProfileService().setUserFromBackend(data['user']);
           await ProfileService().syncWithBackend();
+          await FavoritesService().syncWithBackend();
           if (!mounted) return;
 
           Navigator.pushAndRemoveUntil(

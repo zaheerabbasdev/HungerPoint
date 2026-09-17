@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 
@@ -96,6 +97,7 @@ class ProfileService {
           mobileNumber: profileData['phone'] ?? profileData['mobileNumber'] ?? userProfileNotifier.value.mobileNumber,
           dateOfBirth: profileData['dateOfBirth'] ?? userProfileNotifier.value.dateOfBirth,
           avatarEmoji: profileData['avatarEmoji'] ?? userProfileNotifier.value.avatarEmoji,
+          profileImagePath: profileData['profileImage'] ?? userProfileNotifier.value.profileImagePath,
           isVerified: true,
         );
       } else if (ApiService.currentUser != null) {
@@ -135,10 +137,41 @@ class ProfileService {
     }
   }
 
+  /// Shows the picked file immediately (optimistic UI), then uploads it to the
+  /// backend and persists the resulting remote URL to the customer profile.
+  /// Returns true if the remote upload+save succeeded.
+  Future<bool> uploadAndSetProfileImage(File file) async {
+    userProfileNotifier.value = userProfileNotifier.value.copyWith(
+      profileImagePath: file.path,
+      clearImage: false,
+    );
+
+    final url = await ApiService.uploadImage(file);
+    if (url == null) return false;
+
+    final saved = await ApiService.updateCustomerProfile(profileImagePath: url);
+    if (saved) {
+      userProfileNotifier.value = userProfileNotifier.value.copyWith(
+        profileImagePath: url,
+      );
+    }
+    return saved;
+  }
+
   void removeProfileImage() {
     userProfileNotifier.value = userProfileNotifier.value.copyWith(
       clearImage: true,
     );
+    ApiService.updateCustomerProfile(profileImagePath: '');
+  }
+
+  /// Deactivates the account on the backend, then clears local session state.
+  Future<bool> deleteAccount() async {
+    final ok = await ApiService.deleteAccount();
+    if (ok) {
+      resetToDefault();
+    }
+    return ok;
   }
 
   void resetToDefault() {

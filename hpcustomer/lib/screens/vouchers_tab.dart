@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/cart_service.dart';
 
 class VouchersScreen extends StatefulWidget {
   final VoidCallback? onBackToHome;
@@ -13,6 +14,25 @@ class VouchersScreen extends StatefulWidget {
 
 class _VouchersScreenState extends State<VouchersScreen> {
   final TextEditingController _voucherController = TextEditingController();
+  List<dynamic> _coupons = [];
+  bool _loadingCoupons = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCoupons();
+  }
+
+  Future<void> _loadCoupons() async {
+    setState(() => _loadingCoupons = true);
+    final coupons = await ApiService.fetchCoupons();
+    if (mounted) {
+      setState(() {
+        _coupons = coupons;
+        _loadingCoupons = false;
+      });
+    }
+  }
 
   Future<void> _applyVoucher([String? manualCode]) async {
     final code = manualCode ?? _voucherController.text.trim();
@@ -27,31 +47,30 @@ class _VouchersScreenState extends State<VouchersScreen> {
     }
 
     final upper = code.toUpperCase();
-    int discount = 150;
+    int discount = 0;
 
-    // Validate with backend API
-    try {
-      final res = await ApiService.validateCoupon(code: upper, orderAmount: 1000);
-      if (res['success'] == true && res['data'] != null) {
-        final num disc = res['data']['discountAmount'] ?? 150;
-        discount = disc.toInt();
-      } else if (res['success'] == false) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(res['message'] ?? 'Invalid or expired coupon code'),
-              backgroundColor: Colors.red.shade700,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-        return;
+    // Validate with backend API against the actual cart total
+    final res = await ApiService.validateCoupon(
+      code: upper,
+      orderAmount: CartService().totalPrice,
+    );
+
+    if (res['success'] != true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message']?.toString() ?? 'Invalid or expired coupon code'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
-    } catch (_) {
-      if (upper.contains('30')) discount = 250;
-      if (upper.contains('50')) discount = 300;
+      return;
     }
+
+    final num? disc = res['discount'] as num?;
+    discount = disc?.toInt() ?? 0;
 
     if (widget.onVoucherApplied != null) {
       widget.onVoucherApplied!(upper, discount);
@@ -107,10 +126,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
       ),
       body: RefreshIndicator(
         color: const Color(0xFFFF5722),
-        onRefresh: () async {
-          await ApiService.fetchCoupons();
-          if (mounted) setState(() {});
-        },
+        onRefresh: _loadCoupons,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -186,61 +202,174 @@ class _VouchersScreenState extends State<VouchersScreen> {
 
             const SizedBox(height: 20),
 
-            // Empty state card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+            if (_loadingCoupons)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(
+                  child: CircularProgressIndicator(color: Color(0xFFFF5722)),
+                ),
+              )
+            else if (_coupons.isNotEmpty) ...[
+              const Text(
+                'Available Vouchers',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E1B4B),
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Stylized food illustration
-                  const SizedBox(
-                    width: 140,
-                    height: 120,
-                    child: CustomPaint(
-                      painter: _FoodIllustrationPainter(),
+              const SizedBox(height: 14),
+              ..._coupons.map((c) => _buildCouponCard(c)),
+            ] else
+              // Empty state card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Brand Name
-                  const Text(
-                    'HungerPoint',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF3F1D0B),
-                      letterSpacing: -0.5,
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Stylized food illustration
+                    const SizedBox(
+                      width: 140,
+                      height: 120,
+                      child: CustomPaint(
+                        painter: _FoodIllustrationPainter(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  // "No Vouchers Found"
-                  const Text(
-                    'No Vouchers Found',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1E1B4B),
+                    const SizedBox(height: 12),
+                    // Brand Name
+                    const Text(
+                      'HungerPoint',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF3F1D0B),
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    // "No Vouchers Found"
+                    const Text(
+                      'No Vouchers Found',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E1B4B),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
     ),
   );
+  }
+
+  Widget _buildCouponCard(dynamic coupon) {
+    final String code = coupon['code']?.toString() ?? '';
+    final String description = coupon['description']?.toString() ?? '';
+    final String type = coupon['type']?.toString() ?? 'FIXED_AMOUNT';
+    final num value = num.tryParse(coupon['value']?.toString() ?? '') ?? 0;
+    final String valueLabel = type == 'PERCENTAGE' ? '${value.toInt()}% OFF' : 'PKR ${value.toInt()} OFF';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF3F4F6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF5722),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        code,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      valueLabel,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2E7D32),
+                      ),
+                    ),
+                  ],
+                ),
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF6B7280), height: 1.35),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _applyVoucher(code),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3ED),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFF5722)),
+              ),
+              child: const Text(
+                'APPLY',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFFF5722),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

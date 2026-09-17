@@ -4,12 +4,14 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { CartService } from './cart.service';
+import { CustomerService } from '../customers/customer.service';
 
 export class CartController {
   static async getCart(req: Request, res: Response, next: NextFunction) {
     try {
-      const customerId = (req as any).user?.customerId || (req as any).user?.id;
-      const cart = await CartService.getCartByCustomerId(customerId);
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+      const customer = await CustomerService.getOrCreateCustomer(userId);
+      const cart = await CartService.getCartByCustomerId(customer.id);
       res.json({ success: true, data: cart });
     } catch (error) {
       next(error);
@@ -18,8 +20,9 @@ export class CartController {
 
   static async addItem(req: Request, res: Response, next: NextFunction) {
     try {
-      const customerId = (req as any).user?.customerId || (req as any).user?.id;
-      const item = await CartService.addItem(customerId, req.body);
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+      const customer = await CustomerService.getOrCreateCustomer(userId);
+      const item = await CartService.addItem(customer.id, req.body);
       res.status(201).json({ success: true, message: 'Item added to cart', data: item });
     } catch (error) {
       next(error);
@@ -47,8 +50,9 @@ export class CartController {
 
   static async clearCart(req: Request, res: Response, next: NextFunction) {
     try {
-      const customerId = (req as any).user?.customerId || (req as any).user?.id;
-      await CartService.clearCart(customerId);
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+      const customer = await CustomerService.getOrCreateCustomer(userId);
+      await CartService.clearCart(customer.id);
       res.json({ success: true, message: 'Cart cleared successfully' });
     } catch (error) {
       next(error);

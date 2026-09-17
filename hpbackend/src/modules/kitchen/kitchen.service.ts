@@ -4,6 +4,7 @@
 
 import { prisma } from '../../config/database';
 import { OrderStatus } from '@prisma/client';
+import { emitToOrder, emitToKitchen, emitToAdmins, SOCKET_EVENTS } from '../../sockets';
 
 export class KitchenService {
   static async getActiveKitchenQueue(branchId?: string) {
@@ -29,7 +30,7 @@ export class KitchenService {
   }
 
   static async markOrderAsPreparing(orderId: string, estimatedPrepTimeMinutes = 15) {
-    return prisma.order.update({
+    const order = await prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.PREPARING,
@@ -43,10 +44,16 @@ export class KitchenService {
         },
       },
     });
+
+    emitToOrder(orderId, SOCKET_EVENTS.ORDER_PREPARING, order);
+    if (order.branchId) emitToKitchen(order.branchId, 'kitchen.queue_updated', order);
+    emitToAdmins(SOCKET_EVENTS.ORDER_PREPARING, order);
+
+    return order;
   }
 
   static async markOrderAsReady(orderId: string) {
-    return prisma.order.update({
+    const order = await prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.READY,
@@ -60,5 +67,11 @@ export class KitchenService {
         },
       },
     });
+
+    emitToOrder(orderId, SOCKET_EVENTS.ORDER_READY, order);
+    if (order.branchId) emitToKitchen(order.branchId, 'kitchen.queue_updated', order);
+    emitToAdmins(SOCKET_EVENTS.ORDER_READY, order);
+
+    return order;
   }
 }

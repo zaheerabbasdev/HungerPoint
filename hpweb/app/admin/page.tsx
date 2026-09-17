@@ -939,6 +939,69 @@ export default function AdminPortalPage() {
 
           <div className="flex items-center gap-3">
             <Link
+              href="/branch"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>🏬 Branch</span>
+            </Link>
+
+            <Link
+              href="/pos"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>🧾 POS</span>
+            </Link>
+
+            <Link
+              href="/inventory"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>📦 Inventory</span>
+            </Link>
+
+            <Link
+              href="/riders"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>🛵 Riders</span>
+            </Link>
+
+            <Link
+              href="/promotions"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>🎟️ Promotions</span>
+            </Link>
+
+            <Link
+              href="/reports"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>📊 Reports</span>
+            </Link>
+
+            <Link
+              href="/loyalty"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>⭐ Loyalty</span>
+            </Link>
+
+            <Link
+              href="/reviews"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>💬 Reviews</span>
+            </Link>
+
+            <Link
+              href="/settings"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>⚙️ Settings</span>
+            </Link>
+
+            <Link
               href="/admin/kitchen"
               className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
             >

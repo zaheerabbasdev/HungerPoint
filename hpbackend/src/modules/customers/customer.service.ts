@@ -126,6 +126,7 @@ export class CustomerService {
       phone: customer.user.phone,
       profileImage: customer.user.profileImage,
       dateOfBirth: customer.dateOfBirth,
+      avatarEmoji: customer.avatarEmoji,
       totalOrders: customer.totalOrders,
       totalSpent: customer.totalSpent,
       addresses,
@@ -141,6 +142,7 @@ export class CustomerService {
     phone?: string;
     profileImage?: string;
     dateOfBirth?: string | Date;
+    avatarEmoji?: string;
   }) {
     const updateUserData: any = {};
     if (data.name !== undefined) updateUserData.name = data.name;
@@ -155,19 +157,51 @@ export class CustomerService {
       });
     }
 
-    if (data.dateOfBirth !== undefined) {
+    if (data.dateOfBirth !== undefined || data.avatarEmoji !== undefined) {
       await prisma.customer.upsert({
         where: { userId },
         create: {
           userId,
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+          avatarEmoji: data.avatarEmoji,
         },
         update: {
-          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+          ...(data.dateOfBirth !== undefined ? { dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null } : {}),
+          ...(data.avatarEmoji !== undefined ? { avatarEmoji: data.avatarEmoji } : {}),
         },
       });
     }
 
     return this.getProfile(userId);
+  }
+
+  /**
+   * Search for a customer by phone number (staff-only, used by POS/phone orders).
+   */
+  static async searchByPhone(phone: string) {
+    const user = await prisma.user.findFirst({
+      where: { phone: { contains: phone }, role: 'CUSTOMER', isActive: true },
+    });
+    if (!user) return null;
+
+    const customer = await this.getOrCreateCustomer(user.id);
+    return {
+      customerId: customer.id,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+    };
+  }
+
+  /**
+   * Deactivate (soft-delete) the customer's account.
+   * Sets User.isActive = false, which blocks future login/refresh (see auth.service.ts).
+   */
+  static async deactivateAccount(userId: string) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false },
+    });
+    await prisma.refreshToken.deleteMany({ where: { userId } });
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -309,11 +310,11 @@ class ApiService {
   }) async {
     try {
       final body = <String, dynamic>{};
-      if (fullName != null) body['fullName'] = fullName;
+      if (fullName != null) body['name'] = fullName;
       if (email != null) body['email'] = email;
       if (dateOfBirth != null) body['dateOfBirth'] = dateOfBirth;
       if (avatarEmoji != null) body['avatarEmoji'] = avatarEmoji;
-      if (profileImagePath != null) body['profileImagePath'] = profileImagePath;
+      if (profileImagePath != null) body['profileImage'] = profileImagePath;
       if (data != null) body.addAll(data);
 
       final res = await http.put(
@@ -325,6 +326,45 @@ class ApiService {
       return res.statusCode == 200;
     } catch (e) {
       debugPrint('API Error (updateCustomerProfile): $e');
+      return false;
+    }
+  }
+
+  /// Uploads a local image file to the backend and returns the public URL, or null on failure.
+  static Future<String?> uploadImage(File file) async {
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
+      if (_accessToken != null) {
+        request.headers['Authorization'] = 'Bearer $_accessToken';
+      }
+      request.files.add(await http.MultipartFile.fromPath('image', file.path));
+
+      final streamedRes = await request.send().timeout(const Duration(seconds: 20));
+      final res = await http.Response.fromStream(streamedRes);
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true) {
+          return data['data']?['url']?.toString();
+        }
+      }
+    } catch (e) {
+      debugPrint('API Error (uploadImage): $e');
+    }
+    return null;
+  }
+
+  /// Deactivates (soft-deletes) the current customer's account.
+  static Future<bool> deleteAccount() async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/customers/account'),
+        headers: _headers(needsAuth: true),
+      ).timeout(const Duration(seconds: 8));
+
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('API Error (deleteAccount): $e');
       return false;
     }
   }
@@ -540,6 +580,23 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>?> getOrderById(String orderId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/orders/$orderId'),
+        headers: _headers(needsAuth: true),
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['data'];
+      }
+    } catch (e) {
+      debugPrint('API Error (getOrderById): $e');
+    }
+    return null;
+  }
+
   static Future<List<dynamic>> getMyOrders() async {
     try {
       final res = await http.get(
@@ -549,12 +606,59 @@ class ApiService {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        return data['data'] ?? [];
+        return data['orders'] ?? [];
       }
     } catch (e) {
       debugPrint('API Error (getMyOrders): $e');
     }
     return [];
+  }
+
+  // ─── FAVORITES ───────────────────────────────────────────────
+
+  static Future<List<dynamic>> getFavorites() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/favorites'),
+        headers: _headers(needsAuth: true),
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final list = data['data'] as List<dynamic>? ?? [];
+        return list.map(_normalizeProduct).toList();
+      }
+    } catch (e) {
+      debugPrint('API Error (getFavorites): $e');
+    }
+    return [];
+  }
+
+  static Future<bool> addFavorite(String productId) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/favorites'),
+        headers: _headers(needsAuth: true),
+        body: jsonEncode({'productId': productId}),
+      ).timeout(const Duration(seconds: 8));
+      return res.statusCode == 201 || res.statusCode == 200;
+    } catch (e) {
+      debugPrint('API Error (addFavorite): $e');
+      return false;
+    }
+  }
+
+  static Future<bool> removeFavorite(String productId) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl/favorites/$productId'),
+        headers: _headers(needsAuth: true),
+      ).timeout(const Duration(seconds: 8));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('API Error (removeFavorite): $e');
+      return false;
+    }
   }
 
   // ─── COUPONS / VOUCHERS ──────────────────────────────────────
