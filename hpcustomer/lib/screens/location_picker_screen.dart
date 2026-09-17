@@ -2,29 +2,12 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/address_service.dart';
 import '../services/branch_service.dart';
+import '../widgets/interactive_map_view.dart';
 import 'main_navigation_screen.dart';
 
-/// Sample address data for search suggestions (simulating a location API)
-const List<Map<String, String>> _allAddresses = [
-  {'name': 'F-7 Markaz, Islamabad', 'detail': 'F 7, Islamabad Capital Territory'},
-  {'name': 'Blue Area, Islamabad', 'detail': 'Jinnah Avenue, Blue Area, Islamabad'},
-  {'name': 'G-11 Markaz, Islamabad', 'detail': 'G-11, Islamabad Capital Territory'},
-  {'name': 'E-11, Islamabad', 'detail': 'E-11, Islamabad Capital Territory'},
-  {'name': 'Bahria Town Phase 2', 'detail': 'Bahria Town, Rawalpindi, Punjab'},
-  {'name': 'DHA Phase 1, Islamabad', 'detail': 'DHA Phase 1, Islamabad Capital Territory'},
-  {'name': 'Saddar, Rawalpindi', 'detail': 'Saddar Bazar, Rawalpindi, Punjab'},
-  {'name': 'I-8 Markaz, Islamabad', 'detail': 'I-8, Islamabad Capital Territory'},
-  {'name': 'PWD Housing Society', 'detail': 'PWD Road, Islamabad Capital Territory'},
-  {'name': 'Gulberg Greens, Islamabad', 'detail': 'Gulberg, Islamabad Capital Territory'},
-  {'name': 'Sector H-13, Islamabad', 'detail': 'H-13, Islamabad Capital Territory'},
-  {'name': 'Centaurus Mall', 'detail': 'Jinnah Avenue, F-8 Markaz, Islamabad'},
-  {'name': 'Faisal Mosque Area', 'detail': 'Faisal Mosque Road, Islamabad Capital Territory'},
-  {'name': 'Rawalpindi Cantt', 'detail': 'Cantonment, Rawalpindi, Punjab'},
-  {'name': 'Kaghan Road, G-7', 'detail': 'G-7 Markaz, Islamabad Capital Territory'},
-  {'name': '27, Street 41, F 7/1, F 7', 'detail': 'Islamabad Capital Territory'},
-  {'name': 'Malpur, Islamabad', 'detail': 'Malpur Road, Islamabad Capital Territory'},
-  {'name': 'Saidpur Village', 'detail': 'Margalla Hills, Islamabad Capital Territory'},
-];
+/// Default map center when no better starting point is known (Islamabad).
+const double _kDefaultLat = 33.6844;
+const double _kDefaultLng = 73.0479;
 
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({super.key});
@@ -34,21 +17,25 @@ class LocationPickerScreen extends StatefulWidget {
 }
 
 class _LocationPickerScreenState extends State<LocationPickerScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
-
   String _selectedAddress = '';
-  List<Map<String, String>> _suggestions = [];
-  bool _showSuggestions = false;
+  double _selectedLat = _kDefaultLat;
+  double _selectedLng = _kDefaultLng;
 
   @override
   void initState() {
     super.initState();
-    final active = AddressService().selectedAddress?.address ??
-        AddressService().customLocationNotifier.value ??
+
+    final savedLat = AddressService().selectedAddress?.latitude;
+    final savedLng = AddressService().selectedAddress?.longitude;
+    final tempLat = AddressService().temporaryLatitude;
+    final tempLng = AddressService().temporaryLongitude;
+
+    final active = AddressService().customLocationNotifier.value ??
+        AddressService().selectedAddress?.address ??
         (BranchService().selectedBranch?.address.isNotEmpty == true
             ? BranchService().selectedBranch!.address
             : BranchService().selectedBranch?.name);
+
     if (active != null && active.isNotEmpty) {
       _selectedAddress = active;
     } else {
@@ -59,67 +46,47 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           : 'Select Location';
     }
 
-    _searchController.addListener(_onSearchChanged);
-    _searchFocusNode.addListener(() {
-      setState(() {
-        _showSuggestions = _searchFocusNode.hasFocus && _suggestions.isNotEmpty;
-      });
-    });
-  }
-
-  void _onSearchChanged() {
-    final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) {
-      setState(() {
-        _suggestions = [];
-        _showSuggestions = false;
-      });
-      return;
+    if (tempLat != null && tempLng != null) {
+      _selectedLat = tempLat;
+      _selectedLng = tempLng;
+    } else if (savedLat != null && savedLng != null) {
+      _selectedLat = savedLat;
+      _selectedLng = savedLng;
+    } else if (BranchService().selectedBranch != null) {
+      _selectedLat = BranchService().selectedBranch!.lat;
+      _selectedLng = BranchService().selectedBranch!.lng;
+    } else if (BranchService().allBranches.isNotEmpty) {
+      _selectedLat = BranchService().allBranches.first.lat;
+      _selectedLng = BranchService().allBranches.first.lng;
     }
-    final branchAddresses = BranchService().allBranches.map((b) => {
-      'name': b.name,
-      'detail': b.address.isNotEmpty ? b.address : 'Branch Location',
-    }).toList();
-    final combined = [...branchAddresses, ..._allAddresses];
+  }
 
-    final filtered = combined.where((addr) {
-      return addr['name']!.toLowerCase().contains(query) ||
-          addr['detail']!.toLowerCase().contains(query);
-    }).toList();
-
+  void _onLocationChanged(double lat, double lng, String address) {
     setState(() {
-      _suggestions = filtered;
-      _showSuggestions = filtered.isNotEmpty && _searchFocusNode.hasFocus;
+      _selectedLat = lat;
+      _selectedLng = lng;
+      _selectedAddress = address;
     });
   }
 
-  void _selectSuggestion(Map<String, String> addr) {
-    final fullAddress = '${addr['name']!},\n${addr['detail']!}';
-    setState(() {
-      _selectedAddress = fullAddress;
-      _searchController.text = addr['name']!;
-      _suggestions = [];
-      _showSuggestions = false;
-    });
-    _searchFocusNode.unfocus();
+  void _confirmLocation() {
+    AddressService().setTemporaryLocation(
+      _selectedAddress,
+      latitude: _selectedLat,
+      longitude: _selectedLng,
+    );
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+      (route) => false,
+    );
   }
 
-  void _clearSearch() {
-    _searchController.clear();
-    setState(() {
-      _suggestions = [];
-      _showSuggestions = false;
-    });
-  }
-
-  /// Shows the "Please type address" modal dialog.
+  /// Fallback for when the map/search doesn't have what the user needs —
+  /// lets them type a free-text address with no coordinates attached.
   Future<void> _showAddressInputModal() async {
-    final initialText = _searchController.text.trim().isNotEmpty
-        ? _searchController.text.trim()
-        : '';
-    final addressController = TextEditingController(text: initialText);
+    final addressController = TextEditingController(text: _selectedAddress);
     final formKey = GlobalKey<FormState>();
-
     bool submitted = false;
 
     await showDialog<void>(
@@ -195,6 +162,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       onPressed: () {
                         if (formKey.currentState!.validate()) {
                           final address = addressController.text.trim();
+                          // A manually-typed address has no known coordinates.
                           AddressService().setTemporaryLocation(address);
                           submitted = true;
                           Navigator.of(dialogContext).pop();
@@ -235,196 +203,51 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   }
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        _searchFocusNode.unfocus();
-        setState(() => _showSuggestions = false);
-      },
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
         backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leadingWidth: 180,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 16.0),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.pop(context),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.arrow_back, color: Color(0xFF1E1B4B), size: 24),
-                  SizedBox(width: 6),
-                  Text(
-                    'Choose Location',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E1B4B),
-                    ),
+        elevation: 0,
+        leadingWidth: 180,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16.0),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.pop(context),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.arrow_back, color: Color(0xFF1E1B4B), size: 24),
+                SizedBox(width: 6),
+                Text(
+                  'Choose Location',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E1B4B),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
-        body: Column(
-          children: [
-            // ─── Map Area ─────────────────────────────────────────
-            Expanded(
-              child: Stack(
-                children: [
-                  // Simulated map background
-                  Container(
-                    color: const Color(0xFFE8EDF0),
-                    child: CustomPaint(
-                      painter: _MapPainter(),
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-
-                  // Location pin in center
-                  const Center(child: _LocationPin()),
-
-                  // Search bar + dropdown overlay
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    right: 16,
-                    child: Column(
-                      children: [
-                        // Search TextField
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocusNode,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF1E1B4B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Search address...',
-                              hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-                              prefixIcon: const Icon(Icons.search, color: Color(0xFF9CA3AF), size: 20),
-                              suffixIcon: _searchController.text.isNotEmpty
-                                  ? GestureDetector(
-                                      onTap: _clearSearch,
-                                      child: const Icon(Icons.close, color: Color(0xFF9CA3AF), size: 18),
-                                    )
-                                  : null,
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                          ),
-                        ),
-
-                        // Suggestions dropdown
-                        if (_showSuggestions && _suggestions.isNotEmpty)
-                          Container(
-                            margin: const EdgeInsets.only(top: 4),
-                            constraints: const BoxConstraints(maxHeight: 260),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.12),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              shrinkWrap: true,
-                              itemCount: _suggestions.length,
-                              separatorBuilder: (context, index) => const Divider(
-                                height: 1,
-                                indent: 50,
-                                endIndent: 16,
-                                color: Color(0xFFF3F4F6),
-                              ),
-                              itemBuilder: (context, index) {
-                                final addr = _suggestions[index];
-                                return GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => _selectSuggestion(addr),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Padding(
-                                          padding: EdgeInsets.only(top: 2),
-                                          child: Icon(
-                                            Icons.location_on_outlined,
-                                            color: AppColors.primaryOrange,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                addr['name']!,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF1E1B4B),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                addr['detail']!,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Color(0xFF6B7280),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+      ),
+      body: Column(
+        children: [
+          // ─── Real interactive map ───────────────────────────────
+          Expanded(
+            child: InteractiveMapView(
+              initialLat: _selectedLat,
+              initialLng: _selectedLng,
+              onLocationChanged: _onLocationChanged,
             ),
+          ),
 
-            // ─── Bottom Panel ──────────────────────────────────────
-            SafeArea(
-              top: false,
-              child: Container(
+          // ─── Bottom Panel ──────────────────────────────────────
+          SafeArea(
+            top: false,
+            child: Container(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -475,25 +298,28 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                               color: Color(0xFF4B5563),
                               height: 1.45,
                             ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     height: 48,
-                    child: OutlinedButton(
-                      onPressed: _showAddressInputModal,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppColors.primaryOrange, width: 1.8),
+                    child: ElevatedButton(
+                      onPressed: _confirmLocation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryYellow,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: const Text(
-                        'CONTINUE',
+                        'CONFIRM LOCATION',
                         style: TextStyle(
-                          color: AppColors.primaryOrange,
+                          color: Color(0xFF1E1B4B),
                           fontWeight: FontWeight.w900,
                           fontSize: 14,
                           letterSpacing: 0.8,
@@ -501,118 +327,26 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton(
+                      onPressed: _showAddressInputModal,
+                      child: const Text(
+                        "Can't find it on the map? Type it instead",
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryOrange,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ), // SafeArea
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
-}
-
-/// Simple "location pin" widget
-class _LocationPin extends StatelessWidget {
-  const _LocationPin();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 46,
-          height: 46,
-          decoration: const BoxDecoration(
-            color: AppColors.primaryOrange,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.location_on, color: Colors.white, size: 26),
-        ),
-        CustomPaint(
-          size: const Size(14, 8),
-          painter: _PinTrianglePainter(),
-        ),
-      ],
-    );
-  }
-}
-
-class _PinTrianglePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = AppColors.primaryOrange;
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-/// Draws a simple stylized city-block map grid to simulate a map
-class _MapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final roadPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 10
-      ..style = PaintingStyle.stroke;
-
-    final minorRoadPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.7)
-      ..strokeWidth = 5
-      ..style = PaintingStyle.stroke;
-
-    for (int i = 1; i < 8; i++) {
-      final y = size.height * i / 8;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), i % 2 == 0 ? roadPaint : minorRoadPaint);
-    }
-    for (int i = 1; i < 6; i++) {
-      final x = size.width * i / 6;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), i % 2 == 0 ? roadPaint : minorRoadPaint);
-    }
-
-    final blockPaint = Paint()
-      ..color = const Color(0xFFD1E8C7).withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.05, size.height * 0.1, size.width * 0.25, size.height * 0.15),
-      blockPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.55, size.height * 0.4, size.width * 0.3, size.height * 0.12),
-      blockPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.1, size.height * 0.65, size.width * 0.2, size.height * 0.18),
-      blockPaint,
-    );
-
-    final bldgPaint = Paint()
-      ..color = const Color(0xFFCDD5E0).withValues(alpha: 0.6)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.4, size.height * 0.05, size.width * 0.14, size.height * 0.14),
-      bldgPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.62, size.height * 0.6, size.width * 0.2, size.height * 0.16),
-      bldgPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.1, size.height * 0.3, size.width * 0.22, size.height * 0.1),
-      bldgPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

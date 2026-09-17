@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>HungerPoint uses your location to help you pick an accurate delivery address and find nearby branches.</string>
 </dict>
 </plist>

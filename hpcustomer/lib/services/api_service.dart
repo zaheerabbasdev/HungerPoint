@@ -404,6 +404,24 @@ class ApiService {
     return null;
   }
 
+  static Future<Map<String, dynamic>?> updateAddress(String addressId, Map<String, dynamic> addressData) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$baseUrl/customers/addresses/$addressId'),
+        headers: _headers(needsAuth: true),
+        body: jsonEncode(addressData),
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['data'];
+      }
+    } catch (e) {
+      debugPrint('API Error (updateAddress): $e');
+    }
+    return null;
+  }
+
   static Future<bool> deleteAddress(String addressId) async {
     try {
       final res = await http.delete(

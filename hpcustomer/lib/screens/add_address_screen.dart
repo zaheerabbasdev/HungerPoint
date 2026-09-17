@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/address_service.dart';
 import '../services/branch_service.dart';
+import '../widgets/interactive_map_view.dart';
 import 'new_address_form_screen.dart';
+
+/// Default map center when no better starting point is known (Islamabad).
+const double _kDefaultLat = 33.6844;
+const double _kDefaultLng = 73.0479;
 
 class AddAddressScreen extends StatefulWidget {
   final SavedAddress? existingAddress;
@@ -17,103 +22,48 @@ class AddAddressScreen extends StatefulWidget {
 }
 
 class _AddAddressScreenState extends State<AddAddressScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
-
-  static const List<Map<String, String>> _allAddresses = [
-    {'name': 'F-7 Markaz, Islamabad', 'detail': 'F 7, Islamabad Capital Territory'},
-    {'name': 'Blue Area, Islamabad', 'detail': 'Jinnah Avenue, Blue Area, Islamabad'},
-    {'name': 'G-11 Markaz, Islamabad', 'detail': 'G-11, Islamabad Capital Territory'},
-    {'name': 'E-11, Islamabad', 'detail': 'E-11, Islamabad Capital Territory'},
-    {'name': 'Bahria Town Phase 2', 'detail': 'Bahria Town, Rawalpindi, Punjab'},
-    {'name': 'DHA Phase 1, Islamabad', 'detail': 'DHA Phase 1, Islamabad Capital Territory'},
-    {'name': 'Saddar, Rawalpindi', 'detail': 'Saddar Bazar, Rawalpindi, Punjab'},
-    {'name': 'I-8 Markaz, Islamabad', 'detail': 'I-8, Islamabad Capital Territory'},
-    {'name': 'Gulberg Greens, Islamabad', 'detail': 'Gulberg, Islamabad Capital Territory'},
-    {'name': 'Centaurus Mall', 'detail': 'Jinnah Avenue, F-8 Markaz, Islamabad'},
-    {'name': 'Faisal Mosque Area', 'detail': 'Faisal Mosque Road, Islamabad Capital Territory'},
-    {'name': 'Kaghan Road, G-7', 'detail': 'G-7 Markaz, Islamabad Capital Territory'},
-    {'name': 'Mantra Safa Gold Mall', 'detail': 'F-7 Markaz, Islamabad Capital Territory'},
-    {'name': 'Saidpur Village', 'detail': 'Margalla Hills, Islamabad Capital Territory'},
-  ];
-
-  List<Map<String, String>> _suggestions = [];
-  bool _showSuggestions = false;
   String _selectedMapAddress = '';
+  double _selectedLat = _kDefaultLat;
+  double _selectedLng = _kDefaultLng;
 
   @override
   void initState() {
     super.initState();
     if (widget.existingAddress != null) {
       _selectedMapAddress = widget.existingAddress!.address;
+      _selectedLat = widget.existingAddress!.latitude ?? _kDefaultLat;
+      _selectedLng = widget.existingAddress!.longitude ?? _kDefaultLng;
     } else if (AddressService().selectedAddress != null) {
-      _selectedMapAddress = AddressService().selectedAddress!.address;
+      final sel = AddressService().selectedAddress!;
+      _selectedMapAddress = sel.address;
+      _selectedLat = sel.latitude ?? _kDefaultLat;
+      _selectedLng = sel.longitude ?? _kDefaultLng;
     } else if (BranchService().selectedBranch != null) {
-      _selectedMapAddress = BranchService().selectedBranch!.address.isNotEmpty
-          ? BranchService().selectedBranch!.address
-          : BranchService().selectedBranch!.name;
+      final branch = BranchService().selectedBranch!;
+      _selectedMapAddress = branch.address.isNotEmpty ? branch.address : branch.name;
+      _selectedLat = branch.lat;
+      _selectedLng = branch.lng;
     } else if (BranchService().allBranches.isNotEmpty) {
-      _selectedMapAddress = BranchService().allBranches.first.address.isNotEmpty
-          ? BranchService().allBranches.first.address
-          : BranchService().allBranches.first.name;
+      final branch = BranchService().allBranches.first;
+      _selectedMapAddress = branch.address.isNotEmpty ? branch.address : branch.name;
+      _selectedLat = branch.lat;
+      _selectedLng = branch.lng;
     } else {
       _selectedMapAddress = 'Select Location';
     }
-
-    _searchController.addListener(_onSearchChanged);
-    _searchFocusNode.addListener(() {
-      setState(() {
-        _showSuggestions = _searchFocusNode.hasFocus && _suggestions.isNotEmpty;
-      });
-    });
   }
 
-  void _onSearchChanged() {
-    final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) {
-      setState(() { _suggestions = []; _showSuggestions = false; });
-      return;
-    }
-    final branchAddresses = BranchService().allBranches.map((b) => {
-      'name': b.name,
-      'detail': b.address.isNotEmpty ? b.address : 'Branch Location',
-    }).toList();
-    final combined = [...branchAddresses, ..._allAddresses];
-
-    final filtered = combined.where((a) =>
-        a['name']!.toLowerCase().contains(query) ||
-        a['detail']!.toLowerCase().contains(query)).toList();
+  void _onLocationChanged(double lat, double lng, String address) {
     setState(() {
-      _suggestions = filtered;
-      _showSuggestions = filtered.isNotEmpty && _searchFocusNode.hasFocus;
+      _selectedLat = lat;
+      _selectedLng = lng;
+      _selectedMapAddress = address;
     });
-  }
-
-  void _selectSuggestion(Map<String, String> addr) {
-    setState(() {
-      _selectedMapAddress = '${addr['name']!}, ${addr['detail']!}';
-      _searchController.text = addr['name']!;
-      _suggestions = [];
-      _showSuggestions = false;
-    });
-    _searchFocusNode.unfocus();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        _searchFocusNode.unfocus();
-        setState(() => _showSuggestions = false);
-      },
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -136,128 +86,12 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         ),
         body: Column(
           children: [
-            // ─── Map Area ────────────────────────────────────────
+            // ─── Real interactive map ──────────────────────────────
             Expanded(
-              child: Stack(
-                children: [
-                  // Simulated map background
-                  Container(
-                    color: const Color(0xFFE8EDF0),
-                    child: CustomPaint(
-                      painter: _MapPainter(),
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-
-                  // Centered location pin
-                  const Center(child: _LocationPin()),
-
-                  // Search bar + suggestions overlay
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    right: 16,
-                    child: Column(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocusNode,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF1E1B4B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Search address...',
-                              hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-                              prefixIcon: const Icon(Icons.search, color: Color(0xFF9CA3AF), size: 20),
-                              suffixIcon: _searchController.text.isNotEmpty
-                                  ? GestureDetector(
-                                      onTap: () {
-                                        _searchController.clear();
-                                        setState(() { _suggestions = []; _showSuggestions = false; });
-                                      },
-                                      child: const Icon(Icons.close, color: Color(0xFF9CA3AF), size: 18),
-                                    )
-                                  : null,
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                          ),
-                        ),
-
-                        // Suggestions dropdown
-                        if (_showSuggestions && _suggestions.isNotEmpty)
-                          Container(
-                            margin: const EdgeInsets.only(top: 4),
-                            constraints: const BoxConstraints(maxHeight: 240),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.12),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              shrinkWrap: true,
-                              itemCount: _suggestions.length,
-                              separatorBuilder: (context, index) => const Divider(
-                                height: 1, indent: 50, endIndent: 16,
-                                color: Color(0xFFF3F4F6),
-                              ),
-                              itemBuilder: (context, i) {
-                                final addr = _suggestions[i];
-                                return GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => _selectSuggestion(addr),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Padding(
-                                          padding: EdgeInsets.only(top: 2),
-                                          child: Icon(Icons.location_on_outlined, color: AppColors.primaryOrange, size: 20),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(addr['name']!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E1B4B))),
-                                              const SizedBox(height: 2),
-                                              Text(addr['detail']!, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+              child: InteractiveMapView(
+                initialLat: _selectedLat,
+                initialLng: _selectedLng,
+                onLocationChanged: _onLocationChanged,
               ),
             ),
 
@@ -349,6 +183,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                             MaterialPageRoute(
                               builder: (_) => NewAddressFormScreen(
                                 mapAddress: _selectedMapAddress,
+                                mapLatitude: _selectedLat,
+                                mapLongitude: _selectedLng,
                                 existingAddress: widget.existingAddress,
                               ),
                             ),
@@ -395,6 +231,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                             MaterialPageRoute(
                               builder: (_) => NewAddressFormScreen(
                                 mapAddress: _selectedMapAddress,
+                                mapLatitude: _selectedLat,
+                                mapLongitude: _selectedLng,
                               ),
                             ),
                           );
@@ -419,79 +257,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }
 
-class _LocationPin extends StatelessWidget {
-  const _LocationPin();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: const BoxDecoration(
-            color: AppColors.primaryOrange,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.location_on, color: Colors.white, size: 28),
-        ),
-        CustomPaint(
-          size: const Size(14, 8),
-          painter: _PinTrianglePainter(),
-        ),
-      ],
-    );
-  }
-}
-
-class _PinTrianglePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = AppColors.primaryOrange;
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _MapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final road = Paint()..color = Colors.white..strokeWidth = 10..style = PaintingStyle.stroke;
-    final minor = Paint()..color = Colors.white.withValues(alpha: 0.65)..strokeWidth = 5..style = PaintingStyle.stroke;
-
-    for (int i = 1; i < 8; i++) {
-      final y = size.height * i / 8;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), i % 2 == 0 ? road : minor);
-    }
-    for (int i = 1; i < 6; i++) {
-      final x = size.width * i / 6;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), i % 2 == 0 ? road : minor);
-    }
-
-    final green = Paint()..color = const Color(0xFFD1E8C7).withValues(alpha: 0.55)..style = PaintingStyle.fill;
-    canvas.drawRect(Rect.fromLTWH(size.width * 0.04, size.height * 0.08, size.width * 0.26, size.height * 0.16), green);
-    canvas.drawRect(Rect.fromLTWH(size.width * 0.55, size.height * 0.38, size.width * 0.32, size.height * 0.13), green);
-    canvas.drawRect(Rect.fromLTWH(size.width * 0.08, size.height * 0.62, size.width * 0.22, size.height * 0.2), green);
-
-    final grey = Paint()..color = const Color(0xFFCDD5E0).withValues(alpha: 0.6)..style = PaintingStyle.fill;
-    canvas.drawRect(Rect.fromLTWH(size.width * 0.38, size.height * 0.04, size.width * 0.15, size.height * 0.14), grey);
-    canvas.drawRect(Rect.fromLTWH(size.width * 0.62, size.height * 0.58, size.width * 0.22, size.height * 0.18), grey);
-    canvas.drawRect(Rect.fromLTWH(size.width * 0.1, size.height * 0.28, size.width * 0.24, size.height * 0.11), grey);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}

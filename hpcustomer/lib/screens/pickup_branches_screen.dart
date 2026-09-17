@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../services/branch_service.dart';
 
 class PickupBranchesScreen extends StatefulWidget {
@@ -265,183 +267,17 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
               ),
             ),
 
-            // ─── MAP VIEW (Overview Map) ──────────────────────────────────
+            // ─── MAP VIEW (Real OpenStreetMap with branch pins) ────────────
             SizedBox(
               height: 250,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _PickupMapPainter(),
-                    ),
-                  ),
-
-                  // Dynamic real branch pins on map
-                  Positioned.fill(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final all = BranchService().allBranches;
-                        if (all.isEmpty) return const SizedBox.shrink();
-
-                        double minLat = all.first.lat;
-                        double maxLat = all.first.lat;
-                        double minLng = all.first.lng;
-                        double maxLng = all.first.lng;
-
-                        for (final b in all) {
-                          if (b.lat < minLat) minLat = b.lat;
-                          if (b.lat > maxLat) maxLat = b.lat;
-                          if (b.lng < minLng) minLng = b.lng;
-                          if (b.lng > maxLng) maxLng = b.lng;
-                        }
-
-                        final latSpan = (maxLat - minLat).abs() < 0.005 ? 0.04 : (maxLat - minLat);
-                        final lngSpan = (maxLng - minLng).abs() < 0.005 ? 0.04 : (maxLng - minLng);
-                        final centerLat = (maxLat + minLat) / 2;
-                        final centerLng = (maxLng + minLng) / 2;
-
-                        return Stack(
-                          children: all.asMap().entries.map((entry) {
-                            final idx = entry.key;
-                            final branch = entry.value;
-                            final isSelected = (_highlightedBranch?.id == branch.id) ||
-                                (selectedBranch?.id == branch.id) ||
-                                (_highlightedBranch == null && selectedBranch == null && idx == 0);
-
-                            double relX = 0.5 + (branch.lng - centerLng) / (lngSpan * 1.4);
-                            double relY = 0.5 - (branch.lat - centerLat) / (latSpan * 1.4);
-
-                            if (all.length > 1 && (maxLat - minLat).abs() < 0.001) {
-                              relX = 0.3 + (idx % 3) * 0.25;
-                              relY = 0.35 + (idx ~/ 3) * 0.25;
-                            }
-
-                            final posX = (relX.clamp(0.08, 0.82) * (constraints.maxWidth - 60));
-                            final posY = (relY.clamp(0.12, 0.72) * 190);
-
-                            return Positioned(
-                              top: posY,
-                              left: posX,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() => _highlightedBranch = branch);
-                                  _showConfirmBranchDialog(branch);
-                                },
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _buildMapPin(
-                                      isActive: isSelected,
-                                      size: isSelected ? 36 : 30,
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: isSelected ? const Color(0xFF1E1B4B) : Colors.white,
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: isSelected ? const Color(0xFFFFD600) : const Color(0xFFE5E7EB),
-                                          width: 1,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.1),
-                                            blurRadius: 4,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Text(
-                                        branch.name.replaceAll('HungerPoint ', '').split('-').first.trim(),
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                          color: isSelected ? const Color(0xFFFFD600) : const Color(0xFF1E1B4B),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        );
-                      },
-                    ),
-                  ),
-
-                  // TPL Maps Watermark (Bottom Left)
-                  Positioned(
-                    bottom: 12,
-                    left: 16,
-                    child: Row(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Text(
-                              'TPL',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF2E7D32),
-                                height: 0.9,
-                              ),
-                            ),
-                            Text(
-                              'maps',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF1B5E20),
-                                height: 0.9,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF50),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            '1-2',
-                            style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // GPS Crosshair Floating Button (Bottom Right)
-                  Positioned(
-                    bottom: 12,
-                    right: 16,
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.my_location,
-                        color: Color(0xFF1E1B4B),
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                ],
+              child: _BranchesOverviewMap(
+                branches: BranchService().allBranches,
+                highlightedBranchId: _highlightedBranch?.id ?? selectedBranch?.id,
+                buildPin: _buildMapPin,
+                onBranchTap: (branch) {
+                  setState(() => _highlightedBranch = branch);
+                  _showConfirmBranchDialog(branch);
+                },
               ),
             ),
 
@@ -617,71 +453,96 @@ class _PickupBranchesScreenState extends State<PickupBranchesScreen> {
   }
 }
 
-class _PickupMapPainter extends CustomPainter {
+/// Real OpenStreetMap overview showing every branch as a tappable pin,
+/// auto-fitted to bounds so all branches are visible at once.
+class _BranchesOverviewMap extends StatelessWidget {
+  final List<Branch> branches;
+  final String? highlightedBranchId;
+  final Widget Function({required bool isActive, double size}) buildPin;
+  final void Function(Branch) onBranchTap;
+
+  const _BranchesOverviewMap({
+    required this.branches,
+    required this.highlightedBranchId,
+    required this.buildPin,
+    required this.onBranchTap,
+  });
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = const Color(0xFFF1EFEA);
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+  Widget build(BuildContext context) {
+    if (branches.isEmpty) {
+      return Container(
+        color: const Color(0xFFF1EFEA),
+        child: const Center(
+          child: Text('No branches available', style: TextStyle(color: Color(0xFF9CA3AF))),
+        ),
+      );
+    }
 
-    final greenPaint = Paint()
-      ..color = const Color(0xFFD3E7CD)
-      ..style = PaintingStyle.fill;
+    final points = branches.map((b) => LatLng(b.lat, b.lng)).toList();
+    final bounds = LatLngBounds.fromPoints(points);
 
-    final greenPath1 = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width * 0.65, 0)
-      ..quadraticBezierTo(size.width * 0.45, 50, size.width * 0.2, 70)
-      ..quadraticBezierTo(size.width * 0.05, 90, 0, 110)
-      ..close();
-    canvas.drawPath(greenPath1, greenPaint);
-
-    final greenPath2 = Path()
-      ..moveTo(size.width * 0.75, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, 100)
-      ..quadraticBezierTo(size.width * 0.85, 70, size.width * 0.75, 0)
-      ..close();
-    canvas.drawPath(greenPath2, greenPaint);
-
-    final roadPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 3.5
-      ..style = PaintingStyle.stroke;
-
-    final highwayPaint = Paint()
-      ..color = const Color(0xFFFEE7A6)
-      ..strokeWidth = 4.5
-      ..style = PaintingStyle.stroke;
-
-    final hw1 = Path()
-      ..moveTo(0, size.height * 0.4)
-      ..quadraticBezierTo(size.width * 0.4, size.height * 0.35, size.width, size.height * 0.6);
-    canvas.drawPath(hw1, highwayPaint);
-
-    final hw2 = Path()
-      ..moveTo(size.width * 0.5, 0)
-      ..quadraticBezierTo(size.width * 0.45, size.height * 0.5, size.width * 0.48, size.height);
-    canvas.drawPath(hw2, highwayPaint);
-
-    canvas.drawLine(Offset(size.width * 0.2, 40), Offset(size.width * 0.7, size.height * 0.85), roadPaint);
-    canvas.drawLine(Offset(size.width * 0.35, 30), Offset(size.width * 0.85, size.height * 0.7), roadPaint);
-    canvas.drawLine(Offset(size.width * 0.1, size.height * 0.6), Offset(size.width * 0.9, size.height * 0.2), roadPaint);
-  }
-
-  void _drawText(Canvas canvas, String text, Offset offset, double fontSize, FontWeight weight, Color color) {
-    final textSpan = TextSpan(
-      text: text,
-      style: TextStyle(
-        color: color,
-        fontSize: fontSize,
-        fontWeight: weight,
-        letterSpacing: 0.2,
+    return FlutterMap(
+      options: MapOptions(
+        initialCameraFit: CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.all(50),
+        ),
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        ),
       ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.hungerpoint.app',
+          maxZoom: 19,
+        ),
+        MarkerLayer(
+          markers: branches.map((branch) {
+            final isSelected = branch.id == highlightedBranchId ||
+                (highlightedBranchId == null && branch.id == branches.first.id);
+            return Marker(
+              point: LatLng(branch.lat, branch.lng),
+              width: 90,
+              height: 70,
+              alignment: Alignment.topCenter,
+              child: GestureDetector(
+                onTap: () => onBranchTap(branch),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    buildPin(isActive: isSelected, size: isSelected ? 36 : 30),
+                    const SizedBox(height: 3),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF1E1B4B) : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFFFFD600) : const Color(0xFFE5E7EB),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                        ],
+                      ),
+                      child: Text(
+                        branch.name.replaceAll('HungerPoint ', '').split('-').first.trim(),
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: isSelected ? const Color(0xFFFFD600) : const Color(0xFF1E1B4B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
-    final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr)..layout();
-    textPainter.paint(canvas, offset);
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

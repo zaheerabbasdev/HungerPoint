@@ -4,11 +4,15 @@ import '../services/address_service.dart';
 
 class NewAddressFormScreen extends StatefulWidget {
   final String mapAddress;
+  final double? mapLatitude;
+  final double? mapLongitude;
   final SavedAddress? existingAddress;
 
   const NewAddressFormScreen({
     super.key,
     this.mapAddress = '',
+    this.mapLatitude,
+    this.mapLongitude,
     this.existingAddress,
   });
 
@@ -125,7 +129,10 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
     });
   }
 
-  void _onSaveAddress() {
+  bool _isSaving = false;
+
+  Future<void> _onSaveAddress() async {
+    if (_isSaving) return;
     final detail = _addressDetailController.text.trim();
     if (detail.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,11 +161,15 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
           ? widget.mapAddress
           : widget.existingAddress!.address;
 
-      AddressService().updateAddress(
+      setState(() => _isSaving = true);
+      await AddressService().updateAddress(
         id: widget.existingAddress!.id,
         label: label,
         address: fullAddress,
+        latitude: widget.mapLatitude,
+        longitude: widget.mapLongitude,
       );
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -186,11 +197,15 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
         ? (detail.toLowerCase() == label.toLowerCase() ? widget.mapAddress : '$detail, ${widget.mapAddress}')
         : detail;
 
-    AddressService().addAddress(
+    setState(() => _isSaving = true);
+    await AddressService().addAddress(
       label: label,
       address: fullAddress,
+      latitude: widget.mapLatitude,
+      longitude: widget.mapLongitude,
       selectImmediately: true,
     );
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -448,21 +463,28 @@ class _NewAddressFormScreenState extends State<NewAddressFormScreen> {
                     ],
                   ),
                   child: ElevatedButton(
-                    onPressed: _onSaveAddress,
+                    onPressed: _isSaving ? null : _onSaveAddress,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
+                      disabledBackgroundColor: Colors.transparent,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: Text(
-                      widget.existingAddress != null ? 'UPDATE LOCATION' : 'ADD NEW ADDRESS',
-                      style: const TextStyle(
-                        color: Color(0xFF1E1B4B),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2.4, valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E1B4B))),
+                          )
+                        : Text(
+                            widget.existingAddress != null ? 'UPDATE LOCATION' : 'ADD NEW ADDRESS',
+                            style: const TextStyle(
+                              color: Color(0xFF1E1B4B),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
                   ),
                 ),
               ),

@@ -7,11 +7,15 @@ class SavedAddress {
   final String id;
   final String label; // "Home", "Work", "Other", or custom
   final String address;
+  final double? latitude;
+  final double? longitude;
 
   const SavedAddress({
     required this.id,
     required this.label,
     required this.address,
+    this.latitude,
+    this.longitude,
   });
 
   @override
@@ -42,6 +46,10 @@ class AddressService {
   /// One-time / temporary chosen location (from Choose Location).
   /// Not saved into [savedAddressesNotifier].
   final ValueNotifier<String?> customLocationNotifier = ValueNotifier<String?>(null);
+
+  /// Coordinates for the current temporary location, if picked from the map.
+  double? temporaryLatitude;
+  double? temporaryLongitude;
 
   /// Backward-compatible notifier for string listeners
   final ValueNotifier<String?> addressNotifier = ValueNotifier<String?>(null);
@@ -77,10 +85,12 @@ class AddressService {
   /// Sets a temporary / one-time selected location (from Choose Location).
   /// This updates the header "Deliver to [location]", but is NOT added to
   /// the saved addresses list in the bottom sheet.
-  void setTemporaryLocation(String location) {
+  void setTemporaryLocation(String location, {double? latitude, double? longitude}) {
     selectedAddressNotifier.value = null; // deselect saved address radio
     customLocationNotifier.value = location;
     addressNotifier.value = location;
+    temporaryLatitude = latitude;
+    temporaryLongitude = longitude;
   }
 
   /// Select an address
@@ -98,8 +108,10 @@ class AddressService {
         final serverAddresses = list.map<SavedAddress>((item) {
           return SavedAddress(
             id: item['id']?.toString() ?? '',
-            label: item['title']?.toString() ?? 'Home',
+            label: item['title']?.toString() ?? item['label']?.toString() ?? 'Home',
             address: item['address']?.toString() ?? '',
+            latitude: double.tryParse(item['latitude']?.toString() ?? ''),
+            longitude: double.tryParse(item['longitude']?.toString() ?? ''),
           );
         }).toList();
 
@@ -113,24 +125,43 @@ class AddressService {
     }
   }
 
-  /// Add a new address (Home, Work, Other, etc.)
-  void addAddress({
+  /// Maps a display label ("Home", "Work", "Other", or a custom name) to the
+  /// backend's {label, customName} shape.
+  Map<String, dynamic> _labelFields(String label) {
+    final upper = label.trim().toUpperCase();
+    if (upper == 'HOME' || upper == 'WORK' || upper == 'OTHER') {
+      return {'label': upper};
+    }
+    return {'label': 'OTHER', 'customName': label.trim()};
+  }
+
+  /// Add a new address (Home, Work, Other, etc.). Persists to the backend
+  /// first so the locally-tracked id matches the real server-side address id.
+  Future<void> addAddress({
     required String label,
     required String address,
+    double? latitude,
+    double? longitude,
     bool selectImmediately = true,
-  }) {
-    final newId = DateTime.now().millisecondsSinceEpoch.toString();
+  }) async {
+    final result = await ApiService.addAddress({
+      ..._labelFields(label),
+      'address': address,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+    });
+
     final item = SavedAddress(
-      id: newId,
+      id: result?['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
       label: label,
       address: address,
+      latitude: latitude,
+      longitude: longitude,
     );
     savedAddressesNotifier.value = [...savedAddressesNotifier.value, item];
     if (selectImmediately) {
       selectAddress(item);
     }
-    // Sync with backend API
-    ApiService.addAddress({'title': label, 'address': address});
   }
 
   /// Delete address
@@ -143,19 +174,28 @@ class AddressService {
   }
 
   /// Legacy helper
-  void setAddress(String address, {String label = 'Home'}) {
-    addAddress(label: label, address: address, selectImmediately: true);
+  Future<void> setAddress(String address, {String label = 'Home'}) {
+    return addAddress(label: label, address: address, selectImmediately: true);
   }
 
   /// Update an existing saved address
-  void updateAddress({
+  Future<void> updateAddress({
     required String id,
     required String label,
     required String address,
-  }) {
+    double? latitude,
+    double? longitude,
+  }) async {
+    await ApiService.updateAddress(id, {
+      ..._labelFields(label),
+      'address': address,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+    });
+
     final updatedList = savedAddressesNotifier.value.map((item) {
       if (item.id == id) {
-        return SavedAddress(id: id, label: label, address: address);
+        return SavedAddress(id: id, label: label, address: address, latitude: latitude, longitude: longitude);
       }
       return item;
     }).toList();
