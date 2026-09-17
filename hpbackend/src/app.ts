@@ -80,6 +80,14 @@ app.use('/api', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// express.json()/urlencoded() leave req.body as `undefined` (not `{}`) when a
+// request has no body at all — e.g. a PATCH action with no payload. Normalize
+// it here so every controller can safely destructure req.body without a crash.
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
+
 // ─── Logging ─────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));

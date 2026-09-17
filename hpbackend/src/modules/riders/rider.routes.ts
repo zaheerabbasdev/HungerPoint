@@ -11,6 +11,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/me', authorize(UserRole.RIDER), RiderController.getMe);
 router.get('/', authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER), RiderController.getAll);
 router.post('/', authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER), RiderController.create);
 router.put('/:id', authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER), RiderController.update);

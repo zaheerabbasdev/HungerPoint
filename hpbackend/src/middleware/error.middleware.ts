@@ -29,10 +29,11 @@ export const errorHandler = (
 
   // Prisma errors
   if ('code' in err) {
-    const prismaError = err as { code: string; meta?: { target?: string[] } };
+    const prismaError = err as { code: string; meta?: { target?: string[] | string } };
 
     if (prismaError.code === 'P2002') {
-      const field = prismaError.meta?.target?.join(', ') || 'field';
+      const target = prismaError.meta?.target;
+      const field = Array.isArray(target) ? target.join(', ') : target || 'field';
       sendError(res, `Duplicate value for: ${field}`, 409);
       return;
     }

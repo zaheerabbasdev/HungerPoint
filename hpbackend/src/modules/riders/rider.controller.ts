@@ -7,6 +7,16 @@ import { RiderService } from './rider.service';
 import { RiderStatus } from '@prisma/client';
 
 export class RiderController {
+  static async getMe(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+      const rider = await RiderService.getRiderProfileByUserId(userId);
+      res.json({ success: true, data: rider });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
       const user = (req as any).user;

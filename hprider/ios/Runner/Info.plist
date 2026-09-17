@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>HungerPoint Rider uses your location to share your live position with customers during an active delivery.</string>
 </dict>
 </plist>

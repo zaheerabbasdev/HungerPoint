@@ -4,6 +4,7 @@
 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/error.middleware';
@@ -22,6 +23,11 @@ const generateRefreshToken = (payload: AuthPayload): string =>
   jwt.sign(payload, process.env.JWT_REFRESH_SECRET as string, {
     expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '30d') as jwt.SignOptions['expiresIn'],
   });
+
+// Refresh tokens are stored as a SHA-256 hash rather than the raw JWT:
+// - the raw token can exceed MySQL's indexable key-length limit
+// - hashing means a database leak never exposes usable session tokens
+const hashToken = (token: string): string => crypto.createHash('sha256').update(token).digest('hex');
 
 // ─── Register Customer ────────────────────────────────────────
 export const registerCustomer = async (data: {
@@ -67,7 +73,7 @@ export const registerCustomer = async (data: {
   // Store refresh token
   await prisma.refreshToken.create({
     data: {
-      token: refreshToken,
+      tokenHash: hashToken(refreshToken),
       userId: user.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
@@ -110,7 +116,7 @@ export const login = async (data: { phone?: string; email?: string; password: st
 
   await prisma.refreshToken.create({
     data: {
-      token: refreshToken,
+      tokenHash: hashToken(refreshToken),
       userId: user.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
@@ -122,7 +128,7 @@ export const login = async (data: { phone?: string; email?: string; password: st
 
 // ─── Refresh Token ────────────────────────────────────────────
 export const refreshAccessToken = async (token: string) => {
-  const stored = await prisma.refreshToken.findUnique({ where: { token } });
+  const stored = await prisma.refreshToken.findUnique({ where: { tokenHash: hashToken(token) } });
   if (!stored || stored.expiresAt < new Date()) {
     throw new AppError('Invalid or expired refresh token', 401);
   }
@@ -151,10 +157,10 @@ export const refreshAccessToken = async (token: string) => {
   const newRefreshToken = generateRefreshToken(payload);
 
   // Rotate refresh token
-  await prisma.refreshToken.delete({ where: { token } });
+  await prisma.refreshToken.delete({ where: { tokenHash: hashToken(token) } });
   await prisma.refreshToken.create({
     data: {
-      token: newRefreshToken,
+      tokenHash: hashToken(newRefreshToken),
       userId: user.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
@@ -165,7 +171,7 @@ export const refreshAccessToken = async (token: string) => {
 
 // ─── Logout ───────────────────────────────────────────────────
 export const logout = async (token: string): Promise<void> => {
-  await prisma.refreshToken.deleteMany({ where: { token } });
+  await prisma.refreshToken.deleteMany({ where: { tokenHash: hashToken(token) } });
 };
 
 // ─── Get Profile ──────────────────────────────────────────────
@@ -314,7 +320,7 @@ export const verifyOtp = async (phone: string, otp: string) => {
 
     await prisma.refreshToken.create({
       data: {
-        token: refreshToken,
+        tokenHash: hashToken(refreshToken),
         userId: user.id,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
@@ -384,7 +390,7 @@ export const completeProfile = async (data: {
 
     await prisma.refreshToken.create({
       data: {
-        token: refreshToken,
+        tokenHash: hashToken(refreshToken),
         userId: updatedUser.id,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
@@ -428,7 +434,7 @@ export const completeProfile = async (data: {
 
   await prisma.refreshToken.create({
     data: {
-      token: refreshToken,
+      tokenHash: hashToken(refreshToken),
       userId: newUser.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },

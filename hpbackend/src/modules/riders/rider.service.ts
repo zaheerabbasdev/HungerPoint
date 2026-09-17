@@ -5,6 +5,8 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database';
 import { RiderStatus, DeliveryStatus, OrderStatus, UserRole } from '@prisma/client';
+import { emitToUser, SOCKET_EVENTS } from '../../sockets';
+import { OrderService } from '../orders/order.service';
 
 const SALT_ROUNDS = 12;
 
@@ -54,6 +56,18 @@ export class RiderService {
     return rider;
   }
 
+  static async getRiderProfileByUserId(userId: string) {
+    const rider = await prisma.rider.findUnique({
+      where: { userId },
+      include: {
+        user: { select: { id: true, name: true, phone: true, email: true } },
+        branch: { select: { id: true, name: true, address: true } },
+      },
+    });
+    if (!rider) throw new Error('Rider profile not found for this account');
+    return rider;
+  }
+
   static async getAllRiders(query: { branchId?: string; status?: RiderStatus }) {
     const where: any = {};
     if (query.branchId) where.branchId = query.branchId;
@@ -96,6 +110,9 @@ export class RiderService {
     const order = await prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new Error('Order not found');
 
+    const rider = await prisma.rider.findUnique({ where: { id: riderId } });
+    if (!rider) throw new Error('Rider not found');
+
     const delivery = await prisma.delivery.upsert({
       where: { orderId },
       create: {
@@ -106,6 +123,9 @@ export class RiderService {
       update: {
         riderId,
         status: DeliveryStatus.ASSIGNED,
+        acceptedAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
       },
       include: {
         rider: { include: { user: { select: { name: true, phone: true } } } },
@@ -117,6 +137,12 @@ export class RiderService {
       where: { id: riderId },
       data: { status: RiderStatus.ON_DELIVERY },
     });
+
+    // Reflect the assignment on the order itself (drives customer tracking + history).
+    await OrderService.updateOrderStatus(orderId, OrderStatus.ASSIGNED);
+
+    // Notify the rider's app in real time so a new assignment shows up immediately.
+    emitToUser(rider.userId, SOCKET_EVENTS.RIDER_ASSIGNMENT, delivery);
 
     return delivery;
   }
