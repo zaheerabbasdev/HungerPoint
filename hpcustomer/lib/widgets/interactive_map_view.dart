@@ -173,8 +173,7 @@ class _InteractiveMapViewState extends State<InteractiveMapView> {
           ),
           children: [
             TileLayer(
-              urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-              subdomains: const ['a', 'b', 'c', 'd'],
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.example.hpcustomer',
               maxZoom: 19,
               errorTileCallback: (tile, error, stackTrace) {
