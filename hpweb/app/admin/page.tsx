@@ -1720,19 +1720,28 @@ export default function AdminPortalPage() {
                           )}
                         </td>
                         <td className="py-3 px-4">
-                          <select
-                            value={ord.status}
-                            onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
-                            className="bg-stone-800 border border-stone-700 text-stone-200 text-[11px] rounded-lg px-2.5 py-1 outline-none font-bold"
-                          >
-                            <option value="PENDING">PENDING</option>
-                            <option value="CONFIRMED">CONFIRMED</option>
-                            <option value="PREPARING">PREPARING</option>
-                            <option value="READY">READY</option>
-                            <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
-                            <option value="DELIVERED">DELIVERED</option>
-                            <option value="CANCELLED">CANCELLED</option>
-                          </select>
+                          {ord.delivery?.rider && !['DELIVERED', 'FAILED'].includes(ord.delivery.status) ? (
+                            <div
+                              className="px-2.5 py-1.5 rounded-lg bg-stone-800/60 border border-stone-700 text-stone-400 text-[10px] font-bold text-center leading-tight"
+                              title="A rider owns this delivery now — status advances automatically as they accept, pick up, and deliver it."
+                            >
+                              🔒 Tracked via rider app
+                            </div>
+                          ) : (
+                            <select
+                              value={ord.status}
+                              onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
+                              className="bg-stone-800 border border-stone-700 text-stone-200 text-[11px] rounded-lg px-2.5 py-1 outline-none font-bold"
+                            >
+                              <option value="PENDING">PENDING</option>
+                              <option value="CONFIRMED">CONFIRMED</option>
+                              <option value="PREPARING">PREPARING</option>
+                              <option value="READY">READY</option>
+                              <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+                              <option value="DELIVERED">DELIVERED</option>
+                              <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                          )}
                         </td>
                       </tr>
                     ))}

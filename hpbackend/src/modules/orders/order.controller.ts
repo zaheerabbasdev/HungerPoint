@@ -6,6 +6,7 @@ import { Request, Response, NextFunction } from 'express';
 import { OrderService } from './order.service';
 import { OrderStatus, OrderSource } from '@prisma/client';
 import { CustomerService } from '../customers/customer.service';
+import { AppError } from '../../middleware/error.middleware';
 
 const STAFF_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF'];
 
@@ -85,6 +86,17 @@ export class OrderController {
     try {
       const { status, notes } = req.body;
       const userId = (req as any).user?.id;
+
+      // Once a rider owns this delivery, status must advance through the
+      // delivery lifecycle (accept/pickup/out-for-delivery/deliver) so the
+      // Order and Delivery records can't desync — this manual endpoint is
+      // only for orders that aren't yet in a rider's hands.
+      const existing = await OrderService.getOrderById(req.params.id as string);
+      const delivery = (existing as any).delivery;
+      if (delivery?.riderId && !['DELIVERED', 'FAILED'].includes(delivery.status)) {
+        throw new AppError('This order is assigned to a rider — status now advances automatically as they accept, pick up, and deliver it.', 400);
+      }
+
       const order = await OrderService.updateOrderStatus(req.params.id as string, status, notes, userId);
       res.json({ success: true, message: `Order status updated to ${status}`, data: order });
     } catch (error) {
