@@ -97,6 +97,13 @@ export class OrderController {
         throw new AppError('This order is assigned to a rider — status now advances automatically as they accept, pick up, and deliver it.', 400);
       }
 
+      // A completed or cancelled order is final — editing it back to an
+      // earlier status would desync it from a delivery that's already done
+      // (or re-trigger side effects like loyalty points on a second DELIVERED).
+      if (['DELIVERED', 'CANCELLED'].includes(existing.status)) {
+        throw new AppError(`This order is already ${existing.status} and can't be edited further.`, 400);
+      }
+
       const order = await OrderService.updateOrderStatus(req.params.id as string, status, notes, userId);
       res.json({ success: true, message: `Order status updated to ${status}`, data: order });
     } catch (error) {

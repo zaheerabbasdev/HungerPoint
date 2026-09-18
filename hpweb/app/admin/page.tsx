@@ -1727,6 +1727,13 @@ export default function AdminPortalPage() {
                             >
                               🔒 Tracked via rider app
                             </div>
+                          ) : ['DELIVERED', 'CANCELLED'].includes(ord.status) ? (
+                            <div
+                              className="px-2.5 py-1.5 rounded-lg bg-stone-800/60 border border-stone-700 text-stone-400 text-[10px] font-bold text-center leading-tight"
+                              title="This order is complete — its final status can't be edited from here."
+                            >
+                              🔒 {ord.status}
+                            </div>
                           ) : (
                             <select
                               value={ord.status}
