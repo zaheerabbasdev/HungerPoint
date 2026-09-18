@@ -295,7 +295,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ? 'JAZZCASH'
         : (_selectedPaymentMethod == 'Easypaisa'
             ? 'EASYPAISA'
-            : (_selectedPaymentMethod == 'Credit / Debit Card'
+            : (_selectedPaymentMethod == 'Debit / Credit Card'
                 ? 'CREDIT_CARD'
                 : 'CASH_ON_DELIVERY'));
 
@@ -642,7 +642,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 4 Payment Options
+                  // Only Cash on Delivery is wired to a real payment flow right
+                  // now — the others are shown as a roadmap preview so the
+                  // layout doesn't need rework once JazzCash/Easypaisa/card
+                  // processing is actually integrated, but they can't be selected.
                   _buildPaymentOption(
                     title: 'Cash on Delivery',
                     price: 'PKR $total',
@@ -652,20 +655,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   _buildPaymentOption(
                     title: 'Debit / Credit Card',
                     price: 'PKR $onlineTotal',
-                    isSelected: _selectedPaymentMethod == 'Debit / Credit Card',
-                    onTap: () => setState(() => _selectedPaymentMethod = 'Debit / Credit Card'),
+                    isSelected: false,
+                    disabled: true,
+                    onTap: () {},
                   ),
                   _buildPaymentOption(
                     title: 'JazzCash',
                     price: 'PKR $onlineTotal',
-                    isSelected: _selectedPaymentMethod == 'JazzCash',
-                    onTap: () => setState(() => _selectedPaymentMethod = 'JazzCash'),
+                    isSelected: false,
+                    disabled: true,
+                    onTap: () {},
                   ),
                   _buildPaymentOption(
                     title: 'Easypaisa',
                     price: 'PKR $onlineTotal',
-                    isSelected: _selectedPaymentMethod == 'Easypaisa',
-                    onTap: () => setState(() => _selectedPaymentMethod = 'Easypaisa'),
+                    isSelected: false,
+                    disabled: true,
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -885,15 +891,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
     required String price,
     required bool isSelected,
     required VoidCallback onTap,
+    bool disabled = false,
   }) {
+    final dimColor = const Color(0xFF1E1B4B).withValues(alpha: 0.35);
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: disabled
+          ? () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('This payment method isn\'t available yet — coming soon.')),
+              )
+          : onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: disabled ? Colors.white.withValues(alpha: 0.6) : Colors.white,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -905,7 +918,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: const Color(0xFF1E1B4B),
+                  color: disabled ? dimColor : const Color(0xFF1E1B4B),
                   width: 2,
                 ),
                 color: Colors.white,
@@ -927,22 +940,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1E1B4B),
+                color: disabled ? dimColor : const Color(0xFF1E1B4B),
               ),
             ),
             const Spacer(),
 
-            Text(
-              price,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E1B4B),
+            if (disabled)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1B4B).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Coming Soon',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: dimColor),
+                ),
+              )
+            else
+              Text(
+                price,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E1B4B),
+                ),
               ),
-            ),
           ],
         ),
       ),
