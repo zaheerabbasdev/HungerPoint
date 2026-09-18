@@ -79,11 +79,21 @@ interface Order {
   source?: string;
   total: number;
   status: string;
+  type?: string;
+  branchId?: string;
   paymentMethod: string;
   createdAt: string;
   customer?: { user?: { name: string; phone: string } };
   branch?: { name: string };
   items?: any[];
+  delivery?: { id: string; status: string; rider?: { user?: { name: string; phone: string } } } | null;
+}
+
+interface RiderOption {
+  id: string;
+  status: string;
+  branchId?: string;
+  user?: { name: string; phone: string };
 }
 
 interface Branch {
@@ -122,6 +132,9 @@ export default function AdminPortalPage() {
   const [addons, setAddons] = useState<Addon[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [riders, setRiders] = useState<RiderOption[]>([]);
+  const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
+  const [selectedRiderByOrder, setSelectedRiderByOrder] = useState<Record<string, string>>({});
   const [overview, setOverview] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(false);
 
@@ -257,13 +270,14 @@ export default function AdminPortalPage() {
     if (!authToken) return;
     setDataLoading(true);
     try {
-      const [catsRes, prodsRes, addsRes, ordsRes, bransRes, ovRes] = await Promise.allSettled([
+      const [catsRes, prodsRes, addsRes, ordsRes, bransRes, ovRes, ridersRes] = await Promise.allSettled([
         fetchApi('/categories?includeInactive=true'),
         fetchApi('/products?includeInactive=true'),
         fetchApi('/products/addons/all'),
         fetchApi('/orders'),
         fetchApi('/branches'),
         fetchApi('/reports/overview'),
+        fetchApi('/riders'),
       ]);
 
       if (catsRes.status === 'fulfilled' && catsRes.value.success) {
@@ -283,6 +297,9 @@ export default function AdminPortalPage() {
       }
       if (ovRes.status === 'fulfilled' && ovRes.value.success) {
         setOverview(ovRes.value.data || null);
+      }
+      if (ridersRes.status === 'fulfilled' && ridersRes.value.success) {
+        setRiders(ridersRes.value.data || []);
       }
     } catch (e: any) {
       console.error('Data load error:', e);
@@ -607,6 +624,31 @@ export default function AdminPortalPage() {
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to update order status', 'error');
+    }
+  };
+
+  const handleAssignRider = async (orderId: string) => {
+    const riderId = selectedRiderByOrder[orderId];
+    if (!riderId) {
+      showToast('Select a rider first', 'error');
+      return;
+    }
+    setAssigningOrderId(orderId);
+    try {
+      const res = await fetchApi('/riders/assign', {
+        method: 'POST',
+        body: JSON.stringify({ orderId, riderId }),
+      });
+      if (res.success) {
+        showToast('Rider assigned — order moved to ASSIGNED');
+        loadAllData();
+      } else {
+        showToast(res.message || 'Failed to assign rider', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to assign rider', 'error');
+    } finally {
+      setAssigningOrderId(null);
     }
   };
 
@@ -1577,6 +1619,7 @@ export default function AdminPortalPage() {
                       <th className="py-3 px-4">Total</th>
                       <th className="py-3 px-4">Payment</th>
                       <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Rider</th>
                       <th className="py-3 px-4">Change Status</th>
                     </tr>
                   </thead>
@@ -1609,6 +1652,41 @@ export default function AdminPortalPage() {
                             {ord.status}
                           </span>
                         </td>
+                        <td className="py-3 px-4 min-w-[180px]">
+                          {ord.delivery?.rider ? (
+                            <div>
+                              <span className="block font-bold text-emerald-400">{ord.delivery.rider.user?.name}</span>
+                              <span className="text-[10px] text-stone-500 font-mono">{ord.delivery.rider.user?.phone}</span>
+                              <span className="block text-[10px] text-stone-500 uppercase">{ord.delivery.status}</span>
+                            </div>
+                          ) : ord.type === 'DELIVERY' && ord.status === 'READY' ? (
+                            <div className="flex items-center gap-1.5">
+                              <select
+                                value={selectedRiderByOrder[ord.id] || ''}
+                                onChange={(e) => setSelectedRiderByOrder((prev) => ({ ...prev, [ord.id]: e.target.value }))}
+                                className="bg-stone-800 border border-stone-700 text-stone-200 text-[11px] rounded-lg px-2 py-1 outline-none font-bold max-w-[110px]"
+                              >
+                                <option value="">Select...</option>
+                                {riders
+                                  .filter((r) => r.status === 'ONLINE' && (!ord.branchId || r.branchId === ord.branchId))
+                                  .map((r) => (
+                                    <option key={r.id} value={r.id}>{r.user?.name}</option>
+                                  ))}
+                              </select>
+                              <button
+                                onClick={() => handleAssignRider(ord.id)}
+                                disabled={assigningOrderId === ord.id}
+                                className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-stone-950 text-[10px] font-black rounded-lg disabled:opacity-50"
+                              >
+                                {assigningOrderId === ord.id ? '...' : 'Assign'}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-stone-600 text-[11px]">
+                              {ord.type === 'PICKUP' ? 'Pickup order' : '—'}
+                            </span>
+                          )}
+                        </td>
                         <td className="py-3 px-4">
                           <select
                             value={ord.status}
@@ -1628,7 +1706,7 @@ export default function AdminPortalPage() {
                     ))}
                     {filteredOrders.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-stone-500">
+                        <td colSpan={9} className="py-8 text-center text-stone-500">
                           No orders found matching this filter.
                         </td>
                       </tr>

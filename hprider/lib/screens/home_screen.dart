@@ -5,7 +5,7 @@ import '../services/socket_service.dart';
 import '../services/location_tracking_service.dart';
 import 'active_delivery_screen.dart';
 import 'history_screen.dart';
-import 'profile_screen.dart';
+import '../widgets/rider_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -94,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = ApiService.currentUser;
 
     return Scaffold(
+      drawer: RiderDrawer(isOnline: _isOnline),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,10 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           else
             Switch(value: _isOnline, activeThumbColor: AppColors.amber, onChanged: _toggleAvailability),
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
-          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: RefreshIndicator(
