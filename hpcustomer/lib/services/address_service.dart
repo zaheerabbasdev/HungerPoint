@@ -106,9 +106,15 @@ class AddressService {
       final list = await ApiService.getAddresses();
       if (list.isNotEmpty) {
         final serverAddresses = list.map<SavedAddress>((item) {
+          // The backend returns the raw AddressLabel enum ("HOME"/"WORK"/"OTHER");
+          // OTHER carries its real display name in customName.
+          final rawLabel = item['label']?.toString() ?? 'HOME';
+          final displayLabel = rawLabel == 'OTHER'
+              ? (item['customName']?.toString() ?? 'Other')
+              : '${rawLabel[0]}${rawLabel.substring(1).toLowerCase()}';
           return SavedAddress(
             id: item['id']?.toString() ?? '',
-            label: item['title']?.toString() ?? item['label']?.toString() ?? 'Home',
+            label: displayLabel,
             address: item['address']?.toString() ?? '',
             latitude: double.tryParse(item['latitude']?.toString() ?? ''),
             longitude: double.tryParse(item['longitude']?.toString() ?? ''),

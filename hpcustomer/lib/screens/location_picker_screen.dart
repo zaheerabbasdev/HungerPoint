@@ -30,21 +30,15 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     final tempLat = AddressService().temporaryLatitude;
     final tempLng = AddressService().temporaryLongitude;
 
+    // Only seed this from a location that's actually *this user's*, never a
+    // branch's address/name — InteractiveMapView reverse-geocodes the real
+    // pin position within moments of opening, but a branch fallback here
+    // could get confirmed as the user's location in that brief window,
+    // silently overwriting their saved Home/Work address everywhere.
     final active = AddressService().customLocationNotifier.value ??
-        AddressService().selectedAddress?.address ??
-        (BranchService().selectedBranch?.address.isNotEmpty == true
-            ? BranchService().selectedBranch!.address
-            : BranchService().selectedBranch?.name);
+        AddressService().selectedAddress?.address;
 
-    if (active != null && active.isNotEmpty) {
-      _selectedAddress = active;
-    } else {
-      _selectedAddress = BranchService().allBranches.isNotEmpty
-          ? (BranchService().allBranches.first.address.isNotEmpty
-              ? BranchService().allBranches.first.address
-              : BranchService().allBranches.first.name)
-          : 'Select Location';
-    }
+    _selectedAddress = (active != null && active.isNotEmpty) ? active : 'Locating your position…';
 
     if (tempLat != null && tempLng != null) {
       _selectedLat = tempLat;
@@ -310,9 +304,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _confirmLocation,
+                      onPressed: _selectedAddress == 'Locating your position…' ? null : _confirmLocation,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryYellow,
+                        disabledBackgroundColor: AppColors.primaryYellow.withValues(alpha: 0.4),
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),

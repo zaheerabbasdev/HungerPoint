@@ -3,6 +3,8 @@ import '../services/favorites_service.dart';
 import '../services/cart_service.dart';
 import '../widgets/top_toast.dart';
 import '../services/api_service.dart';
+import '../services/address_service.dart';
+import '../services/branch_service.dart';
 import 'cart_screen.dart';
 
 class ItemDetailScreen extends StatefulWidget {
@@ -93,11 +95,31 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
     // Load real-time backend addons, drinks, and flavours
     _loadBackendCustomizations();
+
+    // Keep the "Deliver to / Pickup from" header in sync if the user changes
+    // their address or branch while this screen is already open or cached.
+    AddressService().selectedAddressNotifier.addListener(_onLocationChanged);
+    AddressService().customLocationNotifier.addListener(_onLocationChanged);
+    BranchService().selectedBranchNotifier.addListener(_onLocationChanged);
+    BranchService().isPickupModeNotifier.addListener(_onLocationChanged);
+  }
+
+  void _onLocationChanged() {
+    if (mounted) setState(() {});
+  }
+
+  String _branchName() {
+    return BranchService().selectedBranch?.name ??
+        (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first.name : 'HungerPoint');
   }
 
   @override
   void dispose() {
     _instructionsController.dispose();
+    AddressService().selectedAddressNotifier.removeListener(_onLocationChanged);
+    AddressService().customLocationNotifier.removeListener(_onLocationChanged);
+    BranchService().selectedBranchNotifier.removeListener(_onLocationChanged);
+    BranchService().isPickupModeNotifier.removeListener(_onLocationChanged);
     super.dispose();
   }
 
@@ -419,8 +441,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Choose Item',
               style: TextStyle(
                 fontSize: 17,
@@ -428,14 +450,19 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 color: Color(0xFF1E1B4B),
               ),
             ),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text(
-              'HungerPoint Signature Menu',
-              style: TextStyle(
+              // Items belong to a specific branch's menu (price/availability can
+              // differ per branch), so this page always names the branch itself
+              // rather than the delivery address — that's shown elsewhere.
+              BranchService().isPickupMode ? 'Pickup from ${_branchName()}' : _branchName(),
+              style: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF9CA3AF),
                 fontWeight: FontWeight.w500,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
