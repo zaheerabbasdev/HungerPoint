@@ -80,7 +80,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(order['orderNumber'] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                                  Text(order['orderNumber'] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                                   const SizedBox(height: 2),
                                   Text('$customerName · $dateStr', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                 ],

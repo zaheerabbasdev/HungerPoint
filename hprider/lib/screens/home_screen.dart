@@ -96,6 +96,20 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       drawer: RiderDrawer(isOnline: _isOnline),
       appBar: AppBar(
+        leading: Builder(
+          builder: (ctx) => Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: GestureDetector(
+              onTap: () => Scaffold.of(ctx).openDrawer(),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(color: AppColors.orange, shape: BoxShape.circle),
+                child: const Icon(Icons.menu, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -201,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 const Icon(Icons.person, size: 16, color: AppColors.textMuted),
                 const SizedBox(width: 8),
-                Expanded(child: Text(customerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white))),
+                Expanded(child: Text(customerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary))),
                 Text('PKR ${total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.success)),
               ],
             ),

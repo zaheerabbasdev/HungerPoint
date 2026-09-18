@@ -68,10 +68,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Report a Problem', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Report a Problem', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AppColors.textPrimary),
           decoration: const InputDecoration(hintText: 'e.g. Customer unreachable', hintStyle: TextStyle(color: AppColors.textMuted)),
         ),
         actions: [
@@ -128,7 +128,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             // Status stepper
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.surfaceBorder)),
               child: Row(
                 children: [
                   for (int i = 0; i < _steps.length; i++) ...[
@@ -140,7 +140,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           child: Icon(_steps[i]['icon'] as IconData, size: 16, color: i <= stepIndex ? Colors.black : AppColors.textMuted),
                         ),
                         const SizedBox(height: 4),
-                        Text(_steps[i]['label'] as String, style: TextStyle(fontSize: 9, color: i <= stepIndex ? Colors.white : AppColors.textMuted)),
+                        Text(_steps[i]['label'] as String, style: TextStyle(fontSize: 9, color: i <= stepIndex ? AppColors.textPrimary : AppColors.textMuted)),
                       ],
                     ),
                     if (i < _steps.length - 1)
@@ -154,7 +154,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             // Navigate card
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.surfaceBorder)),
               child: Row(
                 children: [
                   Icon(beforePickup ? Icons.storefront : Icons.location_on, color: AppColors.amber),
@@ -168,7 +168,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           beforePickup
                               ? (branch?['name'] ?? 'Branch')
                               : (isPickupType ? 'Customer pickup' : (address?['address'] ?? 'No address on file')),
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                       ],
                     ),
@@ -196,12 +196,12 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             // Customer card
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.surfaceBorder)),
               child: Row(
                 children: [
                   const Icon(Icons.person, color: AppColors.textMuted, size: 20),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(customerName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white))),
+                  Expanded(child: Text(customerName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary))),
                   if (customerPhone.toString().isNotEmpty)
                     IconButton(
                       icon: const Icon(Icons.call, color: AppColors.success),
@@ -215,18 +215,18 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             // Items card
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.surfaceBorder)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Order Items', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.amber)),
+                  const Text('Order Items', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                   const SizedBox(height: 10),
                   ...items.map((it) {
                     final qty = it['quantity'] ?? 1;
                     final name = it['product']?['name'] ?? 'Item';
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Text('${qty}x $name', style: const TextStyle(fontSize: 13, color: Colors.white70)),
+                      child: Text('${qty}x $name', style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
                     );
                   }),
                   const Divider(color: AppColors.surfaceBorder, height: 20),
@@ -234,7 +234,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(paymentMethod, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                      Text('PKR ${total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text('PKR ${total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     ],
                   ),
                 ],

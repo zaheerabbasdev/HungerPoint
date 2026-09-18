@@ -21,7 +21,7 @@ class RiderDrawer extends StatelessWidget {
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Log Out', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Log Out', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
         content: const Text(
           'Are you sure you want to log out of your HungerPoint Rider account?',
           style: TextStyle(color: AppColors.textMuted),
@@ -54,30 +54,33 @@ class RiderDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = ApiService.currentUser;
-    final rider = ApiService.currentRider;
 
     return Drawer(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       child: Column(
         children: [
           // ─── Header ───────────────────────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-            color: AppColors.surface,
+            color: const Color(0xFFFAFAFA),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(colors: [AppColors.amber, AppColors.orange]),
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [AppColors.amber, AppColors.orange]),
                         shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                        ],
                       ),
-                      child: const Icon(Icons.two_wheeler, color: Colors.white, size: 28),
+                      child: const Icon(Icons.two_wheeler, color: Colors.white, size: 26),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -86,7 +89,7 @@ class RiderDrawer extends StatelessWidget {
                         children: [
                           Text(
                             user?['name'] ?? 'Rider',
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Colors.white),
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -100,7 +103,7 @@ class RiderDrawer extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: (isOnline ? AppColors.success : AppColors.danger).withValues(alpha: 0.15),
+                    color: (isOnline ? AppColors.success : AppColors.danger).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: (isOnline ? AppColors.success : AppColors.danger).withValues(alpha: 0.4)),
                   ),
@@ -109,32 +112,23 @@ class RiderDrawer extends StatelessWidget {
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isOnline ? AppColors.success : AppColors.danger),
                   ),
                 ),
-                if (rider != null) ...[
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      const Icon(Icons.two_wheeler, size: 14, color: AppColors.textMuted),
-                      const SizedBox(width: 6),
-                      Text(rider['vehicle'] ?? 'Vehicle not set', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                      if (rider['licensePlate'] != null) ...[
-                        const SizedBox(width: 10),
-                        const Icon(Icons.confirmation_number_outlined, size: 14, color: AppColors.textMuted),
-                        const SizedBox(width: 6),
-                        Text(rider['licensePlate'], style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                      ],
-                    ],
-                  ),
-                  if (rider['branch']?['name'] != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(Icons.store_outlined, size: 14, color: AppColors.textMuted),
-                        const SizedBox(width: 6),
-                        Text(rider['branch']['name'], style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                      ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.amber,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                  ],
-                ],
+                    child: const Text('VIEW PROFILE', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w900, fontSize: 13)),
+                  ),
+                ),
               ],
             ),
           ),
@@ -198,9 +192,9 @@ class RiderDrawer extends StatelessWidget {
                     children: [
                       Text('🛠️', style: TextStyle(fontSize: 20)),
                       SizedBox(width: 10),
-                      Text('RIDER SUPPORT', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.black)),
+                      Text('RIDER SUPPORT', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
                       Spacer(),
-                      Icon(Icons.phone, color: Colors.black),
+                      Icon(Icons.phone, color: AppColors.orange),
                     ],
                   ),
                 ),
@@ -221,7 +215,7 @@ class RiderDrawer extends StatelessWidget {
   }) {
     return ListTile(
       leading: Icon(icon, color: color ?? AppColors.amber, size: 22),
-      title: Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color ?? Colors.white)),
+      title: Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color ?? AppColors.textPrimary)),
       trailing: Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted.withValues(alpha: 0.6)),
       onTap: onTap,
     );

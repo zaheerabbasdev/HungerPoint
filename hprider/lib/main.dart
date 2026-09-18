@@ -18,16 +18,28 @@ class HungerPointRiderApp extends StatelessWidget {
     return MaterialApp(
       title: 'HungerPoint Rider',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
+      theme: ThemeData(
+        useMaterial3: true,
         scaffoldBackgroundColor: AppColors.background,
-        colorScheme: const ColorScheme.dark(
+        primaryColor: AppColors.amber,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.amber,
           primary: AppColors.amber,
           secondary: AppColors.orange,
           surface: AppColors.surface,
+          onSurface: AppColors.textPrimary,
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.appBar,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          iconTheme: IconThemeData(color: AppColors.textPrimary),
+          titleTextStyle: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       home: const SplashScreen(),

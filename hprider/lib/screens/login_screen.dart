@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Center(child: Icon(Icons.two_wheeler, size: 44, color: Colors.white)),
                 ),
                 const SizedBox(height: 20),
-                const Text('HungerPoint Rider', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white)),
+                const Text('HungerPoint Rider', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
                 const Text('Delivery Fleet Portal', style: TextStyle(fontSize: 12, color: AppColors.amber, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 32),
 
@@ -97,14 +97,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
                   decoration: InputDecoration(
                     labelText: 'Phone Number',
                     hintText: 'e.g. 03001234567',
-                    prefixIcon: const Icon(Icons.phone, color: AppColors.amber),
+                    prefixIcon: const Icon(Icons.phone, color: AppColors.orange),
                     filled: true,
                     fillColor: AppColors.surface,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.surfaceBorder)),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -112,18 +112,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
                   onSubmitted: (_) => _login(),
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock, color: AppColors.amber),
+                    prefixIcon: const Icon(Icons.lock, color: AppColors.orange),
                     suffixIcon: IconButton(
                       icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: AppColors.textMuted),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
                     filled: true,
                     fillColor: AppColors.surface,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.surfaceBorder)),
                   ),
                 ),
                 const SizedBox(height: 24),

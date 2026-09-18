@@ -36,7 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Log Out', style: TextStyle(color: Colors.white)),
+        title: const Text('Log Out', style: TextStyle(color: AppColors.textPrimary)),
         content: const Text('Are you sure you want to log out?', style: TextStyle(color: AppColors.textMuted)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
@@ -72,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Center(child: Text(user?['name'] ?? 'Rider', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white))),
+                Center(child: Text(user?['name'] ?? 'Rider', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary))),
                 Center(child: Text(user?['phone'] ?? '', style: const TextStyle(fontSize: 13, color: AppColors.textMuted))),
                 const SizedBox(height: 28),
 
@@ -101,14 +101,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.surfaceBorder)),
       child: Row(
         children: [
           Icon(icon, color: AppColors.amber, size: 20),
           const SizedBox(width: 12),
           Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
         ],
       ),
     );
