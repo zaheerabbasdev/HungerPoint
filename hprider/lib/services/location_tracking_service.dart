@@ -48,6 +48,25 @@ class LocationTrackingService {
       return;
     }
 
+    // The stream below only fires once the rider has moved past
+    // distanceFilter meters, so a stationary rider (or one who hasn't
+    // started driving yet) would otherwise never send a single update and
+    // the customer's map would wait forever. Send one fix immediately.
+    try {
+      final initial = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      SocketService().sendLocation(
+        lat: initial.latitude,
+        lng: initial.longitude,
+        orderId: _activeOrderId,
+        heading: initial.heading,
+        speed: initial.speed,
+      );
+    } catch (e) {
+      debugPrint('LocationTrackingService: failed to get initial position: $e');
+    }
+
     _positionSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 15),
     ).listen((position) {
