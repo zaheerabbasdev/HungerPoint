@@ -299,11 +299,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ? 'CREDIT_CARD'
                 : 'CASH_ON_DELIVERY'));
 
+    // The order only links to a real Address record via addressId — a saved
+    // address already has one, but a one-off "Choose Location" pick doesn't,
+    // so persist it first or the rider app has nothing to show after pickup.
+    String? addressId;
+    if (!isPickup) {
+      addressId = _selectedAddress?.id;
+      if (addressId == null) {
+        final created = await ApiService.addAddress({
+          'label': 'OTHER',
+          'customName': 'Delivery location',
+          'address': AddressService().activeDeliveryLabel,
+          if (AddressService().temporaryLatitude != null) 'latitude': AddressService().temporaryLatitude,
+          if (AddressService().temporaryLongitude != null) 'longitude': AddressService().temporaryLongitude,
+        });
+        addressId = created?['id']?.toString();
+      }
+    }
+
     final res = await ApiService.createOrder(
       branchId: branch.id,
       type: isPickup ? 'PICKUP' : 'DELIVERY',
       items: orderItems,
       paymentMethod: paymentMethod,
+      addressId: addressId,
       deliveryAddress: isPickup ? null : (_selectedAddress?.address ?? AddressService().activeDeliveryLabel),
       notes: _instructionsController.text.trim().isNotEmpty ? _instructionsController.text.trim() : null,
       couponCode: _appliedVoucherCode,

@@ -563,6 +563,7 @@ class ApiService {
     required String type,
     required List<Map<String, dynamic>> items,
     required String paymentMethod,
+    String? addressId,
     String? deliveryAddress,
     String? notes,
     String? couponCode,
@@ -576,6 +577,10 @@ class ApiService {
         'paymentMethod': paymentMethod,
       };
       if (rawPayload == null) {
+        // The backend links an order to a delivery address via `addressId`
+        // (a saved Address record) — `deliveryAddress` free text is display-only
+        // and never persisted, so it must always be sent alongside addressId.
+        if (addressId != null) body['addressId'] = addressId;
         if (deliveryAddress != null) body['deliveryAddress'] = deliveryAddress;
         if (notes != null) body['notes'] = notes;
         if (couponCode != null) body['couponCode'] = couponCode;
