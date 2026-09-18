@@ -134,6 +134,7 @@ export default function AdminPortalPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [riders, setRiders] = useState<RiderOption[]>([]);
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
   const [selectedRiderByOrder, setSelectedRiderByOrder] = useState<Record<string, string>>({});
   const [overview, setOverview] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(false);
@@ -624,6 +625,26 @@ export default function AdminPortalPage() {
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to update order status', 'error');
+    }
+  };
+
+  const handleConfirmOrder = async (orderId: string) => {
+    setConfirmingOrderId(orderId);
+    try {
+      const res = await fetchApi(`/orders/${orderId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'CONFIRMED' }),
+      });
+      if (res.success) {
+        showToast('Order confirmed — sent to kitchen');
+        loadAllData();
+      } else {
+        showToast(res.message || 'Failed to confirm order', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to confirm order', 'error');
+    } finally {
+      setConfirmingOrderId(null);
     }
   };
 
@@ -1648,9 +1669,20 @@ export default function AdminPortalPage() {
                           {ord.paymentMethod?.replace('_', ' ')}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                            {ord.status}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                              {ord.status}
+                            </span>
+                            {ord.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleConfirmOrder(ord.id)}
+                                disabled={confirmingOrderId === ord.id}
+                                className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-stone-950 text-[10px] font-black rounded-lg disabled:opacity-50 transition-colors"
+                              >
+                                {confirmingOrderId === ord.id ? '...' : '✓ Confirm'}
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4 min-w-[180px]">
                           {ord.delivery?.rider ? (
