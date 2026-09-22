@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/api_service.dart';
 import 'menu_screen.dart';
+import 'reservation_form_screen.dart';
 
 class TableOrderScreen extends StatefulWidget {
   final Map<String, dynamic> table;
@@ -74,6 +75,16 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
     _refresh();
   }
 
+  Future<void> _reserveTable() async {
+    final booked = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => ReservationFormScreen(table: _table ?? widget.table)),
+    );
+    if (booked == true && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = _activeOrder;
@@ -116,6 +127,17 @@ class _TableOrderScreenState extends State<TableOrderScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryYellow,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _reserveTable,
+                  icon: const Icon(Icons.event_seat, color: Color(0xFF7C3AED)),
+                  label: const Text('Reserve This Table', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    side: const BorderSide(color: Color(0xFF7C3AED)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),

@@ -165,6 +165,7 @@ model User {
   customer      Customer?
   rider         Rider?
   waiterOrders  Order[]        @relation("WaiterOrders")
+  waiterReservations TableReservation[] @relation("WaiterReservations")
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
   notifications Notification[]
@@ -568,18 +569,51 @@ model RestaurantTable {
   id        String      @id @default(uuid())
   branchId  String      @db.VarChar(36)
   number    String      @db.VarChar(20) // e.g. "T1", "12", "Patio-3"
+  floor     String      @default("Ground Floor") @db.VarChar(40)
   capacity  Int         @default(4)
   status    TableStatus @default(AVAILABLE)
   isActive  Boolean     @default(true)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  branch Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  orders Order[]
+  branch       Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  reservations TableReservation[]
 
   @@unique([branchId, number])
   @@index([branchId])
+  @@index([floor])
   @@map("restaurant_tables")
+}
+
+enum ReservationStatus {
+  UPCOMING
+  SEATED
+  CANCELLED
+  NO_SHOW
+}
+
+model TableReservation {
+  id          String            @id @default(uuid())
+  tableId     String
+  branchId    String            @db.VarChar(36)
+  waiterId    String?
+  guestName   String
+  guestPhone  String
+  partySize   Int               @default(2)
+  reservedFor DateTime
+  notes       String?
+  status      ReservationStatus @default(UPCOMING)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  table  RestaurantTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  waiter User?           @relation("WaiterReservations", fields: [waiterId], references: [id])
+
+  @@index([tableId])
+  @@index([branchId])
+  @@index([status])
+  @@map("table_reservations")
 }
 
 model OrderItem {

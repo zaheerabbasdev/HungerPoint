@@ -14,8 +14,26 @@ export class TableController {
       if (['BRANCH_MANAGER', 'BRANCH_STAFF', 'WAITER'].includes(user?.role)) {
         branchId = user.branchId || undefined;
       }
-      const tables = await TableService.getTables(branchId);
+      const tables = await TableService.getTables(branchId, req.query.floor as string | undefined);
       res.json({ success: true, count: tables.length, data: tables });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getFloors(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = (req as any).user;
+      let branchId = req.query.branchId as string | undefined;
+      if (['BRANCH_MANAGER', 'BRANCH_STAFF', 'WAITER'].includes(user?.role)) {
+        branchId = user.branchId || undefined;
+      }
+      if (!branchId) {
+        res.json({ success: true, data: [] });
+        return;
+      }
+      const floors = await TableService.getFloors(branchId);
+      res.json({ success: true, data: floors });
     } catch (error) {
       next(error);
     }

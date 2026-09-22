@@ -147,10 +147,13 @@ class ApiService {
 
   // ─── TABLES ──────────────────────────────────────────────────
 
-  static Future<List<dynamic>> fetchTables() async {
+  static Future<List<dynamic>> fetchTables({String? floor}) async {
     try {
+      var url = '$baseUrl/tables';
+      if (floor != null && floor.isNotEmpty) url += '?floor=${Uri.encodeComponent(floor)}';
+
       final res = await http.get(
-        Uri.parse('$baseUrl/tables'),
+        Uri.parse(url),
         headers: _headers(needsAuth: true),
       ).timeout(const Duration(seconds: 8));
 
@@ -160,6 +163,23 @@ class ApiService {
       }
     } catch (e) {
       debugPrint('API Error (fetchTables): $e');
+    }
+    return [];
+  }
+
+  static Future<List<String>> fetchFloors() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/tables/floors'),
+        headers: _headers(needsAuth: true),
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return (data['data'] as List<dynamic>? ?? []).map((f) => f.toString()).toList();
+      }
+    } catch (e) {
+      debugPrint('API Error (fetchFloors): $e');
     }
     return [];
   }
@@ -336,5 +356,91 @@ class ApiService {
       debugPrint('API Error (getMyBranchOrders): $e');
     }
     return [];
+  }
+
+  // ─── RESERVATIONS ────────────────────────────────────────────
+
+  static Future<List<dynamic>> fetchReservations({String? status}) async {
+    try {
+      var url = '$baseUrl/reservations';
+      if (status != null) url += '?status=$status';
+
+      final res = await http.get(Uri.parse(url), headers: _headers(needsAuth: true)).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['data'] ?? [];
+      }
+    } catch (e) {
+      debugPrint('API Error (fetchReservations): $e');
+    }
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> createReservation({
+    required String tableId,
+    required String branchId,
+    required String guestName,
+    required String guestPhone,
+    required int partySize,
+    required DateTime reservedFor,
+    String? notes,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/reservations'),
+        headers: _headers(needsAuth: true),
+        body: jsonEncode({
+          'tableId': tableId,
+          'branchId': branchId,
+          'guestName': guestName,
+          'guestPhone': guestPhone,
+          'partySize': partySize,
+          'reservedFor': reservedFor.toIso8601String(),
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        }),
+      ).timeout(const Duration(seconds: 8));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Failed to reserve table'};
+    } catch (e) {
+      debugPrint('API Error (createReservation): $e');
+      return {'success': false, 'message': 'Network error'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> seatReservation(String reservationId) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/reservations/$reservationId/seat'),
+        headers: _headers(needsAuth: true),
+      ).timeout(const Duration(seconds: 8));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) return {'success': true, 'data': data['data']};
+      return {'success': false, 'message': data['message'] ?? 'Failed to seat guests'};
+    } catch (e) {
+      debugPrint('API Error (seatReservation): $e');
+      return {'success': false, 'message': 'Network error'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> cancelReservation(String reservationId, {bool noShow = false}) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/reservations/$reservationId/cancel'),
+        headers: _headers(needsAuth: true),
+        body: jsonEncode({'noShow': noShow}),
+      ).timeout(const Duration(seconds: 8));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) return {'success': true, 'data': data['data']};
+      return {'success': false, 'message': data['message'] ?? 'Failed to cancel reservation'};
+    } catch (e) {
+      debugPrint('API Error (cancelReservation): $e');
+      return {'success': false, 'message': 'Network error'};
+    }
   }
 }

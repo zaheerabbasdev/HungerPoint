@@ -18,6 +18,11 @@ router.get(
   TableController.getAll
 );
 router.get(
+  '/floors',
+  authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
+  TableController.getFloors
+);
+router.get(
   '/:id',
   authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
   TableController.getById

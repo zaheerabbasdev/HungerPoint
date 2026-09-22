@@ -138,26 +138,53 @@ async function main() {
     },
   });
 
-  // Dine-in tables for both branches
+  // Dine-in tables for both branches, spread across floors
   console.log('🍽️  Seeding Restaurant Tables...');
-  const tableSeeds: { branchId: string; number: string; capacity: number }[] = [
-    { branchId: mainBranch.id, number: 'T1', capacity: 2 },
-    { branchId: mainBranch.id, number: 'T2', capacity: 4 },
-    { branchId: mainBranch.id, number: 'T3', capacity: 4 },
-    { branchId: mainBranch.id, number: 'T4', capacity: 6 },
-    { branchId: mainBranch.id, number: 'T5', capacity: 2 },
-    { branchId: mainBranch.id, number: 'T6', capacity: 4 },
-    { branchId: F7Branch.id, number: 'T1', capacity: 4 },
-    { branchId: F7Branch.id, number: 'T2', capacity: 4 },
-    { branchId: F7Branch.id, number: 'T3', capacity: 6 },
-    { branchId: F7Branch.id, number: 'T4', capacity: 2 },
+  const tableSeeds: { branchId: string; number: string; floor: string; capacity: number }[] = [
+    { branchId: mainBranch.id, number: 'T1', floor: 'Ground Floor', capacity: 2 },
+    { branchId: mainBranch.id, number: 'T2', floor: 'Ground Floor', capacity: 4 },
+    { branchId: mainBranch.id, number: 'T3', floor: 'Ground Floor', capacity: 4 },
+    { branchId: mainBranch.id, number: 'T4', floor: '1st Floor', capacity: 6 },
+    { branchId: mainBranch.id, number: 'T5', floor: '1st Floor', capacity: 2 },
+    { branchId: mainBranch.id, number: 'T6', floor: 'Rooftop', capacity: 4 },
+    { branchId: F7Branch.id, number: 'T1', floor: 'Ground Floor', capacity: 4 },
+    { branchId: F7Branch.id, number: 'T2', floor: 'Ground Floor', capacity: 4 },
+    { branchId: F7Branch.id, number: 'T3', floor: '1st Floor', capacity: 6 },
+    { branchId: F7Branch.id, number: 'T4', floor: '1st Floor', capacity: 2 },
   ];
+  const seededTables: Record<string, string> = {};
   for (const t of tableSeeds) {
-    await prisma.restaurantTable.upsert({
+    const table = await prisma.restaurantTable.upsert({
       where: { branchId_number: { branchId: t.branchId, number: t.number } },
-      update: {},
+      update: { floor: t.floor },
       create: t,
     });
+    seededTables[`${t.branchId}:${t.number}`] = table.id;
+  }
+
+  // A sample upcoming reservation so the floor view has something real to show.
+  console.log('📅 Seeding a Sample Reservation...');
+  const reservedTableId = seededTables[`${mainBranch.id}:T3`];
+  if (reservedTableId) {
+    const existingReservation = await prisma.tableReservation.findFirst({
+      where: { tableId: reservedTableId, status: 'UPCOMING' },
+    });
+    if (!existingReservation) {
+      const reservedFor = new Date();
+      reservedFor.setHours(reservedFor.getHours() + 2);
+      await prisma.tableReservation.create({
+        data: {
+          tableId: reservedTableId,
+          branchId: mainBranch.id,
+          guestName: 'Sara Malik',
+          guestPhone: '+923211234567',
+          partySize: 4,
+          reservedFor,
+          notes: 'Birthday dinner — requested a quiet corner.',
+        },
+      });
+      await prisma.restaurantTable.update({ where: { id: reservedTableId }, data: { status: 'RESERVED' } });
+    }
   }
 
   const customerUser = await prisma.user.upsert({

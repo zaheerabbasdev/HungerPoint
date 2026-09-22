@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../services/socket_service.dart';
 import '../widgets/waiter_drawer.dart';
 import 'table_order_screen.dart';
+import 'reservation_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,10 +16,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _tables = [];
+  List<String> _floors = [];
+  String? _selectedFloor;
 
   @override
   void initState() {
     super.initState();
+    _loadFloors();
     _loadTables();
     _listenForUpdates();
   }
@@ -43,6 +47,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Future<void> _loadFloors() async {
+    final floors = await ApiService.fetchFloors();
+    if (!mounted) return;
+    setState(() => _floors = floors);
+  }
+
   Future<void> _loadTables() async {
     final tables = await ApiService.fetchTables();
     if (!mounted) return;
@@ -52,10 +62,21 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  List<Map<String, dynamic>> get _visibleTables {
+    if (_selectedFloor == null) return _tables;
+    return _tables.where((t) => t['floor'] == _selectedFloor).toList();
+  }
+
   Map<String, dynamic>? _activeOrder(Map<String, dynamic> table) {
     final orders = table['orders'] as List<dynamic>?;
     if (orders == null || orders.isEmpty) return null;
     return Map<String, dynamic>.from(orders.first);
+  }
+
+  Map<String, dynamic>? _upcomingReservation(Map<String, dynamic> table) {
+    final reservations = table['reservations'] as List<dynamic>?;
+    if (reservations == null || reservations.isEmpty) return null;
+    return Map<String, dynamic>.from(reservations.first);
   }
 
   Color _statusColor(String status) {
@@ -63,10 +84,29 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'AVAILABLE':
         return AppColors.success;
       case 'RESERVED':
-        return AppColors.primaryYellow;
+        return const Color(0xFF7C3AED); // purple — visually distinct from occupied/available
       default:
         return AppColors.primaryOrange;
     }
+  }
+
+  Future<void> _onTableTap(Map<String, dynamic> table) async {
+    final status = table['status']?.toString() ?? 'AVAILABLE';
+    if (status == 'RESERVED') {
+      final reservation = _upcomingReservation(table);
+      if (reservation == null) {
+        // Data drifted (e.g. reservation just expired) — fall back to the normal table screen.
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => TableOrderScreen(table: table)));
+      } else {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ReservationDetailScreen(table: table, reservation: reservation)),
+        );
+      }
+    } else {
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => TableOrderScreen(table: table)));
+    }
+    _loadTables();
   }
 
   @override
@@ -103,32 +143,71 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadTables,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primaryYellow))
-            : _tables.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.6,
-                        child: const Center(
-                          child: Text('No tables set up for your branch yet.', style: TextStyle(color: AppColors.textMuted)),
+      body: Column(
+        children: [
+          if (_floors.length > 1)
+            SizedBox(
+              height: 48,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                children: [
+                  _buildFloorChip('All Floors', null),
+                  ..._floors.map((f) => _buildFloorChip(f, f)),
+                ],
+              ),
+            ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await Future.wait([_loadTables(), _loadFloors()]);
+              },
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.primaryYellow))
+                  : _visibleTables.isEmpty
+                      ? ListView(
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.55,
+                              child: const Center(
+                                child: Text('No tables on this floor.', style: TextStyle(color: AppColors.textMuted)),
+                              ),
+                            ),
+                          ],
+                        )
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 14,
+                            crossAxisSpacing: 14,
+                            childAspectRatio: 0.92,
+                          ),
+                          itemCount: _visibleTables.length,
+                          itemBuilder: (context, index) => _buildTableCard(_visibleTables[index]),
                         ),
-                      ),
-                    ],
-                  )
-                : GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      childAspectRatio: 0.92,
-                    ),
-                    itemCount: _tables.length,
-                    itemBuilder: (context, index) => _buildTableCard(_tables[index]),
-                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFloorChip(String label, String? floor) {
+    final isSelected = _selectedFloor == floor;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedFloor = floor),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primaryYellow : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isSelected ? AppColors.primaryYellow : AppColors.cardBorder),
+          ),
+          child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.darkNavy)),
+        ),
       ),
     );
   }
@@ -136,16 +215,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildTableCard(Map<String, dynamic> table) {
     final status = table['status']?.toString() ?? 'AVAILABLE';
     final order = _activeOrder(table);
+    final reservation = _upcomingReservation(table);
     final color = _statusColor(status);
 
     return GestureDetector(
-      onTap: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => TableOrderScreen(table: table)),
-        );
-        _loadTables();
-      },
+      onTap: () => _onTableTap(table),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -166,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
-                  child: Icon(Icons.table_bar, color: color, size: 22),
+                  child: Icon(status == 'RESERVED' ? Icons.event_seat : Icons.table_bar, color: color, size: 22),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -177,13 +251,25 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             Text('Table ${table['number']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.darkNavy)),
-            Text('Seats ${table['capacity'] ?? 4}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            Text('${table['floor'] ?? 'Ground Floor'} · Seats ${table['capacity'] ?? 4}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted), overflow: TextOverflow.ellipsis),
             const Spacer(),
-            if (order != null) ...[
+            if (reservation != null) ...[
               const Divider(height: 16, color: AppColors.cardBorder),
               Row(
                 children: [
-                  Icon(Icons.receipt_long, size: 14, color: AppColors.textMuted),
+                  const Icon(Icons.person_outline, size: 14, color: Color(0xFF7C3AED)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(reservation['guestName'] ?? 'Guest', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED)), overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
+              Text('${reservation['partySize'] ?? '—'} guests', style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+            ] else if (order != null) ...[
+              const Divider(height: 16, color: AppColors.cardBorder),
+              Row(
+                children: [
+                  const Icon(Icons.receipt_long, size: 14, color: AppColors.textMuted),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
