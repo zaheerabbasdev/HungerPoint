@@ -80,6 +80,7 @@ class _ExploreSearchScreenState extends State<ExploreSearchScreen> {
                 ? p['category']['name'].toString()
                 : '',
             'variants': p['variants'],
+            'flavours': p['flavours'],
             'addons': p['addons'],
           };
         }).toList();

@@ -163,16 +163,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         });
       }
 
-      // 2. Fetch real products for drinks and flavours
+      // 2. Fetch real products explicitly flagged as beverages by the admin
+      // (no more guessing from category/product names).
       final prods = await ApiService.fetchProducts();
       if (prods.isNotEmpty && mounted) {
-        // Real drinks from beverage/drinks categories or products
-        final drinks = prods.where((p) {
-          final cat = (p['category']?['name'] ?? '').toString().toLowerCase();
-          final n = (p['name'] ?? '').toString().toLowerCase();
-          return cat.contains('beverage') || cat.contains('drink') || cat.contains('shake') ||
-              n.contains('coke') || n.contains('pepsi') || n.contains('water') || n.contains('soda') || n.contains('fanta') || n.contains('sprite');
-        }).toList();
+        final drinks = prods.where((p) => p['isBeverage'] == true).toList();
 
         final List<Map<String, dynamic>> mappedDrinks = drinks.map<Map<String, dynamic>>((d) {
           final rawP = d['basePrice'] ?? d['price'];
@@ -187,38 +182,25 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           };
         }).toList();
 
-        // Real flavours from other products in the same category
-        final currentCat = (widget.item['category'] ?? '').toString().toLowerCase();
-        final currentName = (widget.item['name'] ?? '').toString().toLowerCase();
-        final sameCatProds = prods.where((p) {
-          final pCat = (p['category']?['name'] ?? '').toString().toLowerCase();
-          final pName = (p['name'] ?? '').toString().toLowerCase();
-          return currentCat.isNotEmpty && pCat == currentCat && pName != currentName;
-        }).toList();
+        if (mappedDrinks.isNotEmpty) {
+          setState(() => _backendDrinks = mappedDrinks);
+        }
+      }
 
-        final List<Map<String, String>> mappedFlavours = sameCatProds.map<Map<String, String>>((p) {
+      // 3. Flavours are configured directly on this product by the admin —
+      // they come straight off it, no cross-product category guessing needed.
+      final rawFlavours = widget.item['flavours'] as List<dynamic>?;
+      if (rawFlavours != null && rawFlavours.isNotEmpty && mounted) {
+        final mappedFlavours = rawFlavours.map<Map<String, String>>((f) {
           return {
-            'name': p['name']?.toString() ?? '',
-            'desc': p['description']?.toString() ?? '',
+            'name': (f is Map ? f['name']?.toString() : null) ?? '',
+            'desc': (f is Map ? f['description']?.toString() : null) ?? '',
           };
         }).where((f) => f['name']!.isNotEmpty).toList();
 
-        // Include current item name as first flavour option if applicable
-        if (widget.item['name'] != null && widget.item['name'].toString().isNotEmpty) {
-          mappedFlavours.insert(0, {
-            'name': widget.item['name'].toString(),
-            'desc': widget.item['desc']?.toString() ?? 'Signature Recipe',
-          });
+        if (mappedFlavours.isNotEmpty) {
+          setState(() => _dynamicFlavours = mappedFlavours);
         }
-
-        setState(() {
-          if (mappedDrinks.isNotEmpty) {
-            _backendDrinks = mappedDrinks;
-          }
-          if (mappedFlavours.isNotEmpty) {
-            _dynamicFlavours = mappedFlavours;
-          }
-        });
       }
     } catch (e) {
       debugPrint('Error loading backend customizations: $e');
@@ -226,9 +208,21 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   // ─── FLAVOURS (Backed by real database products) ───────────────
-  List<Map<String, String>> get _pizzaFlavours {
-    if (_dynamicFlavours.isNotEmpty && _isPizza) {
+  // True whenever this product actually has something to choose between:
+  // admin-configured flavours (any product type), or one of the two
+  // categories that still get a demo fallback when nothing's configured.
+  bool get _hasFlavours => _dynamicFlavours.isNotEmpty || _isPizza || _isBurger;
+
+  List<Map<String, String>> get _flavourOptions {
+    if (_dynamicFlavours.isNotEmpty) {
       return _dynamicFlavours;
+    }
+    if (_isBurger) {
+      return [
+        {'name': 'Classic Crispy', 'desc': 'Mildly seasoned crunchy recipe with signature sauce'},
+        {'name': 'Spicy Jalapeño', 'desc': 'Fiery chili glaze with pickled jalapeños & hot sauce'},
+        {'name': 'Smokey BBQ', 'desc': 'Sweet and smokey barbecue glaze with caramelized onions'},
+      ];
     }
     return [
       {'name': 'Chicken Tikka', 'desc': 'Traditional spicy marinated chicken with fresh onions & herbs'},
@@ -236,17 +230,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       {'name': 'Pepperoni Passion', 'desc': 'Loaded beef pepperoni with premium double mozzarella cheese'},
       {'name': 'Veggie Supreme', 'desc': 'Sweet corn, mushrooms, olives, bell peppers & juicy tomatoes'},
       {'name': 'Cheese Feast', 'desc': 'Triple blend of melted mozzarella, cheddar & parmesan cheese'},
-    ];
-  }
-
-  List<Map<String, String>> get _burgerFlavours {
-    if (_dynamicFlavours.isNotEmpty && _isBurger) {
-      return _dynamicFlavours;
-    }
-    return [
-      {'name': 'Classic Crispy', 'desc': 'Mildly seasoned crunchy recipe with signature sauce'},
-      {'name': 'Spicy Jalapeño', 'desc': 'Fiery chili glaze with pickled jalapeños & hot sauce'},
-      {'name': 'Smokey BBQ', 'desc': 'Sweet and smokey barbecue glaze with caramelized onions'},
     ];
   }
 
@@ -385,13 +368,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    if (_isPizza && (_selectedFlavour == null || _selectedFlavour!.isEmpty)) {
-      TopToast.show(context, 'Please select a pizza flavour:');
-      return;
-    }
-
-    if (_isBurger && (_selectedFlavour == null || _selectedFlavour!.isEmpty)) {
-      TopToast.show(context, 'Please select a burger flavour:');
+    if (_hasFlavours && (_selectedFlavour == null || _selectedFlavour!.isEmpty)) {
+      TopToast.show(context, 'Please select a flavour:');
       return;
     }
 
@@ -689,7 +667,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                         // ─── BELOW DETAILS SHOWN ONLY AFTER VARIATION IS SELECTED ───
                         if (_selectedVariationIndex != null) ...[
                           // ─── 2. FLAVOUR SELECTION (ALL UNCHECKED INITIALLY) ───
-                          if (_isPizza || _isBurger) ...[
+                          if (_hasFlavours) ...[
                             _buildSectionHeader(
                               title: _isPizza ? 'Pizza Flavour' : 'Flavour Choice',
                               badgeText: 'REQUIRED',
@@ -697,7 +675,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                               badgeTextColor: const Color(0xFF854D0E),
                             ),
                             const SizedBox(height: 12),
-                            ...(_isPizza ? _pizzaFlavours : _burgerFlavours).map((f) {
+                            ..._flavourOptions.map((f) {
                               final isSel = _selectedFlavour == f['name'];
                               return InkWell(
                                 onTap: () => setState(() => _selectedFlavour = f['name']),

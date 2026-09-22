@@ -337,11 +337,16 @@ model Product {
   basePrice   Decimal  @db.Decimal(10, 2)
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
+  // Marks this product as a beverage so it can be offered as a drink add-on
+  // elsewhere in the menu — an explicit admin choice instead of guessing
+  // from the category/product name.
+  isBeverage  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category       Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   variants       ProductVariant[]
+  flavours       ProductFlavour[]
   addons         ProductAddon[]
   branchProducts BranchProduct[]
   cartItems      CartItem[]
@@ -372,6 +377,25 @@ model ProductVariant {
 
   @@index([productId])
   @@map("product_variants")
+}
+
+// A named recipe/style choice for a product (e.g. "Chicken Tikka", "Spicy
+// Jalapeño" for a pizza/burger) — purely a selection label, not priced
+// separately, mirroring how ProductVariant models size options.
+model ProductFlavour {
+  id          String   @id @default(uuid())
+  productId   String
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_flavours")
 }
 
 model Addon {

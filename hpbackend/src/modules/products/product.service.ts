@@ -30,6 +30,7 @@ export class ProductService {
       include: {
         category: { select: { id: true, name: true } },
         variants: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+        flavours: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
         addons: { include: { addon: true } },
         branchProducts: branchId ? { where: { branchId } } : true,
       },
@@ -45,6 +46,7 @@ export class ProductService {
       include: {
         category: true,
         variants: { orderBy: { sortOrder: 'asc' } },
+        flavours: { orderBy: { sortOrder: 'asc' } },
         addons: { include: { addon: true } },
         branchProducts: { include: { branch: true } },
         reviews: {
@@ -71,16 +73,21 @@ export class ProductService {
     image?: string;
     basePrice: number;
     sortOrder?: number;
+    isBeverage?: boolean;
     variants?: { name: string; price: number; isDefault?: boolean }[];
+    flavours?: { name: string; description?: string }[];
     addonIds?: string[];
   }) {
-    const { variants, addonIds, ...productData } = data;
+    const { variants, flavours, addonIds, ...productData } = data;
 
     return prisma.product.create({
       data: {
         ...productData,
         variants: variants && variants.length > 0 ? {
           create: variants.map((v, idx) => ({ ...v, sortOrder: idx })),
+        } : undefined,
+        flavours: flavours && flavours.length > 0 ? {
+          create: flavours.map((f, idx) => ({ ...f, sortOrder: idx })),
         } : undefined,
         addons: addonIds && addonIds.length > 0 ? {
           create: addonIds.map((addonId) => ({ addonId })),
@@ -89,6 +96,7 @@ export class ProductService {
       include: {
         category: true,
         variants: true,
+        flavours: true,
         addons: { include: { addon: true } },
       },
     });
@@ -96,7 +104,7 @@ export class ProductService {
 
   static async updateProduct(id: string, data: any) {
     await this.getProductById(id);
-    const { variants, addons, addonIds, ...updateData } = data;
+    const { variants, flavours, addons, addonIds, ...updateData } = data;
 
     if (addonIds && Array.isArray(addonIds)) {
       await prisma.productAddon.deleteMany({ where: { productId: id } });
@@ -107,10 +115,27 @@ export class ProductService {
       }
     }
 
+    // Flavours are a pure selection label with nothing else pointing at them
+    // by id (unlike ProductVariant, which past OrderItems can reference), so
+    // a full delete-and-recreate on every edit is safe here.
+    if (flavours && Array.isArray(flavours)) {
+      await prisma.productFlavour.deleteMany({ where: { productId: id } });
+      if (flavours.length > 0) {
+        await prisma.productFlavour.createMany({
+          data: flavours.map((f: { name: string; description?: string }, idx: number) => ({
+            productId: id,
+            name: f.name,
+            description: f.description,
+            sortOrder: idx,
+          })),
+        });
+      }
+    }
+
     return prisma.product.update({
       where: { id },
       data: updateData,
-      include: { category: true, variants: true, addons: { include: { addon: true } } },
+      include: { category: true, variants: true, flavours: true, addons: { include: { addon: true } } },
     });
   }
 

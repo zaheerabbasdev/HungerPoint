@@ -52,6 +52,12 @@ interface Variant {
   isDefault?: boolean;
 }
 
+interface Flavour {
+  id?: string;
+  name: string;
+  description?: string;
+}
+
 interface Addon {
   id: string;
   name: string;
@@ -68,8 +74,10 @@ interface Product {
   basePrice: number;
   sortOrder: number;
   isActive: boolean;
+  isBeverage?: boolean;
   category?: { id: string; name: string };
   variants?: Variant[];
+  flavours?: Flavour[];
   addons?: { addon: Addon }[];
 }
 
@@ -171,7 +179,9 @@ export default function AdminPortalPage() {
     basePrice: number | string;
     sortOrder: number | string;
     isActive: boolean;
+    isBeverage: boolean;
     variants: { name: string; price: number | string; isDefault: boolean }[];
+    flavours: { name: string; description: string }[];
     addonIds: string[];
   }>({
     categoryId: '',
@@ -181,7 +191,9 @@ export default function AdminPortalPage() {
     basePrice: 0,
     sortOrder: 0,
     isActive: true,
+    isBeverage: false,
     variants: [] as { name: string; price: number | string; isDefault: boolean }[],
+    flavours: [] as { name: string; description: string }[],
     addonIds: [] as string[],
   });
 
@@ -477,10 +489,15 @@ export default function AdminPortalPage() {
         basePrice: Number(prod.basePrice),
         sortOrder: prod.sortOrder || 0,
         isActive: prod.isActive,
+        isBeverage: prod.isBeverage || false,
         variants: (prod.variants || []).map((v) => ({
           name: v.name,
           price: Number(v.price),
           isDefault: v.isDefault || false,
+        })),
+        flavours: (prod.flavours || []).map((f) => ({
+          name: f.name,
+          description: f.description || '',
         })),
         addonIds: existingAddonIds,
       });
@@ -494,7 +511,9 @@ export default function AdminPortalPage() {
         basePrice: 500,
         sortOrder: products.length + 1,
         isActive: true,
+        isBeverage: false,
         variants: [],
+        flavours: [],
         addonIds: [],
       });
     }
@@ -2249,6 +2268,86 @@ export default function AdminPortalPage() {
                   <p className="text-[11px] text-stone-600 italic">No variants added. Base price will apply.</p>
                 )}
               </div>
+
+              {/* Dynamic Flavours Builder */}
+              <div className="p-4 bg-stone-950 border border-stone-800 rounded-2xl space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-stone-300 font-bold uppercase tracking-wider text-[11px]">
+                    Flavours / Recipe Choices (Optional)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setProductForm({
+                        ...productForm,
+                        flavours: [
+                          ...productForm.flavours,
+                          { name: '', description: '' },
+                        ],
+                      })
+                    }
+                    className="text-[11px] text-amber-400 hover:underline font-bold flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Flavour</span>
+                  </button>
+                </div>
+
+                {productForm.flavours.map((f, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      placeholder="Flavour Name (e.g. Chicken Tikka)"
+                      value={f.name}
+                      onChange={(e) => {
+                        const newFlavs = [...productForm.flavours];
+                        newFlavs[idx] = { ...newFlavs[idx], name: e.target.value };
+                        setProductForm({ ...productForm, flavours: newFlavs });
+                      }}
+                      className="flex-1 bg-stone-900 border border-stone-800 rounded-lg px-3 py-1.5 text-stone-200"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Short description (optional)"
+                      value={f.description}
+                      onChange={(e) => {
+                        const newFlavs = [...productForm.flavours];
+                        newFlavs[idx] = { ...newFlavs[idx], description: e.target.value };
+                        setProductForm({ ...productForm, flavours: newFlavs });
+                      }}
+                      className="flex-1 bg-stone-900 border border-stone-800 rounded-lg px-3 py-1.5 text-stone-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newFlavs = productForm.flavours.filter((_, i) => i !== idx);
+                        setProductForm({ ...productForm, flavours: newFlavs });
+                      }}
+                      className="p-1.5 text-stone-500 hover:text-red-400"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {productForm.flavours.length === 0 && (
+                  <p className="text-[11px] text-stone-600 italic">
+                    No flavours added. The item will only offer its size/name as-is.
+                  </p>
+                )}
+              </div>
+
+              {/* Beverage Flag */}
+              <label className="flex items-center gap-2.5 p-3 bg-stone-950 border border-stone-800 rounded-2xl cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={productForm.isBeverage}
+                  onChange={(e) => setProductForm({ ...productForm, isBeverage: e.target.checked })}
+                  className="w-4 h-4 accent-amber-500"
+                />
+                <span className="text-stone-300 text-xs font-bold">
+                  🥤 This is a beverage (offer it as a drink add-on when customers order food)
+                </span>
+              </label>
 
               {/* Add-ons Selection */}
               {addons.length > 0 && (

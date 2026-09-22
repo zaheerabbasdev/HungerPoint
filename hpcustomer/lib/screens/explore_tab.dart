@@ -169,6 +169,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                 'image': imgUrl,
                 'category': catName,
                 'variants': p['variants'],
+                'flavours': p['flavours'],
                 'addons': p['addons'],
               };
             }).toList();
@@ -186,6 +187,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
                   'image': ApiService.resolveImageUrl(cpRaw),
                   'category': catName,
                   'variants': cp['variants'],
+                  'flavours': cp['flavours'],
                   'addons': cp['addons'],
                 });
               }
@@ -222,6 +224,7 @@ class _ExploreMenuScreenState extends State<ExploreMenuScreen> {
               'image': imgUrl,
               'category': catName,
               'variants': p['variants'],
+              'flavours': p['flavours'],
               'addons': p['addons'],
             };
 
