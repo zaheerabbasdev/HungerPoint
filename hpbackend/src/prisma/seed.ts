@@ -124,6 +124,42 @@ async function main() {
     },
   });
 
+  const waiterUser = await prisma.user.upsert({
+    where: { phone: '+923000000006' },
+    update: {},
+    create: {
+      name: 'Waiter Bilal',
+      email: 'bilal.waiter@hungerpoint.pk',
+      phone: '+923000000006',
+      password: passwordHash,
+      role: UserRole.WAITER,
+      branchId: mainBranch.id,
+      isVerified: true,
+    },
+  });
+
+  // Dine-in tables for both branches
+  console.log('🍽️  Seeding Restaurant Tables...');
+  const tableSeeds: { branchId: string; number: string; capacity: number }[] = [
+    { branchId: mainBranch.id, number: 'T1', capacity: 2 },
+    { branchId: mainBranch.id, number: 'T2', capacity: 4 },
+    { branchId: mainBranch.id, number: 'T3', capacity: 4 },
+    { branchId: mainBranch.id, number: 'T4', capacity: 6 },
+    { branchId: mainBranch.id, number: 'T5', capacity: 2 },
+    { branchId: mainBranch.id, number: 'T6', capacity: 4 },
+    { branchId: F7Branch.id, number: 'T1', capacity: 4 },
+    { branchId: F7Branch.id, number: 'T2', capacity: 4 },
+    { branchId: F7Branch.id, number: 'T3', capacity: 6 },
+    { branchId: F7Branch.id, number: 'T4', capacity: 2 },
+  ];
+  for (const t of tableSeeds) {
+    await prisma.restaurantTable.upsert({
+      where: { branchId_number: { branchId: t.branchId, number: t.number } },
+      update: {},
+      create: t,
+    });
+  }
+
   const customerUser = await prisma.user.upsert({
     where: { phone: '+923009999999' },
     update: {},

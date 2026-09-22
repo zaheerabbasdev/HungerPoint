@@ -31,6 +31,7 @@ import settingRoutes from './modules/settings/setting.routes';
 import loyaltyRoutes from './modules/loyalty/loyalty.routes';
 import notificationRoutes from './modules/notifications/notification.routes';
 import reportRoutes from './modules/reports/report.routes';
+import tableRoutes from './modules/tables/table.routes';
 
 // Middleware imports
 import { errorHandler } from './middleware/error.middleware';
@@ -132,6 +133,7 @@ app.use(`${API}/settings`,      settingRoutes);
 app.use(`${API}/loyalty`,       loyaltyRoutes);
 app.use(`${API}/notifications`, notificationRoutes);
 app.use(`${API}/reports`,       reportRoutes);
+app.use(`${API}/tables`,        tableRoutes);
 
 // ─── Local File Upload Route ──────────────────────────────────
 const storage = multer.diskStorage({

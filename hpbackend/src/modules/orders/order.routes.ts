@@ -15,7 +15,7 @@ router.post('/', OrderController.create);
 router.get('/', OrderController.getAll);
 router.get('/:id', OrderController.getById);
 
-// Status update — Branch Manager, Kitchen Staff, Rider, Admin, Super Admin
+// Status update — Branch Manager, Kitchen Staff, Rider, Waiter, Admin, Super Admin
 router.patch(
   '/:id/status',
   authorize(
@@ -24,7 +24,8 @@ router.patch(
     UserRole.BRANCH_MANAGER,
     UserRole.BRANCH_STAFF,
     UserRole.KITCHEN_STAFF,
-    UserRole.RIDER
+    UserRole.RIDER,
+    UserRole.WAITER
   ),
   OrderController.updateStatus
 );

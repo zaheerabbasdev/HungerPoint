@@ -23,6 +23,7 @@ enum UserRole {
   BRANCH_STAFF
   KITCHEN_STAFF
   RIDER
+  WAITER
   CUSTOMER
 }
 
@@ -48,11 +49,19 @@ enum OrderSource {
   WEBSITE
   POS
   PHONE
+  WAITER_APP
 }
 
 enum OrderType {
   DELIVERY
   PICKUP
+  DINE_IN
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
 }
 
 enum PaymentMethod {
@@ -155,6 +164,7 @@ model User {
   branch        Branch?        @relation("BranchEmployees", fields: [branchId], references: [id])
   customer      Customer?
   rider         Rider?
+  waiterOrders  Order[]        @relation("WaiterOrders")
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
   notifications Notification[]
@@ -267,6 +277,7 @@ model Branch {
   branchProducts BranchProduct[]
   orders         Order[]
   riders         Rider[]
+  tables         RestaurantTable[]
   inventory      InventoryStock[]
   stockTransfers StockTransfer[] @relation("TransferFrom")
   incomingTransfers StockTransfer[] @relation("TransferTo")
@@ -501,6 +512,8 @@ model Order {
   customerId      String?
   branchId        String?
   addressId       String?
+  tableId         String?
+  waiterId        String?
   status          OrderStatus   @default(PENDING)
   source          OrderSource   @default(MOBILE_APP)
   type            OrderType     @default(DELIVERY)
@@ -533,6 +546,8 @@ model Order {
   customer       Customer?            @relation(fields: [customerId], references: [id])
   branch         Branch?              @relation(fields: [branchId], references: [id])
   address        Address?             @relation(fields: [addressId], references: [id])
+  table          RestaurantTable?     @relation(fields: [tableId], references: [id])
+  waiter         User?                @relation("WaiterOrders", fields: [waiterId], references: [id])
   coupon         Coupon?              @relation(fields: [couponId], references: [id])
   items          OrderItem[]
   statusHistory  OrderStatusHistory[]
@@ -543,9 +558,28 @@ model Order {
 
   @@index([customerId])
   @@index([branchId], map: "orders_branchId_idx")
+  @@index([tableId])
   @@index([status])
   @@index([createdAt])
   @@map("orders")
+}
+
+model RestaurantTable {
+  id        String      @id @default(uuid())
+  branchId  String      @db.VarChar(36)
+  number    String      @db.VarChar(20) // e.g. "T1", "12", "Patio-3"
+  capacity  Int         @default(4)
+  status    TableStatus @default(AVAILABLE)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  branch Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([branchId, number])
+  @@index([branchId])
+  @@map("restaurant_tables")
 }
 
 model OrderItem {

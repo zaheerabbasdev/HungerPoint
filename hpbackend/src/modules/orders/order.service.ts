@@ -12,6 +12,8 @@ export class OrderService {
     customerId?: string | null;
     branchId: string;
     addressId?: string;
+    tableId?: string;
+    waiterId?: string;
     type?: OrderType;
     source?: OrderSource;
     paymentMethod?: PaymentMethod;
@@ -21,6 +23,7 @@ export class OrderService {
       variantId?: string;
       quantity: number;
       notes?: string;
+      addonIds?: string[];
     }[];
   }) {
     const orderNumber = `HP-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -42,8 +45,19 @@ export class OrderService {
         }
       }
 
+      let addonsPrice = 0;
+      const addonCreates: { addonId: string; addonName: string; price: number }[] = [];
+      if (item.addonIds && item.addonIds.length > 0) {
+        const addonRecords = await prisma.addon.findMany({ where: { id: { in: item.addonIds } } });
+        for (const a of addonRecords) {
+          const price = Number(a.price);
+          addonsPrice += price;
+          addonCreates.push({ addonId: a.id, addonName: a.name, price });
+        }
+      }
+
       const unitPrice = Number(product.basePrice);
-      const itemTotal = (unitPrice + variantPrice) * item.quantity;
+      const itemTotal = (unitPrice + variantPrice + addonsPrice) * item.quantity;
       subtotal += itemTotal;
 
       orderItemsData.push({
@@ -54,10 +68,12 @@ export class OrderService {
         variantPrice,
         totalPrice: itemTotal,
         notes: item.notes,
+        addons: addonCreates.length > 0 ? { create: addonCreates } : undefined,
       });
     }
 
-    const deliveryFee = data.type === OrderType.PICKUP ? 0 : 50;
+    // Dine-in and pickup orders never carry a delivery fee.
+    const deliveryFee = data.type === OrderType.PICKUP || data.type === OrderType.DINE_IN ? 0 : 50;
     const tax = subtotal * 0.05; // 5% tax
     const total = subtotal + deliveryFee + tax;
 
@@ -67,9 +83,16 @@ export class OrderService {
         customerId: data.customerId || undefined,
         branchId: data.branchId,
         addressId: data.addressId,
+        tableId: data.tableId,
+        waiterId: data.waiterId,
         type: data.type || OrderType.DELIVERY,
         source: data.source || OrderSource.MOBILE_APP,
         paymentMethod: data.paymentMethod || PaymentMethod.CASH_ON_DELIVERY,
+        // A waiter standing at the table has already vetted a dine-in order,
+        // so it skips the PENDING/needs-confirmation step and goes straight
+        // to the kitchen queue (which only shows CONFIRMED+ orders).
+        status: data.type === OrderType.DINE_IN ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
+        confirmedAt: data.type === OrderType.DINE_IN ? new Date() : undefined,
         subtotal,
         deliveryFee,
         tax,
@@ -77,8 +100,8 @@ export class OrderService {
         notes: data.notes,
         statusHistory: {
           create: {
-            status: OrderStatus.PENDING,
-            notes: 'Order created',
+            status: data.type === OrderType.DINE_IN ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
+            notes: data.type === OrderType.DINE_IN ? 'Dine-in order sent to kitchen' : 'Order created',
           },
         },
         items: {
@@ -86,11 +109,21 @@ export class OrderService {
         },
       },
       include: {
-        items: { include: { product: true, variant: true } },
+        items: { include: { product: true, variant: true, addons: true } },
         statusHistory: true,
         branch: true,
+        table: true,
+        waiter: { select: { id: true, name: true } },
       },
     });
+
+    // A dine-in order occupies its table until it's completed/cancelled.
+    if (order.tableId) {
+      await prisma.restaurantTable.update({
+        where: { id: order.tableId },
+        data: { status: 'OCCUPIED' },
+      });
+    }
 
     // Broadcast Real-Time Socket.IO Events
     if (order.branchId) {
@@ -102,7 +135,7 @@ export class OrderService {
     return order;
   }
 
-  static async getOrders(query: { customerId?: string; branchId?: string; status?: OrderStatus; page?: number; limit?: number }) {
+  static async getOrders(query: { customerId?: string; branchId?: string; waiterId?: string; tableId?: string; status?: OrderStatus; type?: OrderType; page?: number; limit?: number }) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
@@ -110,7 +143,10 @@ export class OrderService {
     const where: any = {};
     if (query.customerId) where.customerId = query.customerId;
     if (query.branchId) where.branchId = query.branchId;
+    if (query.waiterId) where.waiterId = query.waiterId;
+    if (query.tableId) where.tableId = query.tableId;
     if (query.status) where.status = query.status;
+    if (query.type) where.type = query.type;
 
     const [total, orders] = await Promise.all([
       prisma.order.count({ where }),
@@ -120,9 +156,11 @@ export class OrderService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          items: { include: { product: true, variant: true } },
+          items: { include: { product: true, variant: true, addons: true } },
           customer: { include: { user: { select: { name: true, phone: true } } } },
           branch: { select: { name: true } },
+          table: true,
+          waiter: { select: { id: true, name: true } },
           delivery: { include: { rider: { include: { user: { select: { name: true, phone: true } } } } } },
         },
       }),
@@ -139,6 +177,8 @@ export class OrderService {
         customer: { include: { user: { select: { name: true, email: true, phone: true } } } },
         branch: true,
         address: true,
+        table: true,
+        waiter: { select: { id: true, name: true } },
         statusHistory: { orderBy: { createdAt: 'asc' } },
         payment: true,
         delivery: { include: { rider: { include: { user: { select: { name: true, phone: true } } } } } },
@@ -188,9 +228,19 @@ export class OrderService {
     emitToOrder(id, `order.${status.toLowerCase()}`, updated);
     emitToAdmins(`order.${status.toLowerCase()}`, updated);
 
-    // Award loyalty points on successful delivery (1 point per PKR 100 spent).
-    // Loyalty is purely additive here and never blocks the order flow.
-    if (status === OrderStatus.DELIVERED && updated.customerId) {
+    // A dine-in table frees up once its order is done — served & paid
+    // (COMPLETED) or called off (CANCELLED) — either way, seats free up.
+    if (updated.tableId && (status === OrderStatus.COMPLETED || status === OrderStatus.CANCELLED)) {
+      await prisma.restaurantTable.update({
+        where: { id: updated.tableId },
+        data: { status: 'AVAILABLE' },
+      }).catch((err) => console.error('Failed to free table:', err));
+    }
+
+    // Award loyalty points on a successful delivery or a completed dine-in
+    // visit (1 point per PKR 100 spent). Loyalty is purely additive here
+    // and never blocks the order flow.
+    if ((status === OrderStatus.DELIVERED || status === OrderStatus.COMPLETED) && updated.customerId) {
       const points = Math.floor(Number(updated.total) / 100);
       if (points > 0) {
         LoyaltyService.adjustPoints(
