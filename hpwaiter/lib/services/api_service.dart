@@ -4,14 +4,21 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Configurable base URL — same convention as the other HungerPoint apps:
-  // - Real physical phone on Wi-Fi: set hostIp to the backend machine's LAN IP
+  // Configurable base URL — override at build/run time without editing
+  // source, e.g.:
+  //   flutter run --dart-define=API_HOST=192.168.1.50
+  //   flutter build apk --dart-define=API_BASE_URL=https://api.hungerpoint.pk/api/v1
+  //
+  // The defaults below are for local development only:
+  // - Real physical phone on Wi-Fi: this machine's LAN IP
   // - Android Emulator: 10.0.2.2
   // - Web / Desktop: localhost
-  static String hostIp = '10.252.184.234';
-  static int port = 5000;
+  static const String _overrideBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const String hostIp = String.fromEnvironment('API_HOST', defaultValue: '10.252.184.234');
+  static const int port = int.fromEnvironment('API_PORT', defaultValue: 5000);
 
   static String get baseUrl {
+    if (_overrideBaseUrl.isNotEmpty) return _overrideBaseUrl;
     if (kIsWeb) {
       return 'http://localhost:$port/api/v1';
     }
