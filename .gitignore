@@ -1,0 +1,3 @@
+# Root-level safety net — each app folder has its own more specific .gitignore.
+# This just covers what the root package.json's scripts could create here.
+node_modules/

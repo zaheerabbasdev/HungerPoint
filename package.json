@@ -1,0 +1,10 @@
+{
+  "name": "hungerpoint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo root — delegates build/start to hpbackend for platforms that require package.json at the repository root.",
+  "scripts": {
+    "build": "cd hpbackend && npm install && npm run build",
+    "start": "cd hpbackend && npm start"
+  }
+}
