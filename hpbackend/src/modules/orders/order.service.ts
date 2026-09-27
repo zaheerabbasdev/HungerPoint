@@ -6,6 +6,9 @@ import { prisma } from '../../config/database';
 import { OrderStatus, PaymentMethod, OrderType, OrderSource, LoyaltyTransactionType } from '@prisma/client';
 import { emitToKitchen, emitToAdmins, emitToOrder, SOCKET_EVENTS } from '../../sockets';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import { AppError } from '../../middleware/error.middleware';
+import { SettingService } from '../settings/setting.service';
+import { CouponService } from '../coupons/coupon.service';
 
 export class OrderService {
   static async createOrder(data: {
@@ -18,6 +21,7 @@ export class OrderService {
     source?: OrderSource;
     paymentMethod?: PaymentMethod;
     notes?: string;
+    couponCode?: string;
     items: {
       productId: string;
       variantId?: string;
@@ -34,7 +38,10 @@ export class OrderService {
     for (const item of data.items) {
       const product = await prisma.product.findUnique({ where: { id: item.productId } });
       if (!product) {
-        throw new Error(`Product not found: ${item.productId}`);
+        throw new AppError(`Product not found: ${item.productId}`, 404);
+      }
+      if (!product.isActive) {
+        throw new AppError(`"${product.name}" is no longer available`, 400);
       }
 
       let variantPrice = 0;
@@ -72,10 +79,24 @@ export class OrderService {
       });
     }
 
-    // Dine-in and pickup orders never carry a delivery fee.
-    const deliveryFee = data.type === OrderType.PICKUP || data.type === OrderType.DINE_IN ? 0 : 50;
-    const tax = subtotal * 0.05; // 5% tax
-    const total = subtotal + deliveryFee + tax;
+    // Pricing comes from System Settings so a Super Admin change takes effect
+    // without a redeploy. Dine-in and pickup orders never carry a delivery fee.
+    const [taxPercent, standardDeliveryFee] = await Promise.all([
+      SettingService.getNumber('default_tax_percent', 5),
+      SettingService.getNumber('default_delivery_fee', 50),
+    ]);
+    const deliveryFee = data.type === OrderType.PICKUP || data.type === OrderType.DINE_IN ? 0 : standardDeliveryFee;
+    const tax = subtotal * (taxPercent / 100);
+
+    let couponId: string | undefined;
+    let couponDiscount = 0;
+    if (data.couponCode && data.couponCode.trim()) {
+      const applied = await CouponService.resolveForOrder(data.couponCode, subtotal, data.customerId);
+      couponId = applied.coupon.id;
+      couponDiscount = applied.discount;
+    }
+
+    const total = subtotal - couponDiscount + deliveryFee + tax;
 
     const order = await prisma.order.create({
       data: {
@@ -94,6 +115,9 @@ export class OrderService {
         status: data.type === OrderType.DINE_IN ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
         confirmedAt: data.type === OrderType.DINE_IN ? new Date() : undefined,
         subtotal,
+        discount: couponDiscount,
+        couponId,
+        couponDiscount,
         deliveryFee,
         tax,
         total,
@@ -116,6 +140,10 @@ export class OrderService {
         waiter: { select: { id: true, name: true } },
       },
     });
+
+    if (couponId) {
+      await prisma.coupon.update({ where: { id: couponId }, data: { usageCount: { increment: 1 } } });
+    }
 
     // A dine-in order occupies its table until it's completed/cancelled.
     if (order.tableId) {
@@ -186,9 +214,7 @@ export class OrderService {
     });
 
     if (!order) {
-      const error: any = new Error('Order not found');
-      error.statusCode = 404;
-      throw error;
+      throw new AppError('Order not found', 404);
     }
 
     return order;
@@ -215,7 +241,7 @@ export class OrderService {
           create: {
             status,
             notes: notes || `Status changed to ${status}`,
-            changedById,
+            changedBy: changedById,
           },
         },
       },

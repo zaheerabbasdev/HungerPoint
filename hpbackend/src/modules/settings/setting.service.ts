@@ -21,6 +21,12 @@ export class SettingService {
     }
   }
 
+  static async getNumber(key: string, fallback: number): Promise<number> {
+    const setting = await prisma.systemSetting.findUnique({ where: { key } });
+    const value = setting ? Number(setting.value) : NaN;
+    return Number.isFinite(value) && value >= 0 ? value : fallback;
+  }
+
   static async getAll() {
     await this.ensureDefaults();
     return prisma.systemSetting.findMany({ orderBy: [{ group: 'asc' }, { key: 'asc' }] });

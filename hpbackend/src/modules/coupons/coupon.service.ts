@@ -3,7 +3,8 @@
 // ============================================================
 
 import { prisma } from '../../config/database';
-import { PromotionType } from '@prisma/client';
+import { PromotionType, Coupon } from '@prisma/client';
+import { AppError } from '../../middleware/error.middleware';
 
 export class CouponService {
   /**
@@ -105,18 +106,34 @@ export class CouponService {
       where: { code: code.toUpperCase().trim() },
     });
 
-    if (!coupon || !coupon.isActive) {
-      return { valid: false, message: 'Invalid or expired voucher code', discount: 0 };
+    const problem = this.checkCoupon(coupon, orderAmount);
+    if (problem || !coupon) {
+      return { valid: false, message: problem || 'Invalid or expired voucher code', discount: 0 };
     }
 
+    return {
+      valid: true,
+      message: 'Voucher applied successfully!',
+      code: coupon.code,
+      discount: this.computeDiscount(coupon, orderAmount),
+      coupon,
+    };
+  }
+
+  // Returns a user-facing reason the coupon can't be used, or null if it can.
+  private static checkCoupon(coupon: Coupon | null, orderAmount: number): string | null {
+    const now = new Date();
+    if (!coupon || !coupon.isActive) return 'Invalid or expired voucher code';
+    if (coupon.startsAt && coupon.startsAt > now) return 'This voucher is not active yet';
+    if (coupon.expiresAt && coupon.expiresAt < now) return 'This voucher has expired';
+    if (coupon.usageLimit != null && coupon.usageCount >= coupon.usageLimit) return 'This voucher has been fully redeemed';
     if (coupon.minOrderAmount && orderAmount < Number(coupon.minOrderAmount)) {
-      return {
-        valid: false,
-        message: `Minimum order amount of PKR ${coupon.minOrderAmount} required for this coupon`,
-        discount: 0,
-      };
+      return `Minimum order amount of PKR ${coupon.minOrderAmount} required for this coupon`;
     }
+    return null;
+  }
 
+  private static computeDiscount(coupon: Coupon, orderAmount: number): number {
     let discount = 0;
     if (coupon.type === PromotionType.PERCENTAGE) {
       discount = (orderAmount * Number(coupon.value)) / 100;
@@ -126,13 +143,26 @@ export class CouponService {
     } else {
       discount = Number(coupon.value);
     }
+    return Math.min(Math.round(discount), orderAmount);
+  }
 
-    return {
-      valid: true,
-      message: 'Voucher applied successfully!',
-      code: coupon.code,
-      discount: Math.round(discount),
-      coupon,
-    };
+  // Authoritative check used when an order is actually placed: same rules as
+  // the preview, plus the per-customer limit. Throws so the customer is told
+  // why, instead of silently being charged full price.
+  static async resolveForOrder(code: string, subtotal: number, customerId?: string | null) {
+    const coupon = await prisma.coupon.findUnique({ where: { code: code.toUpperCase().trim() } });
+    const problem = this.checkCoupon(coupon, subtotal);
+    if (problem || !coupon) throw new AppError(problem || 'Invalid or expired voucher code', 400);
+
+    if (customerId && coupon.perUserLimit > 0) {
+      const used = await prisma.order.count({
+        where: { customerId, couponId: coupon.id, status: { notIn: ['CANCELLED', 'REJECTED'] } },
+      });
+      if (used >= coupon.perUserLimit) {
+        throw new AppError('You have already used this voucher the maximum number of times', 400);
+      }
+    }
+
+    return { coupon, discount: this.computeDiscount(coupon, subtotal) };
   }
 }

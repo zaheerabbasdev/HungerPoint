@@ -4,6 +4,7 @@
 
 import { prisma } from '../../config/database';
 import { NotificationType } from '@prisma/client';
+import { AppError } from '../../middleware/error.middleware';
 
 export class NotificationService {
   static async getUserNotifications(userId?: string) {
@@ -52,10 +53,25 @@ export class NotificationService {
     }
   }
 
-  static async markAsRead(id: string) {
+  // Only a user's own notifications can be marked read — broadcast ones
+  // (userId = null) have a single shared isRead flag, so one user must not
+  // flip it for everyone.
+  static async markAsRead(id: string, userId: string) {
+    const notification = await prisma.notification.findUnique({ where: { id } });
+    if (!notification || notification.userId !== userId) {
+      throw new AppError('Notification not found', 404);
+    }
     return prisma.notification.update({
       where: { id },
       data: { isRead: true },
     });
+  }
+
+  static async markAllAsRead(userId: string) {
+    const result = await prisma.notification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true },
+    });
+    return result.count;
   }
 }

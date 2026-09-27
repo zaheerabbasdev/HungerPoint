@@ -35,7 +35,8 @@ import tableRoutes from './modules/tables/table.routes';
 import reservationRoutes from './modules/reservations/reservation.routes';
 
 // Middleware imports
-import { errorHandler } from './middleware/error.middleware';
+import { errorHandler, AppError } from './middleware/error.middleware';
+import { authenticate } from './middleware/auth.middleware';
 import { notFound } from './middleware/notFound.middleware';
 import path from 'path';
 import fs from 'fs';
@@ -148,12 +149,29 @@ const storage = multer.diskStorage({
     cb(null, 'img-' + uniqueSuffix + ext);
   },
 });
+// Uploaded files are served back publicly from /uploads, so only accept
+// real image types — an HTML/SVG/script upload would become a hosted payload.
+const ALLOWED_IMAGE_TYPES: Record<string, string[]> = {
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/webp': ['.webp'],
+  'image/gif': ['.gif'],
+};
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = ALLOWED_IMAGE_TYPES[file.mimetype];
+    if (allowedExts && (ext === '' || allowedExts.includes(ext))) {
+      cb(null, true);
+    } else {
+      cb(new AppError('Only JPG, PNG, WEBP or GIF images can be uploaded', 400));
+    }
+  },
 });
 
-app.post(`${API}/upload`, upload.single('image'), (req: Request, res: Response) => {
+app.post(`${API}/upload`, authenticate, upload.single('image'), (req: Request, res: Response) => {
   if (!req.file) {
     res.status(400).json({ success: false, message: 'No file uploaded' });
     return;

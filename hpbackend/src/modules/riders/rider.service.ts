@@ -7,6 +7,7 @@ import { prisma } from '../../config/database';
 import { RiderStatus, DeliveryStatus, OrderStatus, UserRole } from '@prisma/client';
 import { emitToUser, SOCKET_EVENTS } from '../../sockets';
 import { OrderService } from '../orders/order.service';
+import { AppError } from '../../middleware/error.middleware';
 
 const SALT_ROUNDS = 12;
 
@@ -52,7 +53,7 @@ export class RiderService {
 
   static async getRiderByUserId(userId: string) {
     const rider = await prisma.rider.findUnique({ where: { userId } });
-    if (!rider) throw new Error('Rider profile not found for this account');
+    if (!rider) throw new AppError('Rider profile not found for this account', 404);
     return rider;
   }
 
@@ -64,7 +65,7 @@ export class RiderService {
         branch: { select: { id: true, name: true, address: true } },
       },
     });
-    if (!rider) throw new Error('Rider profile not found for this account');
+    if (!rider) throw new AppError('Rider profile not found for this account', 404);
     return rider;
   }
 
@@ -107,11 +108,27 @@ export class RiderService {
   }
 
   static async assignRiderToOrder(orderId: string, riderId: string) {
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) throw new Error('Order not found');
+    const order = await prisma.order.findUnique({ where: { id: orderId }, include: { delivery: true } });
+    if (!order) throw new AppError('Order not found', 404);
+    if (order.type !== 'DELIVERY') throw new AppError('Only delivery orders can be assigned to a rider', 400);
+
+    // First assignment happens once the kitchen marks the order READY; a
+    // reassignment is allowed only until the current rider has picked it up.
+    const existing = order.delivery;
+    const reassignable = existing && ['ASSIGNED', 'ACCEPTED'].includes(existing.status);
+    if (order.status !== OrderStatus.READY && !(order.status === OrderStatus.ASSIGNED && reassignable)) {
+      throw new AppError(`Order is ${order.status} — a rider can only be assigned once it is READY and not yet picked up`, 400);
+    }
 
     const rider = await prisma.rider.findUnique({ where: { id: riderId } });
-    if (!rider) throw new Error('Rider not found');
+    if (!rider) throw new AppError('Rider not found', 404);
+    if (!rider.isActive) throw new AppError('This rider account is inactive', 400);
+    if (existing?.riderId === riderId) throw new AppError('This rider is already assigned to the order', 400);
+
+    // Free up the previous rider when the order is handed to someone else.
+    if (existing?.riderId && reassignable) {
+      await prisma.rider.update({ where: { id: existing.riderId }, data: { status: RiderStatus.ONLINE } });
+    }
 
     const delivery = await prisma.delivery.upsert({
       where: { orderId },

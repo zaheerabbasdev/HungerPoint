@@ -15,7 +15,8 @@ router.post('/', OrderController.create);
 router.get('/', OrderController.getAll);
 router.get('/:id', OrderController.getById);
 
-// Status update — Branch Manager, Kitchen Staff, Rider, Waiter, Admin, Super Admin
+// Riders are deliberately excluded: they advance status only through the
+// /deliveries lifecycle so Order and Delivery records stay in sync.
 router.patch(
   '/:id/status',
   authorize(
@@ -24,7 +25,6 @@ router.patch(
     UserRole.BRANCH_MANAGER,
     UserRole.BRANCH_STAFF,
     UserRole.KITCHEN_STAFF,
-    UserRole.RIDER,
     UserRole.WAITER
   ),
   OrderController.updateStatus

@@ -214,8 +214,21 @@ export const changePassword = async (userId: string, oldPassword: string, newPas
 interface OtpEntry {
   otp: string;
   expiresAt: number;
+  attempts: number;
 }
 const otpStore = new Map<string, OtpEntry>();
+
+// Fixed test codes and echoing the OTP back in the API response are
+// development conveniences only — in production either one would let anyone
+// sign in as any customer.
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const DEV_OTP_CODES = ['123456', '872305'];
+const MAX_OTP_ATTEMPTS = 5;
+
+// Phones that just passed OTP verification but have no account yet.
+// completeProfile may only create an account for one of these.
+const VERIFIED_PHONE_TTL_MS = 15 * 60 * 1000;
+const verifiedPhones = new Map<string, number>();
 
 // Helper to send real SMS if a provider (Twilio) is configured in .env
 const sendSmsViaGateway = async (phone: string, text: string) => {
@@ -262,9 +275,12 @@ export const sendOtp = async (phone: string) => {
   otpStore.set(cleanPhone, {
     otp: generatedOtp,
     expiresAt: Date.now() + 10 * 60 * 1000,
+    attempts: 0,
   });
 
-  console.log(`[OTP SERVICE] Generated OTP for ${cleanPhone}: ${generatedOtp} (or accept 123456 / 872305)`);
+  if (!IS_PRODUCTION) {
+    console.log(`[OTP SERVICE] Generated OTP for ${cleanPhone}: ${generatedOtp} (dev also accepts ${DEV_OTP_CODES.join(' / ')})`);
+  }
 
   // Send via SMS gateway or log simulation
   await sendSmsViaGateway(cleanPhone, `Your HungerPoint verification code is: ${generatedOtp}. Valid for 10 minutes.`);
@@ -273,7 +289,7 @@ export const sendOtp = async (phone: string) => {
     phone: cleanPhone,
     isExistingUser: !!existingUser,
     message: 'OTP sent successfully',
-    otp: generatedOtp,
+    ...(IS_PRODUCTION ? {} : { otp: generatedOtp }),
   };
 };
 
@@ -281,10 +297,15 @@ export const verifyOtp = async (phone: string, otp: string) => {
   const cleanPhone = phone.trim();
   const stored = otpStore.get(cleanPhone);
 
-  const isValidDevOtp = otp === '123456' || otp === '872305';
-  const isValidStoredOtp = stored && stored.otp === otp && stored.expiresAt > Date.now();
+  const isValidDevOtp = !IS_PRODUCTION && DEV_OTP_CODES.includes(otp);
+  const isValidStoredOtp = !!stored && stored.otp === otp && stored.expiresAt > Date.now();
 
   if (!isValidDevOtp && !isValidStoredOtp) {
+    // Burn the code after too many wrong guesses so it can't be brute-forced.
+    if (stored) {
+      stored.attempts += 1;
+      if (stored.attempts >= MAX_OTP_ATTEMPTS) otpStore.delete(cleanPhone);
+    }
     throw new AppError('Invalid or expired OTP code', 400);
   }
 
@@ -313,6 +334,11 @@ export const verifyOtp = async (phone: string, otp: string) => {
 
   if (user) {
     if (!user.isActive) throw new AppError('Account has been deactivated', 403);
+    // OTP sign-in is the customer flow; staff accounts (admins, managers,
+    // riders, waiters…) must always use their password.
+    if (user.role !== UserRole.CUSTOMER) {
+      throw new AppError('This number belongs to a staff account — please sign in with your password.', 403);
+    }
 
     const payload: AuthPayload = { userId: user.id, role: user.role };
     const accessToken = generateAccessToken(payload);
@@ -335,6 +361,8 @@ export const verifyOtp = async (phone: string, otp: string) => {
     };
   }
 
+  verifiedPhones.set(cleanPhone, Date.now() + VERIFIED_PHONE_TTL_MS);
+
   return {
     isNewUser: true,
     phone: cleanPhone,
@@ -350,57 +378,25 @@ export const completeProfile = async (data: {
   password?: string;
 }) => {
   const cleanPhone = data.phone.trim();
-  const existingUser = await prisma.user.findUnique({
-    where: { phone: cleanPhone },
-    include: { customer: true },
-  });
 
-  if (existingUser) {
-    const updatedUser = await prisma.user.update({
-      where: { id: existingUser.id },
-      data: {
-        name: data.name,
-        email: data.email ?? existingUser.email,
-        customer: {
-          upsert: {
-            create: {
-              dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
-              loyaltyAccount: { create: {} },
-            },
-            update: {
-              dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
-            },
-          },
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        role: true,
-        isVerified: true,
-        createdAt: true,
-      },
-    });
-
-    const payload: AuthPayload = { userId: updatedUser.id, role: updatedUser.role };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    await prisma.refreshToken.create({
-      data: {
-        tokenHash: hashToken(refreshToken),
-        userId: updatedUser.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    return { user: updatedUser, accessToken, refreshToken };
+  // Only a phone that just passed OTP verification may register — otherwise
+  // anyone could claim any number (or an existing account) without the SMS.
+  const verifiedUntil = verifiedPhones.get(cleanPhone);
+  if (!verifiedUntil || verifiedUntil < Date.now()) {
+    verifiedPhones.delete(cleanPhone);
+    throw new AppError('Please verify your phone number with the OTP first', 401);
   }
 
-  const defaultPassword = data.password || 'Customer@123456';
-  const hashedPassword = await bcrypt.hash(defaultPassword, SALT_ROUNDS);
+  const existingUser = await prisma.user.findUnique({ where: { phone: cleanPhone }, select: { id: true } });
+  if (existingUser) {
+    verifiedPhones.delete(cleanPhone);
+    throw new AppError('An account with this phone number already exists — please sign in', 409);
+  }
+
+  // OTP customers sign in by SMS, so without an explicit password they get an
+  // unguessable random one rather than a shared default.
+  const password = data.password || crypto.randomBytes(24).toString('hex');
+  const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
   const newUser = await prisma.user.create({
     data: {
@@ -427,6 +423,8 @@ export const completeProfile = async (data: {
       createdAt: true,
     },
   });
+
+  verifiedPhones.delete(cleanPhone);
 
   const payload: AuthPayload = { userId: newUser.id, role: newUser.role };
   const accessToken = generateAccessToken(payload);

@@ -4,10 +4,13 @@
 
 import { Router } from 'express';
 import { NotificationController } from './notification.controller';
+import { authenticate, optionalAuth } from '../../middleware/auth.middleware';
 
 const router = Router();
 
-router.get('/', NotificationController.getAll);
-router.patch('/:id/read', NotificationController.markRead);
+// Guests still see broadcast notifications; signed-in users also get their own.
+router.get('/', optionalAuth, NotificationController.getAll);
+router.patch('/read-all', authenticate, NotificationController.markAllRead);
+router.patch('/:id/read', authenticate, NotificationController.markRead);
 
 export default router;

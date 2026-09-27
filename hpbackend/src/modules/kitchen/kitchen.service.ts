@@ -5,6 +5,7 @@
 import { prisma } from '../../config/database';
 import { OrderStatus } from '@prisma/client';
 import { emitToOrder, emitToKitchen, emitToAdmins, SOCKET_EVENTS } from '../../sockets';
+import { AppError } from '../../middleware/error.middleware';
 
 export class KitchenService {
   static async getActiveKitchenQueue(branchId?: string) {
@@ -29,7 +30,22 @@ export class KitchenService {
     });
   }
 
-  static async markOrderAsPreparing(orderId: string, estimatedPrepTimeMinutes = 15) {
+  // Loads the order and enforces that the ticket is in an expected state
+  // (and, for branch-scoped staff, belongs to their branch).
+  private static async getTicket(orderId: string, allowed: OrderStatus[], restrictToBranchId?: string) {
+    const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true, branchId: true } });
+    if (!order || (restrictToBranchId && order.branchId !== restrictToBranchId)) {
+      throw new AppError('Order not found', 404);
+    }
+    if (!allowed.includes(order.status)) {
+      throw new AppError(`Order is ${order.status} — this kitchen action isn't allowed right now`, 400);
+    }
+    return order;
+  }
+
+  static async markOrderAsPreparing(orderId: string, estimatedPrepTimeMinutes = 15, restrictToBranchId?: string) {
+    await this.getTicket(orderId, [OrderStatus.CONFIRMED, OrderStatus.ACCEPTED], restrictToBranchId);
+
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -52,7 +68,9 @@ export class KitchenService {
     return order;
   }
 
-  static async markOrderAsReady(orderId: string) {
+  static async markOrderAsReady(orderId: string, restrictToBranchId?: string) {
+    await this.getTicket(orderId, [OrderStatus.PREPARING], restrictToBranchId);
+
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {

@@ -9,8 +9,7 @@ export class NotificationController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
       await NotificationService.seedSampleNotifications();
-      const userId = (req as any).user?.id;
-      const notifications = await NotificationService.getUserNotifications(userId);
+      const notifications = await NotificationService.getUserNotifications(req.user?.userId);
       res.json({ success: true, count: notifications.length, data: notifications });
     } catch (error) {
       next(error);
@@ -19,9 +18,17 @@ export class NotificationController {
 
   static async markRead(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
-      const updated = await NotificationService.markAsRead(id as string);
+      const updated = await NotificationService.markAsRead(req.params.id as string, req.user!.userId);
       res.json({ success: true, data: updated });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async markAllRead(req: Request, res: Response, next: NextFunction) {
+    try {
+      const count = await NotificationService.markAllAsRead(req.user!.userId);
+      res.json({ success: true, data: { updated: count } });
     } catch (error) {
       next(error);
     }

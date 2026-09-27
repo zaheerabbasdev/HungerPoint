@@ -360,6 +360,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     final String orderNum = res['data']['orderNumber'] ?? '';
     final String orderId = res['data']['id']?.toString() ?? '';
+    // Show what the server actually charged, not the local estimate.
+    final int chargedTotal = num.tryParse(res['data']['total']?.toString() ?? '')?.round() ?? total;
 
     CartService().clearCart();
 
@@ -421,7 +423,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ],
                   const SizedBox(height: 8),
                   Text(
-                    'Your order of PKR $total via $_selectedPaymentMethod has been confirmed.',
+                    'Your order of PKR $chargedTotal via $_selectedPaymentMethod has been confirmed.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 13.5,
@@ -498,8 +500,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
     // Products price calculated from CartService
     final productsPrice = CartService().totalPrice;
     final discount = _appliedDiscount;
-    const deliveryFee = 0;
-    final tax = (productsPrice * 0.15).round(); // 15% tax
+    // Mirrors the backend's defaults (System Settings: default_delivery_fee,
+    // default_tax_percent) — the server total is still the one that's charged.
+    final deliveryFee = BranchService().isPickupMode ? 0 : 50;
+    final tax = (productsPrice * 0.05).round();
     final total = productsPrice - discount + deliveryFee + tax;
     final onlineTotal = (productsPrice * 1.05).round(); // slight variation for online options matching screenshot
 
@@ -776,7 +780,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   const SizedBox(height: 10),
                   _buildBillRow('Delivery Fee', '+Rs.$deliveryFee'),
                   const SizedBox(height: 10),
-                  _buildBillRow('Tax (15%)', '+Rs $tax'),
+                  _buildBillRow('Tax (5%)', '+Rs $tax'),
                   const SizedBox(height: 14),
                   const Divider(height: 1, color: Color(0xFFF3F4F6)),
                   const SizedBox(height: 14),
