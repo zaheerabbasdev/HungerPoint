@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { fetchApi } from '../../lib/api';
 import {
   Utensils,
@@ -120,6 +121,8 @@ interface Branch {
 }
 
 export default function AdminPortalPage() {
+  const router = useRouter();
+
   // Auth state
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -347,7 +350,8 @@ export default function AdminPortalPage() {
 
       if (res.success && res.data) {
         const { user, accessToken, refreshToken } = res.data;
-        if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && user.role !== 'BRANCH_MANAGER') {
+        const ADMIN_CONSOLE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF', 'KITCHEN_STAFF'];
+        if (!ADMIN_CONSOLE_ROLES.includes(user.role)) {
           throw new Error('Access denied: You need administrative privileges to access this console.');
         }
         localStorage.setItem('hp_access_token', accessToken);
@@ -355,6 +359,14 @@ export default function AdminPortalPage() {
           localStorage.setItem('hp_refresh_token', refreshToken);
         }
         localStorage.setItem('hp_user', JSON.stringify(user));
+
+        if (user.role === 'KITCHEN_STAFF') {
+          // Kitchen staff belong on the KDU ticket board, not the
+          // menu/product management dashboard this page otherwise shows.
+          router.push('/admin/kitchen');
+          return;
+        }
+
         setAuthToken(accessToken);
         setCurrentUser(user);
         showToast(`Welcome back, ${user.name}!`);

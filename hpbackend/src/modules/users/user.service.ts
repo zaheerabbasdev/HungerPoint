@@ -5,6 +5,7 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database';
 import { UserRole } from '@prisma/client';
+import { AppError } from '../../middleware/error.middleware';
 
 const SALT_ROUNDS = 12;
 const STAFF_ROLES: UserRole[] = [
@@ -28,9 +29,18 @@ export class UserService {
     });
   }
 
-  static async createStaffUser(data: { name: string; phone: string; password: string; role: UserRole; branchId?: string; email?: string }) {
+  static async createStaffUser(
+    actorRole: UserRole,
+    data: { name: string; phone: string; password: string; role: UserRole; branchId?: string; email?: string }
+  ) {
     if (!STAFF_ROLES.includes(data.role)) {
-      throw new Error('Invalid staff role');
+      throw new AppError('Invalid staff role', 400);
+    }
+    // Only a Super Admin can hand out Admin-tier access — an Admin creating
+    // another Admin (or a Super Admin) would have no real ceiling on its
+    // own privileges.
+    if (actorRole !== UserRole.SUPER_ADMIN && (data.role === UserRole.SUPER_ADMIN || data.role === UserRole.ADMIN)) {
+      throw new AppError('Only a Super Admin can create Admin or Super Admin accounts', 403);
     }
     const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
     return prisma.user.create({
@@ -47,7 +57,30 @@ export class UserService {
     });
   }
 
-  static async updateStaffUser(id: string, data: { role?: UserRole; branchId?: string | null; isActive?: boolean }) {
+  static async updateStaffUser(
+    actorRole: UserRole,
+    id: string,
+    data: { role?: UserRole; branchId?: string | null; isActive?: boolean }
+  ) {
+    const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+    if (!target) {
+      throw new AppError('Staff account not found', 404);
+    }
+
+    // Same ceiling as creation: an Admin can manage Branch Manager/Staff/
+    // Kitchen Staff accounts, but never touch an existing Admin or Super
+    // Admin account, and never promote anyone into either tier.
+    const nextRole = data.role ?? target.role;
+    const touchesAdminTier =
+      target.role === UserRole.SUPER_ADMIN ||
+      target.role === UserRole.ADMIN ||
+      nextRole === UserRole.SUPER_ADMIN ||
+      nextRole === UserRole.ADMIN;
+
+    if (actorRole !== UserRole.SUPER_ADMIN && touchesAdminTier) {
+      throw new AppError('Only a Super Admin can manage Admin or Super Admin accounts', 403);
+    }
+
     return prisma.user.update({
       where: { id },
       data,

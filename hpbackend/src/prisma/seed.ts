@@ -97,6 +97,33 @@ async function main() {
     },
   });
 
+  const branchStaff = await prisma.user.upsert({
+    where: { phone: '+923000000005' },
+    update: {},
+    create: {
+      name: 'Staff Ali',
+      email: 'ali.staff@hungerpoint.pk',
+      phone: '+923000000005',
+      password: passwordHash,
+      role: UserRole.BRANCH_STAFF,
+      branchId: mainBranch.id,
+      isVerified: true,
+    },
+  });
+
+  const adminUser = await prisma.user.upsert({
+    where: { phone: '+923000000007' },
+    update: {},
+    create: {
+      name: 'Admin Sana',
+      email: 'admin.sana@hungerpoint.pk',
+      phone: '+923000000007',
+      password: passwordHash,
+      role: UserRole.ADMIN,
+      isVerified: true,
+    },
+  });
+
   const riderUser = await prisma.user.upsert({
     where: { phone: '+923000000004' },
     update: {},
