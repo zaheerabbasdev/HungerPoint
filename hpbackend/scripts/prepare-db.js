@@ -46,17 +46,22 @@ const syncSchema = () => {
 const bootstrapSuperAdmin = async () => {
   const phone = (process.env.BOOTSTRAP_ADMIN_PHONE || '').trim();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD || '';
-  if (!phone || !password) return;
-  if (password.length < 10) {
-    console.error('[prepare-db] BOOTSTRAP_ADMIN_PASSWORD must be at least 10 characters — Super Admin not created.');
-    return;
-  }
 
   const { PrismaClient } = require('@prisma/client');
   const bcrypt = require('bcryptjs');
   const prisma = new PrismaClient();
   try {
     const existing = await prisma.user.count({ where: { role: 'SUPER_ADMIN' } });
+    if (!phone || !password) {
+      if (existing === 0) {
+        console.warn('[prepare-db] No Super Admin exists and BOOTSTRAP_ADMIN_PHONE / BOOTSTRAP_ADMIN_PASSWORD are not set — nobody can log in to /admin yet.');
+      }
+      return;
+    }
+    if (password.length < 10) {
+      console.error('[prepare-db] BOOTSTRAP_ADMIN_PASSWORD must be at least 10 characters — Super Admin not created.');
+      return;
+    }
     if (existing > 0) {
       console.log('[prepare-db] A Super Admin already exists — bootstrap skipped (you can remove the BOOTSTRAP_ADMIN_* secrets).');
       return;

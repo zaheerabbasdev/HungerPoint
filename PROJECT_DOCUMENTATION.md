@@ -800,7 +800,7 @@ The phone and the PC must be on the same network, and Windows Firewall must allo
 
 | Variable | Required | Default / example | Notes |
 |---|:-:|---|---|
-| `NODE_ENV` | ✅ | `development` | `production` enables strict CORS, the 100-requests/15-min rate limit, hides OTPs and disables test OTP codes |
+| `NODE_ENV` | ✅ | `development` | `production` enables strict CORS, the 1000-requests/15-min per-visitor rate limit, proxy trust (real client IP, https URLs), hides OTPs and disables test OTP codes |
 | `PORT` | | `5000` | |
 | `DATABASE_URL` | ✅* | `mysql://root:@localhost:3306/hungerpointdb` | *Or provide `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`. When `DB_HOST` is set, these take precedence and are composed into the URL automatically (`config/database.ts`) |
 | `JWT_SECRET` | ✅ | — | 96-hex random. Generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
@@ -808,7 +808,7 @@ The phone and the PC must be on the same network, and Windows Firewall must allo
 | `JWT_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN` | | `30d` / `30d` | |
 | `CORS_ORIGIN` | ✅ prod | `http://localhost:3000,http://localhost:3001` | Comma-separated web origins |
 | `SOCKET_CORS_ORIGIN` | ✅ prod | same as above | |
-| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | | 900000 / auto | Auto: 100 (prod), 2000 (dev) per window |
+| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | | 900000 / auto | Auto: 1000 (prod), 2000 (dev) per visitor IP per window. Leave unset in production |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | ✅ prod | — | Without them OTPs are only logged, so **customers cannot sign in by OTP in production** |
 | `BOOTSTRAP_ADMIN_PHONE`, `BOOTSTRAP_ADMIN_PASSWORD` (≥10 chars), `BOOTSTRAP_ADMIN_NAME` | first deploy | — | Creates the first Super Admin at startup when none exists; remove after first login |
 

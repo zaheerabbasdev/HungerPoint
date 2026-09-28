@@ -10,7 +10,10 @@ import { AuthPayload } from '../middleware/auth.middleware';
 let io: SocketServer;
 
 export const initSocket = (httpServer: HttpServer): SocketServer => {
-  const origins = (process.env.SOCKET_CORS_ORIGIN || 'http://localhost:3000').split(',');
+  const origins = (process.env.SOCKET_CORS_ORIGIN || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim().replace(/\/$/, ''))
+    .filter(Boolean);
 
   io = new SocketServer(httpServer, {
     cors: {

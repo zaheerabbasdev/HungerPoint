@@ -6,7 +6,7 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import 'dotenv/config';
 
 // Route imports
@@ -56,29 +56,43 @@ app.use(helmet({ crossOriginResourcePolicy: false }));
 // ─── Static Uploads ──────────────────────────────────────────
 app.use('/uploads', express.static(uploadDir));
 
+const isProd = process.env.NODE_ENV === 'production';
+
+// In production, requests arrive through Cloudflare and the host's load
+// balancer. Trusting them makes req.protocol "https" (upload URLs) and lets
+// rate limiting see real visitors instead of one shared proxy address.
+if (isProd) app.set('trust proxy', true);
+
 // ─── CORS ────────────────────────────────────────────────────
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',');
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+  .split(',')
+  .map((o) => o.trim().replace(/\/$/, ''))
+  .filter(Boolean);
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || process.env.NODE_ENV === 'development' || allowedOrigins.includes(origin) || origin.startsWith('http://localhost')) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS blocked: ${origin}`));
-    }
+    const allowed =
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      (!isProd && (process.env.NODE_ENV === 'development' || origin.startsWith('http://localhost')));
+    // A disallowed origin just gets no CORS headers (the browser blocks it),
+    // rather than an error that surfaces as a 500.
+    callback(null, allowed);
   },
   credentials: true,
 }));
 
 // ─── Rate Limiting ───────────────────────────────────────────
-// Dev dashboards (admin panel, multiple polling widgets, hot reload) fire far
-// more requests per window than the production-tuned default allows, so use a
-// much higher ceiling outside production instead of one flat limit.
-const isProd = process.env.NODE_ENV === 'production';
+// Per visitor IP. Cloudflare's CF-Connecting-IP is the real client when
+// present. The production ceiling allows for every staff device in a
+// restaurant (POS, KDU, waiter tablets) sharing one public IP; development
+// is higher still for hot reload and polling dashboards.
 const limiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_MAX) || (isProd ? 100 : 2000),
+  max: Number(process.env.RATE_LIMIT_MAX) || (isProd ? 1000 : 2000),
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator((req.headers['cf-connecting-ip'] as string) || req.ip || ''),
+  validate: { trustProxy: false },
   message: { success: false, message: 'Too many requests, please try again later.' },
 });
 app.use('/api', limiter);
