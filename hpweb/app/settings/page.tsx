@@ -12,7 +12,7 @@ import { fetchApi } from '../../lib/api';
 import { useBranch } from '../../context/BranchContext';
 
 const SETTINGS_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN'];
-const STAFF_ROLES = ['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF', 'KITCHEN_STAFF'];
+const STAFF_ROLES = ['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF', 'KITCHEN_STAFF', 'WAITER'];
 
 const emptyStaffForm = { name: '', phone: '', password: '', role: 'BRANCH_STAFF', branchId: '' };
 

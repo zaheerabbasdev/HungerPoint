@@ -14,6 +14,14 @@ const STAFF_ROLES: UserRole[] = [
   UserRole.BRANCH_MANAGER,
   UserRole.BRANCH_STAFF,
   UserRole.KITCHEN_STAFF,
+  UserRole.WAITER,
+];
+// These roles only ever see their own branch's data, so they need one.
+const BRANCH_ROLES: UserRole[] = [
+  UserRole.BRANCH_MANAGER,
+  UserRole.BRANCH_STAFF,
+  UserRole.KITCHEN_STAFF,
+  UserRole.WAITER,
 ];
 
 export class UserService {
@@ -41,6 +49,9 @@ export class UserService {
     // own privileges.
     if (actorRole !== UserRole.SUPER_ADMIN && (data.role === UserRole.SUPER_ADMIN || data.role === UserRole.ADMIN)) {
       throw new AppError('Only a Super Admin can create Admin or Super Admin accounts', 403);
+    }
+    if (BRANCH_ROLES.includes(data.role) && !data.branchId) {
+      throw new AppError('Please choose a branch for this staff account', 400);
     }
     const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
     return prisma.user.create({

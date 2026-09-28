@@ -26,6 +26,9 @@ class ApiService {
     return 'http://$hostIp:$port/api/v1';
   }
 
+  /// The API server's origin (scheme + host), e.g. https://api.eaglesoft.org.
+  static String get serverOrigin => baseUrl.replaceFirst(RegExp(r'/api/v1/?$'), '');
+
   /// Resolves image URLs for local backend uploads on mobile devices
   static String resolveImageUrl(String? url) {
     if (url == null || url.trim().isEmpty) {
@@ -34,21 +37,10 @@ class ApiService {
     String cleaned = url.trim().replaceAll(r'\', '/');
     if (cleaned.startsWith('/uploads/') || cleaned.startsWith('uploads/')) {
       final path = cleaned.startsWith('/') ? cleaned : '/$cleaned';
-      return 'http://$hostIp:$port$path';
+      return '$serverOrigin$path';
     }
-    if (cleaned.contains('localhost:5000')) {
-      return cleaned.replaceAll('localhost:5000', '$hostIp:$port');
-    }
-    if (cleaned.contains('127.0.0.1:5000')) {
-      return cleaned.replaceAll('127.0.0.1:5000', '$hostIp:$port');
-    }
-    if (cleaned.contains('localhost:')) {
-      return cleaned.replaceAll(RegExp(r'localhost:\d+'), '$hostIp:$port');
-    }
-    if (cleaned.contains('127.0.0.1:')) {
-      return cleaned.replaceAll(RegExp(r'127\.0\.0\.1:\d+'), '$hostIp:$port');
-    }
-    return cleaned;
+    // Uploads saved while the API ran on a dev machine point at localhost.
+    return cleaned.replaceFirst(RegExp(r'^https?://(localhost|127\.0\.0\.1)(:\d+)?'), serverOrigin);
   }
 
   // Auth tokens in memory and persistent in SharedPreferences
