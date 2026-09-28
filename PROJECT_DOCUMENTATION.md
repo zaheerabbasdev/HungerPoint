@@ -810,6 +810,7 @@ The phone and the PC must be on the same network, and Windows Firewall must allo
 | `SOCKET_CORS_ORIGIN` | ✅ prod | same as above | |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | | 900000 / auto | Auto: 100 (prod), 2000 (dev) per window |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | ✅ prod | — | Without them OTPs are only logged, so **customers cannot sign in by OTP in production** |
+| `BOOTSTRAP_ADMIN_PHONE`, `BOOTSTRAP_ADMIN_PASSWORD` (≥10 chars), `BOOTSTRAP_ADMIN_NAME` | first deploy | — | Creates the first Super Admin at startup when none exists; remove after first login |
 
 ### Web (`hpweb/.env.local`)
 
@@ -840,13 +841,14 @@ The repo root contains a delegating `package.json`, so hosts that require `packa
 2. Attach a MySQL database.
    - If the host injects `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD`, nothing else is needed; the backend composes `DATABASE_URL` itself.
    - Otherwise set `DATABASE_URL`.
-3. Set the secrets:
+3. Set the secrets. A ready-made list with freshly generated JWT secrets and a strong first-admin password is in `hpbackend/.env.production` (git-ignored; the app does not read it). Copy each line into the host's Secrets:
    - `NODE_ENV=production`
    - fresh `JWT_SECRET` and `JWT_REFRESH_SECRET`
    - `CORS_ORIGIN` and `SOCKET_CORS_ORIGIN` set to the real web domain(s)
    - the Twilio variables
-4. Create the schema once against the production DB (`npx prisma db push` from a machine that can reach it). Seed only if you want demo data, and then change the demo passwords.
-5. Verify `https://<api-domain>/health`.
+   - `BOOTSTRAP_ADMIN_PHONE` / `BOOTSTRAP_ADMIN_PASSWORD` for the first Super Admin
+4. Deploy. **No terminal is needed on the host:** `npm start` runs `scripts/prepare-db.js` first. It creates or updates all tables (`prisma db push`, never with data loss) and creates the first Super Admin if none exists, then starts the server. Problems are logged but never block startup.
+5. Verify `https://<api-domain>/health`. Log in at `/admin` with the bootstrap admin, change the password, then delete the three `BOOTSTRAP_ADMIN_*` secrets.
 
 **Notes:**
 
@@ -861,12 +863,15 @@ Build with `NEXT_PUBLIC_API_URL=https://<api-domain>/api/v1 npm run build`, then
 
 ### 14.3 Mobile apps
 
-```bash
-flutter build apk --release --dart-define=API_BASE_URL=https://<api-domain>/api/v1
-flutter build appbundle --release --dart-define=API_BASE_URL=https://<api-domain>/api/v1   # Play Store
+From the repo root in PowerShell, this builds all three apps into `release\`:
+
+```powershell
+.\build-mobile-release.ps1 -ApiUrl https://<api-domain>/api/v1              # APKs
+.\build-mobile-release.ps1 -ApiUrl https://<api-domain>/api/v1 -AppBundle   # .aab for Play Store
 ```
 
-Use **HTTPS** in production: Android blocks cleartext HTTP by default.
+- Use **HTTPS** in production: Android blocks cleartext HTTP by default.
+- Release builds are currently signed with Flutter's **debug key**. That's fine for installing APKs directly, but the Play Store requires your own upload keystore configured in `android/app/build.gradle.kts`.
 
 ---
 

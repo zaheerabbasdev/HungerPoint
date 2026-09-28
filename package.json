@@ -4,7 +4,7 @@
   "private": true,
   "description": "Monorepo root — delegates build/start to hpbackend for platforms that require package.json at the repository root.",
   "scripts": {
-    "build": "cd hpbackend && npm install && npm run build",
+    "build": "cd hpbackend && npm install --include=dev && npm run build",
     "start": "cd hpbackend && npm start"
   }
 }
