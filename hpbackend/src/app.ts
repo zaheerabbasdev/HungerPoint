@@ -100,6 +100,12 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
+// ─── Root ────────────────────────────────────────────────────
+// Hosting platforms (e.g. GoDaddy) health-check the site root and need a 200.
+app.get('/', (_req: Request, res: Response) => {
+  res.json({ success: true, message: 'HungerPoint API', health: '/health', api: '/api/v1' });
+});
+
 // ─── Health Check ────────────────────────────────────────────
 app.get('/health', (_req: Request, res: Response) => {
   res.json({
