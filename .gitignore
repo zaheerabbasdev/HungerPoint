@@ -4,3 +4,6 @@ node_modules/
 
 # Mobile release builds (build-mobile-release.ps1)
 release/
+
+# Local-only deployment notes (not for GitHub)
+DEPLOYMENT.md
