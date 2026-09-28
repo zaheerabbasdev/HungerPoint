@@ -6,14 +6,12 @@ import { Server as HttpServer } from 'http';
 import { Server as SocketServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { AuthPayload } from '../middleware/auth.middleware';
+import { socketOrigins } from '../config/cors';
 
 let io: SocketServer;
 
 export const initSocket = (httpServer: HttpServer): SocketServer => {
-  const origins = (process.env.SOCKET_CORS_ORIGIN || 'http://localhost:3000')
-    .split(',')
-    .map((o) => o.trim().replace(/\/$/, ''))
-    .filter(Boolean);
+  const origins = socketOrigins();
 
   io = new SocketServer(httpServer, {
     cors: {

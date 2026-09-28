@@ -37,6 +37,7 @@ import reservationRoutes from './modules/reservations/reservation.routes';
 // Middleware imports
 import { errorHandler, AppError } from './middleware/error.middleware';
 import { authenticate } from './middleware/auth.middleware';
+import { apiOrigins } from './config/cors';
 import { notFound } from './middleware/notFound.middleware';
 import path from 'path';
 import fs from 'fs';
@@ -64,10 +65,7 @@ const isProd = process.env.NODE_ENV === 'production';
 if (isProd) app.set('trust proxy', true);
 
 // ─── CORS ────────────────────────────────────────────────────
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
-  .split(',')
-  .map((o) => o.trim().replace(/\/$/, ''))
-  .filter(Boolean);
+const allowedOrigins = apiOrigins();
 app.use(cors({
   origin: (origin, callback) => {
     const allowed =
