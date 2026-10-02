@@ -78,7 +78,6 @@ flowchart LR
     end
 
     DB[(MySQL<br/>hungerpointdb)]
-    SMS[Twilio SMS<br/>optional]
 
     CA -- HTTPS + JWT --> API
     RA -- HTTPS + JWT --> API
@@ -90,7 +89,6 @@ flowchart LR
     WEB <-- WebSocket --> SIO
     API --> MW --> PR --> DB
     API --> UP
-    API -. OTP .-> SMS
 ```
 
 **Key design points:**
@@ -151,7 +149,6 @@ HungerPoint/
 | ORM / DB | Prisma 6.4 with MySQL 8 (local: WAMP/XAMPP) |
 | Auth | `jsonwebtoken` (access + refresh), `bcryptjs` (12 rounds) |
 | Real-time | Socket.IO 4.8 (server + `socket.io-client` / `socket_io_client`) |
-| SMS | Twilio REST API (optional; without it, OTPs are logged to the console) |
 | Web | Next.js 16.3, React 19.2, Tailwind CSS 4, `lucide-react`, `geist` fonts (self-hosted) |
 | Mobile | Flutter (Dart SDK ^3.10): `http`, `shared_preferences`, `socket_io_client`, `geolocator`, `flutter_map` (customer), `url_launcher`, `image_picker` |
 
@@ -170,9 +167,9 @@ HungerPoint/
 | `KITCHEN_STAFF` | hpweb → redirected to `/admin/kitchen` | Password | Own branch | Kitchen Display Unit: start preparing / mark ready |
 | `RIDER` | hprider app | Password | Assigned deliveries | Delivery lifecycle + live GPS |
 | `WAITER` | hpwaiter app | Password | Own branch | Tables, dine-in orders, reservations |
-| `CUSTOMER` | hpcustomer app (OTP) or hpweb storefront (password) | OTP / password | Own data only | Orders, addresses, favorites, vouchers, loyalty, reviews |
+| `CUSTOMER` | hpcustomer app or hpweb storefront | Email + password | Own data only | Orders, addresses, favorites, vouchers, loyalty, reviews |
 
-> **OTP sign-in is customer-only.** A staff phone number is refused at `verify-otp` and must use its password.
+> **Every app signs in with email + password.** Accounts created by an admin (riders, waiters, branch staff…) must be given an email, otherwise they cannot sign in to the mobile apps. The web admin console also accepts the phone number.
 
 ### 5.2 Super Admin vs Admin
 
@@ -230,40 +227,18 @@ Phone numbers must be entered exactly in `+92…` format.
 
 ### 6.1 Authentication
 
-**Staff and web customers: password login**
+**All apps (customer, rider, waiter) and the web: email + password**
 
 ```
-POST /auth/login { phone | email, password } → { user, accessToken, refreshToken }
+POST /auth/login    { email, password }                  → { user, accessToken, refreshToken }
+POST /auth/register { name, email, phone, password }     → customer account + tokens
 ```
 
-**Mobile customers: phone OTP**
-
-```mermaid
-sequenceDiagram
-    participant App as hpcustomer
-    participant API as Backend
-    participant SMS as Twilio (optional)
-    App->>API: POST /auth/send-otp { phone }
-    API->>SMS: "Your HungerPoint code is 123456"
-    API-->>App: { isExistingUser, otp* }
-    Note over API,App: *otp is echoed back only when NODE_ENV ≠ production
-    App->>API: POST /auth/verify-otp { phone, otp }
-    alt existing customer
-        API-->>App: { isNewUser:false, user, accessToken, refreshToken }
-    else new number
-        API-->>App: { isNewUser:true }  (phone marked verified for 15 min)
-        App->>API: POST /auth/complete-profile { phone, name, dateOfBirth? }
-        API-->>App: { user, accessToken, refreshToken }
-    end
-```
-
-**OTP rules:**
-
-- A code is valid for 10 minutes and is burned after 5 wrong guesses.
-- The fixed test codes `123456` / `872305` work **only outside production**.
-- `complete-profile` works only for a phone that has just passed OTP (the marker lasts 15 minutes and can be used once). It never modifies an existing account.
-- Staff numbers are rejected at `verify-otp`.
-- New OTP customers get a random, unguessable password.
+- **Email** is trimmed and matched case-insensitively. The web admin console also accepts a phone number at `/auth/login`, in any common Pakistani format (`+923001234567`, `03001234567`, `0300 1234567`).
+- **Customer self sign-up** needs a name, an email, a mobile number and a password of at least 8 characters. The mobile number is a contact number for riders and is not verified. Email and mobile number must each be unused.
+- **Accounts created by an admin** (Riders page, Settings → Staff) require an email, a phone number and a temporary password. The Rider and Waiter apps accept only their own role.
+- **Throttling:** 20 failed sign-ins per visitor IP per 15 minutes (successful ones do not count) and 30 sign-up attempts per IP per hour in production.
+- There is **no SMS / OTP step**. The old `send-otp`, `verify-otp` and `complete-profile` endpoints were removed on 2026-10-02, so Twilio is no longer needed.
 
 **Tokens:**
 
@@ -464,11 +439,8 @@ Access legend: **Public** means no token needed, **Auth** means any signed-in us
 ### Auth — `/auth`
 | Method | Path | Access | Notes |
 |---|---|---|---|
-| POST | `/register` | Public | Customer registration with password |
-| POST | `/login` | Public | `{ phone \| email, password }` |
-| POST | `/send-otp` | Public | `{ phone }` |
-| POST | `/verify-otp` | Public | `{ phone, otp }`, customers only |
-| POST | `/complete-profile` | Public* | *Only right after a successful `verify-otp` for a new number |
+| POST | `/register` | Public | `{ name, email, phone, password }` (password ≥ 8 characters) |
+| POST | `/login` | Public | `{ email, password }` (the web admin console also accepts `phone`) |
 | POST | `/refresh` | Public | `{ refreshToken }` → new pair (rotation) |
 | POST | `/logout` | Public | `{ refreshToken }` revoked |
 | GET | `/me` | Auth | Current profile |
@@ -700,7 +672,7 @@ The Socket.IO URL is derived automatically from the same base URL.
 
 | Area | Screens |
 |---|---|
-| Onboarding & auth | splash → welcome → phone auth → OTP → name → birthday |
+| Onboarding & auth | splash → welcome → email sign-in / create account |
 | Browse | home, explore, explore search, item detail (variants, dynamic flavours/drinks), favorites, branches / pickup branches |
 | Checkout | cart → payment (address or map location pick, voucher, payment method, instructions) |
 | After order | live order tracking (`flutter_map`, rider marker via `rider.location_updated`), order history, ratings & feedback |
@@ -800,7 +772,7 @@ The phone and the PC must be on the same network, and Windows Firewall must allo
 
 | Variable | Required | Default / example | Notes |
 |---|:-:|---|---|
-| `NODE_ENV` | ✅ | `development` | `production` enables strict CORS, the 1000-requests/15-min per-visitor rate limit, proxy trust (real client IP, https URLs), hides OTPs and disables test OTP codes |
+| `NODE_ENV` | ✅ | `development` | `production` enables strict CORS, the 1000-requests/15-min per-visitor rate limit, proxy trust (real client IP, https URLs) |
 | `PORT` | | `5000` | |
 | `DATABASE_URL` | ✅* | `mysql://root:@localhost:3306/hungerpointdb` | *Or provide `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`. When `DB_HOST` is set, these take precedence and are composed into the URL automatically (`config/database.ts`) |
 | `JWT_SECRET` | ✅ | — | 96-hex random. Generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
@@ -809,8 +781,8 @@ The phone and the PC must be on the same network, and Windows Firewall must allo
 | `CORS_ORIGIN` | ✅ prod | `http://localhost:3000,http://localhost:3001` | Comma-separated web origins |
 | `SOCKET_CORS_ORIGIN` | ✅ prod | same as above | |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | | 900000 / auto | Auto: 1000 (prod), 2000 (dev) per visitor IP per window. Leave unset in production |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | ✅ prod | — | Without them OTPs are only logged, so **customers cannot sign in by OTP in production** |
-| `BOOTSTRAP_ADMIN_PHONE`, `BOOTSTRAP_ADMIN_PASSWORD` (≥10 chars), `BOOTSTRAP_ADMIN_NAME` | first deploy | — | Creates the first Super Admin at startup when none exists; remove after first login |
+| `AUTH_RATE_LIMIT_MAX` / `REGISTER_RATE_LIMIT_MAX` | | 20 / 30 (prod) | Failed sign-ins per 15 min and sign-ups per hour, per visitor IP. Leave unset in production |
+| `BOOTSTRAP_ADMIN_PHONE`, `BOOTSTRAP_ADMIN_PASSWORD` (≥10 chars), `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` | first deploy | — | Creates the first Super Admin at startup when none exists; remove after first login |
 
 ### Web (`hpweb/.env.local`)
 
@@ -845,7 +817,6 @@ The repo root contains a delegating `package.json`, so hosts that require `packa
    - `NODE_ENV=production`
    - fresh `JWT_SECRET` and `JWT_REFRESH_SECRET`
    - `CORS_ORIGIN` and `SOCKET_CORS_ORIGIN` set to the real web domain(s)
-   - the Twilio variables
    - `BOOTSTRAP_ADMIN_PHONE` / `BOOTSTRAP_ADMIN_PASSWORD` for the first Super Admin
 4. Deploy. **No terminal is needed on the host:** `npm start` runs `scripts/prepare-db.js` first. It creates or updates all tables (`prisma db push`, never with data loss) and creates the first Super Admin if none exists, then starts the server. Problems are logged but never block startup.
 5. Verify `https://<api-domain>/health`. Log in at `/admin` with the bootstrap admin, change the password, then delete the three `BOOTSTRAP_ADMIN_*` secrets.
@@ -855,7 +826,6 @@ The repo root contains a delegating `package.json`, so hosts that require `packa
 - `prisma generate` downloads the query engine from `binaries.prisma.sh` during install/build. A transient network failure there shows up as dozens of misleading `TS2305: Module '@prisma/client' has no exported member …` errors. **Retry the build**; it is not a code problem.
 - TypeScript is pinned to 5.x on purpose. The experimental 7.x native compiler fails on Linux builders.
 - `uploads/` is local disk. On hosts with ephemeral containers, uploaded images can disappear on redeploy (see §17).
-- The OTP store is in memory, so run **one** backend instance.
 
 ### 14.2 Web (`hpweb`)
 
@@ -884,7 +854,7 @@ From the repo root in PowerShell, this builds all three apps into `release\`:
 | Account state | `authenticate` reloads the user on every request, so deactivated users are locked out immediately |
 | RBAC | `authorize(...roles)` per route, plus ownership / branch scoping in controllers (orders, kitchen, reports) |
 | Privilege ceiling | Only a Super Admin can create or modify Admin-tier accounts or edit System Settings |
-| OTP | Customer-only, 10-minute expiry, 5-attempt limit. No echo or test codes in production. Registration requires a fresh verification |
+| Sign-in | Email + password only (no SMS / OTP). Failed-attempt throttling per visitor IP; sign-ups limited per hour |
 | Input | `express-validator` on auth, whitelisted enums for order status/source, date and pagination parsing in reports |
 | Uploads | Authenticated, image MIME/extension whitelist, 10 MB limit, random filenames |
 | HTTP hardening | `helmet`, CORS allow-list in production, rate limiting on `/api`, 10 MB JSON limit |
@@ -893,6 +863,8 @@ From the repo root in PowerShell, this builds all three apps into `release\`:
 ---
 
 ## 16. Flow Audit — 2026-09-27
+
+> **Update 2026-10-02:** phone OTP sign-in was removed entirely (all apps now use email + password), so findings 1–4 below, which concerned OTP, no longer apply. They are kept as a record.
 
 A full review of the order lifecycle, auth and supporting modules found the issues below. **All were fixed in this pass** and verified against a live backend.
 
@@ -956,9 +928,9 @@ Ordered by priority.
 1. **Expired access tokens are still accepted** (`auth.middleware.ts`, `TokenExpiredError` fallback). Combined with 30-day tokens, a leaked token effectively never expires.
    - `hpweb` and `hprider` already refresh on 401, but **`hpcustomer` and `hpwaiter` do not**. Removing the fallback today would log their users out.
    - Next step: add refresh-on-401 to both apps, then remove the fallback and shorten `JWT_EXPIRES_IN` (e.g. 15 min).
-2. **Existing OTP customers created before 2026-09-27** have the password `Customer@123456`. Reset or randomize these passwords.
+2. **Local test customers created before 2026-09-27** (via the old OTP flow) have the password `Customer@123456`. Production has no such accounts.
 3. **Socket `order:track` doesn't check ownership.** Any socket that knows an order ID (a UUID) receives that order's updates and the rider's live location. Verify the token and ownership on join.
-4. **Production OTP requires Twilio.** Without it, customers cannot receive codes. OTP state is in memory, so run one instance; a restart discards pending codes.
+4. **Existing accounts without an email cannot sign in to the mobile apps.** Riders and staff created before this change need an email added (the Riders page shows "No email — cannot sign in"). Production had none.
 5. **Payments:** the module is a stub. JazzCash / Easypaisa / card are recorded as the payment method only; there is no gateway, capture or refund flow.
 6. **Inventory is not deducted by orders.** The `Recipe` / `RecipeItem` models exist but aren't wired in, and `inventory.low_stock` is never emitted.
 7. **Coupons:** `usageCount` isn't decremented when an order is cancelled, and the global usage-limit check isn't atomic under concurrent orders.
@@ -979,9 +951,10 @@ Ordered by priority.
 | Dozens of `TS2305 … has no exported member` errors from `@prisma/client` | Same: failed engine download from `binaries.prisma.sh` | Retry `npx prisma generate` / the build |
 | `EPERM: operation not permitted, rename … query_engine-windows.dll.node` | A running backend holds the engine DLL (Windows) | Stop `npm run dev`, regenerate, restart |
 | Login says "Invalid credentials or password" | Phone format or password typo (autofill often adds a space) | Use the exact `+92…` format; retype the password |
+| "Too many failed attempts" when signing in | More than 20 failed sign-ins from one IP in 15 minutes | Wait 15 minutes |
 | Login says "Account has been deactivated" | Account toggled off in Settings / Riders | Re-activate it from **Settings → Staff** (or the Riders page) |
 | Can't assign a rider | Order not `READY`, not a delivery order, or rider profile inactive | Mark it ready in the KDU / activate the rider |
 | Mobile app: `SocketException: Network is unreachable` | Wrong `API_HOST`, phone on a different network, or firewall | Use the PC's LAN IP via `--dart-define`, same Wi-Fi, allow port 5000 |
 | Web shows CORS errors in production | Web domain not in `CORS_ORIGIN` / `SOCKET_CORS_ORIGIN` | Add it and restart the backend |
-| Customers don't receive OTP in production | Twilio not configured | Set the three `TWILIO_*` variables |
+| App says "Invalid credentials" for a rider/waiter | The account has no email, or the email differs from the one typed | Check the email on the Riders page / Settings → Staff |
 | Host health check fails / 502 | "Root path" set to a folder, or DB not reachable | Clear root path; check `DB_*` / `DATABASE_URL` |

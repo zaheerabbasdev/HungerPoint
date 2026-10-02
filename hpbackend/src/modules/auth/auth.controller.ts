@@ -6,13 +6,14 @@ import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
 import * as AuthService from './auth.service';
 import { sendSuccess, sendCreated, sendBadRequest } from '../../utils/response';
+import { normalizeEmail, normalizePhone, isValidPhone } from '../../utils/identity';
 
 // ─── Validation Rules ─────────────────────────────────────────
 export const registerValidation = [
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ min: 2, max: 100 }),
-  body('phone').trim().notEmpty().withMessage('Phone is required').isMobilePhone('any'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('email').optional().isEmail().withMessage('Invalid email').normalizeEmail(),
+  body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Enter a valid email address').customSanitizer(normalizeEmail),
+  body('phone').trim().notEmpty().withMessage('Phone number is required').customSanitizer(normalizePhone).custom(isValidPhone).withMessage('Enter a valid phone number'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
 ];
 
 export const loginValidation = [
@@ -109,49 +110,3 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
-
-// ─── Send OTP ─────────────────────────────────────────────────
-export const sendOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { phone } = req.body;
-    if (!phone) {
-      sendBadRequest(res, 'Phone number is required');
-      return;
-    }
-    const result = await AuthService.sendOtp(phone);
-    sendSuccess(res, result, result.message);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ─── Verify OTP ───────────────────────────────────────────────
-export const verifyOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { phone, otp } = req.body;
-    if (!phone || !otp) {
-      sendBadRequest(res, 'Phone and OTP are required');
-      return;
-    }
-    const result = await AuthService.verifyOtp(phone, otp);
-    sendSuccess(res, result, result.message);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ─── Complete Profile ─────────────────────────────────────────
-export const completeProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { phone, name, dateOfBirth, email, password } = req.body;
-    if (!phone || !name) {
-      sendBadRequest(res, 'Phone and full name are required');
-      return;
-    }
-    const result = await AuthService.completeProfile({ phone, name, dateOfBirth, email, password });
-    sendCreated(res, result, 'Profile completed successfully');
-  } catch (error) {
-    next(error);
-  }
-};
-

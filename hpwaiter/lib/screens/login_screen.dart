@@ -12,17 +12,21 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
   String _errorMessage = '';
 
   Future<void> _login() async {
-    final phone = _phoneController.text.trim();
-    final password = _passwordController.text.trim();
-    if (phone.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Please enter your phone number and password.');
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your email and password.');
+      return;
+    }
+    if (!email.contains('@') || !email.contains('.')) {
+      setState(() => _errorMessage = 'Please enter a valid email address.');
       return;
     }
 
@@ -31,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = '';
     });
 
-    final result = await ApiService.login(phone, password);
+    final result = await ApiService.login(email, password);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -46,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -93,13 +97,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
 
                 TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  textInputAction: TextInputAction.next,
                   style: const TextStyle(color: AppColors.darkNavy, fontSize: 14),
                   decoration: InputDecoration(
-                    labelText: 'Phone Number',
-                    hintText: 'e.g. 03001234567',
-                    prefixIcon: const Icon(Icons.phone, color: AppColors.primaryOrange),
+                    labelText: 'Email',
+                    hintText: 'you@example.com',
+                    prefixIcon: const Icon(Icons.mail_outline, color: AppColors.primaryOrange),
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.cardBorder)),

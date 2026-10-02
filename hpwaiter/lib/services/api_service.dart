@@ -101,12 +101,12 @@ class ApiService {
 
   // ─── AUTHENTICATION ──────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> login(String phone, String password) async {
+  static Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: _headers(),
-        body: jsonEncode({'phone': phone, 'password': password}),
+        body: jsonEncode({'email': email.trim(), 'password': password}),
       ).timeout(const Duration(seconds: 8));
 
       final data = jsonDecode(res.body);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
-import 'phone_auth_screen.dart';
+import 'email_auth_screen.dart';
 import 'main_navigation_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -75,12 +75,12 @@ class WelcomeScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const PhoneAuthScreen()),
+                      MaterialPageRoute(builder: (_) => const EmailAuthScreen()),
                     );
                   },
-                  icon: const Icon(Icons.phone, color: AppColors.darkNavy, size: 20),
+                  icon: const Icon(Icons.mail_outline, color: AppColors.darkNavy, size: 20),
                   label: const Text(
-                    'CONTINUE WITH PHONE',
+                    'SIGN IN WITH EMAIL',
                     style: TextStyle(
                       color: AppColors.darkNavy,
                       fontSize: 14,

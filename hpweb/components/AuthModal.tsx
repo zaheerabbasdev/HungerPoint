@@ -10,10 +10,10 @@ import { useAuth } from '../context/AuthContext';
 export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { login, register } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [phone, setPhone] = useState('+923009999999');
-  const [password, setPassword] = useState('Customer@123456');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -26,9 +26,9 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
     try {
       if (mode === 'login') {
-        await login(phone, password);
+        await login(email, password);
       } else {
-        await register(name, phone, password, email);
+        await register(name, email, phone, password);
       }
       onClose();
     } catch (err: any) {
@@ -106,27 +106,31 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           )}
 
           <div>
-            <label className="block text-stone-400 font-bold mb-1">Mobile Phone Number</label>
+            <label className="block text-stone-400 font-bold mb-1">Email</label>
             <input
-              type="text"
+              type="email"
               required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+923009999999"
-              className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-stone-100 outline-none focus:border-amber-500 font-mono"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-stone-100 outline-none focus:border-amber-500"
             />
           </div>
 
           {mode === 'register' && (
             <div>
-              <label className="block text-stone-400 font-bold mb-1">Email Address (Optional)</label>
+              <label className="block text-stone-400 font-bold mb-1">Mobile Number</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="ahmed@gmail.com"
+                type="tel"
+                required
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="03XX XXXXXXX"
                 className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-stone-100 outline-none focus:border-amber-500"
               />
+              <p className="text-[11px] text-stone-500 mt-1">Riders call this number when your order arrives.</p>
             </div>
           )}
 
@@ -135,9 +139,11 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             <input
               type="password"
               required
+              minLength={mode === 'register' ? 8 : undefined}
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder={mode === 'register' ? 'At least 8 characters' : '••••••••'}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-stone-100 outline-none focus:border-amber-500"
             />
           </div>
@@ -150,25 +156,6 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             {submitting ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
-
-        {/* Demo Accounts Quick Login */}
-        <div className="mt-6 pt-4 border-t border-stone-800 text-[11px] text-stone-400">
-          <p className="font-bold text-stone-300 mb-2">⚡ Quick Test Logins:</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              onClick={() => { setPhone('+923009999999'); setPassword('Customer@123456'); setMode('login'); }}
-              className="p-1.5 bg-stone-800 hover:bg-stone-700 rounded-lg text-amber-400 font-medium text-left truncate"
-            >
-              👤 Customer Account
-            </button>
-            <button
-              onClick={() => { setPhone('+923000000001'); setPassword('Admin@123456'); setMode('login'); }}
-              className="p-1.5 bg-stone-800 hover:bg-stone-700 rounded-lg text-amber-400 font-medium text-left truncate"
-            >
-              👑 Super Admin
-            </button>
-          </div>
-        </div>
 
       </div>
     </div>

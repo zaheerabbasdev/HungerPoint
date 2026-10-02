@@ -19,8 +19,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (phone: string, password: string) => Promise<void>;
-  register: (name: string, phone: string, password: string, email?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, phone: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -44,10 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (phone: string, password: string) => {
+  const login = async (email: string, password: string) => {
     const res = await fetchApi('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ phone, password }),
+      body: JSON.stringify({ email: email.trim(), password }),
     });
 
     if (res.success) {
@@ -60,10 +60,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (name: string, phone: string, password: string, email?: string) => {
+  const register = async (name: string, email: string, phone: string, password: string) => {
     const res = await fetchApi('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name, phone, password, email }),
+      body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), password }),
     });
 
     if (res.success) {

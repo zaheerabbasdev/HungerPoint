@@ -10,6 +10,7 @@ import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/error.middleware';
 import { AuthPayload } from '../../middleware/auth.middleware';
 import { UserRole } from '@prisma/client';
+import { normalizeEmail, normalizePhone } from '../../utils/identity';
 
 const SALT_ROUNDS = 12;
 
@@ -22,6 +23,9 @@ const generateAccessToken = (payload: AuthPayload): string =>
 const generateRefreshToken = (payload: AuthPayload): string =>
   jwt.sign(payload, process.env.JWT_REFRESH_SECRET as string, {
     expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '30d') as jwt.SignOptions['expiresIn'],
+    // Unique per token: two sign-ins within the same second (a double tap) would
+    // otherwise produce identical tokens, and the stored hash must be unique.
+    jwtid: uuidv4(),
   });
 
 // Refresh tokens are stored as a SHA-256 hash rather than the raw JWT:
@@ -33,17 +37,15 @@ const hashToken = (token: string): string => crypto.createHash('sha256').update(
 export const registerCustomer = async (data: {
   name: string;
   phone: string;
-  email?: string;
+  email: string;
   password: string;
   dateOfBirth?: string;
 }) => {
   const exists = await prisma.user.findUnique({ where: { phone: data.phone } });
   if (exists) throw new AppError('Phone number already registered', 409);
 
-  if (data.email) {
-    const emailExists = await prisma.user.findUnique({ where: { email: data.email } });
-    if (emailExists) throw new AppError('Email already registered', 409);
-  }
+  const emailExists = await prisma.user.findUnique({ where: { email: data.email } });
+  if (emailExists) throw new AppError('Email already registered', 409);
 
   const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
 
@@ -84,7 +86,8 @@ export const registerCustomer = async (data: {
 
 // ─── Login ────────────────────────────────────────────────────
 export const login = async (data: { phone?: string; email?: string; password: string }) => {
-  const identifier = (data.phone || data.email || '').trim();
+  const raw = (data.phone || data.email || '').trim();
+  const identifier = raw.includes('@') ? normalizeEmail(raw) : normalizePhone(raw);
   const user = await prisma.user.findFirst({
     where: {
       OR: [
@@ -209,235 +212,3 @@ export const changePassword = async (userId: string, oldPassword: string, newPas
   // Invalidate all refresh tokens
   await prisma.refreshToken.deleteMany({ where: { userId } });
 };
-
-// ─── OTP Store & Authentication for Customer App ─────────────
-interface OtpEntry {
-  otp: string;
-  expiresAt: number;
-  attempts: number;
-}
-const otpStore = new Map<string, OtpEntry>();
-
-// Fixed test codes and echoing the OTP back in the API response are
-// development conveniences only — in production either one would let anyone
-// sign in as any customer.
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const DEV_OTP_CODES = ['123456', '872305'];
-const MAX_OTP_ATTEMPTS = 5;
-
-// Phones that just passed OTP verification but have no account yet.
-// completeProfile may only create an account for one of these.
-const VERIFIED_PHONE_TTL_MS = 15 * 60 * 1000;
-const verifiedPhones = new Map<string, number>();
-
-// Helper to send real SMS if a provider (Twilio) is configured in .env
-const sendSmsViaGateway = async (phone: string, text: string) => {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromPhone = process.env.TWILIO_PHONE_NUMBER;
-
-  if (accountSid && authToken && fromPhone) {
-    try {
-      const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-      const params = new URLSearchParams();
-      params.append('To', phone);
-      params.append('From', fromPhone);
-      params.append('Body', text);
-
-      const authHeader = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${authHeader}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params.toString(),
-      });
-      const result = (await response.json()) as any;
-      console.log(`[SMS GATEWAY] Twilio dispatch status:`, result.status || result.message);
-    } catch (err) {
-      console.error(`[SMS GATEWAY ERROR] Failed to send SMS via Twilio:`, err);
-    }
-  } else {
-    console.log(`[SMS GATEWAY SIMULATION] To deliver real carrier SMS, set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in .env. Simulated SMS to ${phone}: "${text}"`);
-  }
-};
-
-export const sendOtp = async (phone: string) => {
-  const cleanPhone = phone.trim();
-  const existingUser = await prisma.user.findUnique({
-    where: { phone: cleanPhone },
-    select: { id: true, name: true, phone: true },
-  });
-
-  // Generate 6-digit OTP
-  const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-  otpStore.set(cleanPhone, {
-    otp: generatedOtp,
-    expiresAt: Date.now() + 10 * 60 * 1000,
-    attempts: 0,
-  });
-
-  if (!IS_PRODUCTION) {
-    console.log(`[OTP SERVICE] Generated OTP for ${cleanPhone}: ${generatedOtp} (dev also accepts ${DEV_OTP_CODES.join(' / ')})`);
-  }
-
-  // Send via SMS gateway or log simulation
-  await sendSmsViaGateway(cleanPhone, `Your HungerPoint verification code is: ${generatedOtp}. Valid for 10 minutes.`);
-
-  return {
-    phone: cleanPhone,
-    isExistingUser: !!existingUser,
-    message: 'OTP sent successfully',
-    ...(IS_PRODUCTION ? {} : { otp: generatedOtp }),
-  };
-};
-
-export const verifyOtp = async (phone: string, otp: string) => {
-  const cleanPhone = phone.trim();
-  const stored = otpStore.get(cleanPhone);
-
-  const isValidDevOtp = !IS_PRODUCTION && DEV_OTP_CODES.includes(otp);
-  const isValidStoredOtp = !!stored && stored.otp === otp && stored.expiresAt > Date.now();
-
-  if (!isValidDevOtp && !isValidStoredOtp) {
-    // Burn the code after too many wrong guesses so it can't be brute-forced.
-    if (stored) {
-      stored.attempts += 1;
-      if (stored.attempts >= MAX_OTP_ATTEMPTS) otpStore.delete(cleanPhone);
-    }
-    throw new AppError('Invalid or expired OTP code', 400);
-  }
-
-  otpStore.delete(cleanPhone);
-
-  const user = await prisma.user.findUnique({
-    where: { phone: cleanPhone },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      email: true,
-      role: true,
-      isActive: true,
-      isVerified: true,
-      profileImage: true,
-      customer: {
-        select: {
-          dateOfBirth: true,
-          totalOrders: true,
-          totalSpent: true,
-        },
-      },
-    },
-  });
-
-  if (user) {
-    if (!user.isActive) throw new AppError('Account has been deactivated', 403);
-    // OTP sign-in is the customer flow; staff accounts (admins, managers,
-    // riders, waiters…) must always use their password.
-    if (user.role !== UserRole.CUSTOMER) {
-      throw new AppError('This number belongs to a staff account — please sign in with your password.', 403);
-    }
-
-    const payload: AuthPayload = { userId: user.id, role: user.role };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    await prisma.refreshToken.create({
-      data: {
-        tokenHash: hashToken(refreshToken),
-        userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    return {
-      isNewUser: false,
-      user,
-      accessToken,
-      refreshToken,
-      message: 'Login successful',
-    };
-  }
-
-  verifiedPhones.set(cleanPhone, Date.now() + VERIFIED_PHONE_TTL_MS);
-
-  return {
-    isNewUser: true,
-    phone: cleanPhone,
-    message: 'OTP verified. Please complete your registration.',
-  };
-};
-
-export const completeProfile = async (data: {
-  phone: string;
-  name: string;
-  dateOfBirth?: string;
-  email?: string;
-  password?: string;
-}) => {
-  const cleanPhone = data.phone.trim();
-
-  // Only a phone that just passed OTP verification may register — otherwise
-  // anyone could claim any number (or an existing account) without the SMS.
-  const verifiedUntil = verifiedPhones.get(cleanPhone);
-  if (!verifiedUntil || verifiedUntil < Date.now()) {
-    verifiedPhones.delete(cleanPhone);
-    throw new AppError('Please verify your phone number with the OTP first', 401);
-  }
-
-  const existingUser = await prisma.user.findUnique({ where: { phone: cleanPhone }, select: { id: true } });
-  if (existingUser) {
-    verifiedPhones.delete(cleanPhone);
-    throw new AppError('An account with this phone number already exists — please sign in', 409);
-  }
-
-  // OTP customers sign in by SMS, so without an explicit password they get an
-  // unguessable random one rather than a shared default.
-  const password = data.password || crypto.randomBytes(24).toString('hex');
-  const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
-  const newUser = await prisma.user.create({
-    data: {
-      name: data.name,
-      phone: cleanPhone,
-      email: data.email,
-      password: hashedPassword,
-      role: UserRole.CUSTOMER,
-      isVerified: true,
-      customer: {
-        create: {
-          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
-          loyaltyAccount: { create: {} },
-        },
-      },
-    },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      email: true,
-      role: true,
-      isVerified: true,
-      createdAt: true,
-    },
-  });
-
-  verifiedPhones.delete(cleanPhone);
-
-  const payload: AuthPayload = { userId: newUser.id, role: newUser.role };
-  const accessToken = generateAccessToken(payload);
-  const refreshToken = generateRefreshToken(payload);
-
-  await prisma.refreshToken.create({
-    data: {
-      tokenHash: hashToken(refreshToken),
-      userId: newUser.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    },
-  });
-
-  return { user: newUser, accessToken, refreshToken };
-};
-

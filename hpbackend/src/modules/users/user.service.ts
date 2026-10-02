@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database';
 import { UserRole } from '@prisma/client';
 import { AppError } from '../../middleware/error.middleware';
+import { requireEmail, requirePhone } from '../../utils/identity';
 
 const SALT_ROUNDS = 12;
 const STAFF_ROLES: UserRole[] = [
@@ -39,7 +40,7 @@ export class UserService {
 
   static async createStaffUser(
     actorRole: UserRole,
-    data: { name: string; phone: string; password: string; role: UserRole; branchId?: string; email?: string }
+    data: { name: string; phone: string; password: string; role: UserRole; branchId?: string; email: string }
   ) {
     if (!STAFF_ROLES.includes(data.role)) {
       throw new AppError('Invalid staff role', 400);
@@ -53,12 +54,14 @@ export class UserService {
     if (BRANCH_ROLES.includes(data.role) && !data.branchId) {
       throw new AppError('Please choose a branch for this staff account', 400);
     }
+    const email = requireEmail(data.email);
+    const phone = requirePhone(data.phone);
     const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
     return prisma.user.create({
       data: {
         name: data.name,
-        phone: data.phone,
-        email: data.email,
+        phone,
+        email,
         password: hashedPassword,
         role: data.role,
         branchId: data.branchId,

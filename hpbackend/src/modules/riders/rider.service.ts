@@ -8,6 +8,7 @@ import { RiderStatus, DeliveryStatus, OrderStatus, UserRole } from '@prisma/clie
 import { emitToUser, SOCKET_EVENTS } from '../../sockets';
 import { OrderService } from '../orders/order.service';
 import { AppError } from '../../middleware/error.middleware';
+import { requireEmail, requirePhone } from '../../utils/identity';
 
 const SALT_ROUNDS = 12;
 
@@ -15,16 +16,20 @@ export class RiderService {
   static async createRider(data: {
     name: string;
     phone: string;
+    email: string;
     password: string;
     branchId?: string;
     vehicle?: string;
     licensePlate?: string;
   }) {
+    const email = requireEmail(data.email);
+    const phone = requirePhone(data.phone);
     const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
     const user = await prisma.user.create({
       data: {
         name: data.name,
-        phone: data.phone,
+        phone,
+        email,
         password: hashedPassword,
         role: UserRole.RIDER,
         branchId: data.branchId,
@@ -39,7 +44,7 @@ export class RiderService {
         vehicle: data.vehicle,
         licensePlate: data.licensePlate,
       },
-      include: { user: { select: { id: true, name: true, phone: true } }, branch: { select: { name: true } } },
+      include: { user: { select: { id: true, name: true, phone: true, email: true } }, branch: { select: { name: true } } },
     });
   }
 

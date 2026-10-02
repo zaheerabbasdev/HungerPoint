@@ -84,16 +84,44 @@ app.use(cors({
 // present. The production ceiling allows for every staff device in a
 // restaurant (POS, KDU, waiter tablets) sharing one public IP; development
 // is higher still for hot reload and polling dashboards.
+const visitorKey = (req: Request) => ipKeyGenerator((req.headers['cf-connecting-ip'] as string) || req.ip || '');
+
 const limiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: Number(process.env.RATE_LIMIT_MAX) || (isProd ? 1000 : 2000),
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => ipKeyGenerator((req.headers['cf-connecting-ip'] as string) || req.ip || ''),
+  keyGenerator: visitorKey,
   validate: { trustProxy: false },
   message: { success: false, message: 'Too many requests, please try again later.' },
 });
 app.use('/api', limiter);
+
+// Password guessing: failed sign-ins are throttled much harder than normal
+// traffic. Successful sign-ins don't count, so staff sharing one restaurant IP
+// can all sign in freely.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX) || (isProd ? 20 : 200),
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: visitorKey,
+  validate: { trustProxy: false },
+  message: { success: false, message: 'Too many failed attempts. Please wait 15 minutes and try again.' },
+});
+
+// Account creation has its own budget (every attempt counts), so a customer
+// fixing typos on the sign-up form can't lock themselves out of signing in.
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.REGISTER_RATE_LIMIT_MAX) || (isProd ? 30 : 500),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: visitorKey,
+  validate: { trustProxy: false },
+  message: { success: false, message: 'Too many sign-up attempts. Please try again later.' },
+});
 
 // ─── Body Parsing ────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
@@ -131,6 +159,9 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // ─── API Routes ──────────────────────────────────────────────
 const API = '/api/v1';
+
+app.use(`${API}/auth/login`, loginLimiter);
+app.use(`${API}/auth/register`, registerLimiter);
 
 app.use(`${API}/auth`,          authRoutes);
 app.use(`${API}/users`,         userRoutes);

@@ -75,6 +75,7 @@ const bootstrapSuperAdmin = async () => {
       data: {
         name: process.env.BOOTSTRAP_ADMIN_NAME || 'Super Administrator',
         phone,
+        email: (process.env.BOOTSTRAP_ADMIN_EMAIL || '').trim().toLowerCase() || undefined,
         password: await bcrypt.hash(password, 12),
         role: 'SUPER_ADMIN',
         isVerified: true,

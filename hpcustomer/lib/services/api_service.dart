@@ -120,95 +120,12 @@ class ApiService {
 
   // ─── AUTHENTICATION ──────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> sendOtp(String phone) async {
-    try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/auth/send-otp'),
-        headers: _headers(),
-        body: jsonEncode({'phone': phone}),
-      ).timeout(const Duration(seconds: 8));
-
-      final data = jsonDecode(res.body);
-      if (res.statusCode == 200 && data['success'] == true) {
-        return {'success': true, 'data': data['data']};
-      }
-      return {'success': false, 'message': data['message'] ?? 'Could not send OTP'};
-    } catch (e) {
-      debugPrint('API Error (sendOtp): $e');
-      return {'success': false, 'message': 'Network error. Please try again.'};
-    }
-  }
-
-  static Future<Map<String, dynamic>> verifyOtp(String phone, String otp) async {
-    try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/auth/verify-otp'),
-        headers: _headers(),
-        body: jsonEncode({'phone': phone, 'otp': otp}),
-      ).timeout(const Duration(seconds: 8));
-
-      final data = jsonDecode(res.body);
-      if (res.statusCode == 200 && data['success'] == true) {
-        final resData = data['data'];
-        if (resData['accessToken'] != null) {
-          setAuthTokens(
-            accessToken: resData['accessToken'],
-            refreshToken: resData['refreshToken'],
-            user: resData['user'],
-          );
-        }
-        return {'success': true, 'data': resData};
-      }
-      return {'success': false, 'message': data['message'] ?? 'Invalid OTP code'};
-    } catch (e) {
-      debugPrint('API Error (verifyOtp): $e');
-      return {'success': false, 'message': 'Network error. Please try again.'};
-    }
-  }
-
-  static Future<Map<String, dynamic>> completeProfile({
-    required String phone,
-    required String name,
-    String? dateOfBirth,
-    String? email,
-  }) async {
-    try {
-      final body = <String, dynamic>{
-        'phone': phone,
-        'name': name,
-      };
-      if (dateOfBirth != null) body['dateOfBirth'] = dateOfBirth;
-      if (email != null) body['email'] = email;
-
-      final res = await http.post(
-        Uri.parse('$baseUrl/auth/complete-profile'),
-        headers: _headers(),
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 8));
-
-      final data = jsonDecode(res.body);
-      if ((res.statusCode == 200 || res.statusCode == 201) && data['success'] == true) {
-        final resData = data['data'];
-        setAuthTokens(
-          accessToken: resData['accessToken'],
-          refreshToken: resData['refreshToken'],
-          user: resData['user'],
-        );
-        return {'success': true, 'data': resData};
-      }
-      return {'success': false, 'message': data['message'] ?? 'Profile setup failed'};
-    } catch (e) {
-      debugPrint('API Error (completeProfile): $e');
-      return {'success': false, 'message': 'Network error. Please try again.'};
-    }
-  }
-
-  static Future<Map<String, dynamic>> login(String phone, String password) async {
+  static Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: _headers(),
-        body: jsonEncode({'phone': phone, 'password': password}),
+        body: jsonEncode({'email': email.trim(), 'password': password}),
       ).timeout(const Duration(seconds: 8));
 
       final data = jsonDecode(res.body);
@@ -229,17 +146,17 @@ class ApiService {
 
   static Future<Map<String, dynamic>> register({
     required String name,
+    required String email,
     required String phone,
     required String password,
-    String? email,
   }) async {
     try {
       final body = <String, dynamic>{
         'name': name,
+        'email': email.trim(),
         'phone': phone,
         'password': password,
       };
-      if (email != null && email.isNotEmpty) body['email'] = email;
 
       final res = await http.post(
         Uri.parse('$baseUrl/auth/register'),

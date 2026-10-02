@@ -32,7 +32,7 @@ export default function RidersPage() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '', password: '', branchId: '', vehicle: '', licensePlate: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', branchId: '', vehicle: '', licensePlate: '' });
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -79,13 +79,17 @@ export default function RidersPage() {
   };
 
   const handleCreate = async () => {
-    if (!form.name.trim() || !form.phone.trim() || !form.password.trim()) return;
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.password.trim()) {
+      showToast('Name, email, phone and password are all required');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetchApi('/riders', {
         method: 'POST',
         body: JSON.stringify({
           name: form.name.trim(),
+          email: form.email.trim(),
           phone: form.phone.trim(),
           password: form.password,
           branchId: form.branchId || currentUser?.branchId || undefined,
@@ -96,7 +100,7 @@ export default function RidersPage() {
       if (res.success) {
         showToast('Rider created successfully');
         setShowCreate(false);
-        setForm({ name: '', phone: '', password: '', branchId: '', vehicle: '', licensePlate: '' });
+        setForm({ name: '', email: '', phone: '', password: '', branchId: '', vehicle: '', licensePlate: '' });
         await loadRiders();
       } else {
         showToast(res.message || 'Failed to create rider');
@@ -187,7 +191,8 @@ export default function RidersPage() {
                   <tr key={r.id} className="hover:bg-stone-800/30">
                     <td className="px-4 py-2.5">
                       <p className="font-bold text-stone-100">{r.user?.name}</p>
-                      <p className="text-stone-500">{r.user?.phone}</p>
+                      <p className="text-stone-500">{r.user?.email || 'No email — cannot sign in'}</p>
+                      <p className="text-stone-600">{r.user?.phone}</p>
                     </td>
                     <td className="px-4 py-2.5 text-stone-400">{r.branch?.name || '—'}</td>
                     <td className="px-4 py-2.5 text-stone-400">{r.vehicle || '—'} {r.licensePlate ? `(${r.licensePlate})` : ''}</td>
@@ -225,9 +230,11 @@ export default function RidersPage() {
             <h3 className="text-base font-black text-stone-100">New Rider</h3>
             <input type="text" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
+            <input type="email" placeholder="Email (used to sign in)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
             <input type="text" placeholder="Phone number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
-            <input type="password" placeholder="Temporary password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+            <input type="password" placeholder="Temporary password (min 8 characters)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
             {currentUser?.role !== 'BRANCH_MANAGER' && (
               <select value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}

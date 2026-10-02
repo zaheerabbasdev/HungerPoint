@@ -14,7 +14,7 @@ import { useBranch } from '../../context/BranchContext';
 const SETTINGS_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN'];
 const STAFF_ROLES = ['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF', 'KITCHEN_STAFF', 'WAITER'];
 
-const emptyStaffForm = { name: '', phone: '', password: '', role: 'BRANCH_STAFF', branchId: '' };
+const emptyStaffForm = { name: '', email: '', phone: '', password: '', role: 'BRANCH_STAFF', branchId: '' };
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -82,13 +82,17 @@ export default function SettingsPage() {
   };
 
   const handleCreateStaff = async () => {
-    if (!staffForm.name.trim() || !staffForm.phone.trim() || !staffForm.password.trim()) return;
+    if (!staffForm.name.trim() || !staffForm.email.trim() || !staffForm.phone.trim() || !staffForm.password.trim()) {
+      showToast('Name, email, phone and password are all required');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetchApi('/users', {
         method: 'POST',
         body: JSON.stringify({
           name: staffForm.name.trim(),
+          email: staffForm.email.trim(),
           phone: staffForm.phone.trim(),
           password: staffForm.password,
           role: staffForm.role,
@@ -211,7 +215,8 @@ export default function SettingsPage() {
                     <tr key={s.id} className="hover:bg-stone-800/30">
                       <td className="px-4 py-2.5">
                         <p className="font-bold text-stone-100">{s.name}</p>
-                        <p className="text-stone-500">{s.phone}</p>
+                        <p className="text-stone-500">{s.email || 'No email — cannot sign in'}</p>
+                        <p className="text-stone-600">{s.phone}</p>
                       </td>
                       <td className="px-4 py-2.5 text-amber-400 font-bold">{s.role.replace('_', ' ')}</td>
                       <td className="px-4 py-2.5 text-stone-400">{s.branch?.name || '—'}</td>
@@ -286,9 +291,11 @@ export default function SettingsPage() {
             <h3 className="text-base font-black text-stone-100">New Staff Account</h3>
             <input type="text" placeholder="Full name" value={staffForm.name} onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
+            <input type="email" placeholder="Email (used to sign in)" value={staffForm.email} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
+              className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
             <input type="text" placeholder="Phone number" value={staffForm.phone} onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
-            <input type="password" placeholder="Temporary password" value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+            <input type="password" placeholder="Temporary password (min 8 characters)" value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
             <select value={staffForm.role} onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none">
