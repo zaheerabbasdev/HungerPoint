@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/cart_service.dart';
 import '../services/address_service.dart';
 import '../services/branch_service.dart';
+import '../services/order_payload.dart';
 import '../services/api_service.dart';
 import 'location_picker_screen.dart';
 import 'add_address_screen.dart';
@@ -267,8 +268,45 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
+  void _showOrderFailed(String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Order Failed',
+          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E1B4B)),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Color(0xFF6B7280)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFF5722))),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Handles Place Order action
   Future<void> _handlePlaceOrder(int total) async {
+    // An order needs a branch to go to. Check before showing the spinner:
+    // with no branches there is nothing to wait for.
+    final branch = BranchService().selectedBranch ??
+        (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first : null);
+    if (branch == null) {
+      _showOrderFailed('No branch is available to take orders right now. Please try again later.');
+      return;
+    }
+    if (CartService().items.isEmpty) {
+      _showOrderFailed('Your cart is empty.');
+      return;
+    }
+
     // Show loading indicator
     showDialog(
       context: context,
@@ -280,53 +318,53 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
     );
 
-    final branch = BranchService().selectedBranch ?? BranchService().allBranches.first;
-    final isPickup = BranchService().isPickupMode;
-    final orderItems = CartService().items.map((it) {
-      return {
-        'productId': it['id']?.toString() ?? '1',
-        'quantity': (it['quantity'] as int?) ?? 1,
-        'unitPrice': (it['price'] as int?) ?? 0,
-        'notes': it['variation']?.toString(),
-      };
-    }).toList();
+    // Whatever goes wrong below, the spinner must always be closed and the
+    // customer told — never left waiting.
+    Map<String, dynamic> res;
+    try {
+      final isPickup = BranchService().isPickupMode;
+      final orderItems = buildOrderItems(CartService().items);
 
-    final paymentMethod = _selectedPaymentMethod == 'JazzCash'
-        ? 'JAZZCASH'
-        : (_selectedPaymentMethod == 'Easypaisa'
-            ? 'EASYPAISA'
-            : (_selectedPaymentMethod == 'Debit / Credit Card'
-                ? 'CREDIT_CARD'
-                : 'CASH_ON_DELIVERY'));
+      final paymentMethod = _selectedPaymentMethod == 'JazzCash'
+          ? 'JAZZCASH'
+          : (_selectedPaymentMethod == 'Easypaisa'
+              ? 'EASYPAISA'
+              : (_selectedPaymentMethod == 'Debit / Credit Card'
+                  ? 'CREDIT_CARD'
+                  : 'CASH_ON_DELIVERY'));
 
-    // The order only links to a real Address record via addressId — a saved
-    // address already has one, but a one-off "Choose Location" pick doesn't,
-    // so persist it first or the rider app has nothing to show after pickup.
-    String? addressId;
-    if (!isPickup) {
-      addressId = _selectedAddress?.id;
-      if (addressId == null) {
-        final created = await ApiService.addAddress({
-          'label': 'OTHER',
-          'customName': 'Delivery location',
-          'address': AddressService().activeDeliveryLabel,
-          if (AddressService().temporaryLatitude != null) 'latitude': AddressService().temporaryLatitude,
-          if (AddressService().temporaryLongitude != null) 'longitude': AddressService().temporaryLongitude,
-        });
-        addressId = created?['id']?.toString();
+      // The order only links to a real Address record via addressId — a saved
+      // address already has one, but a one-off "Choose Location" pick doesn't,
+      // so persist it first or the rider app has nothing to show after pickup.
+      String? addressId;
+      if (!isPickup) {
+        addressId = _selectedAddress?.id;
+        if (addressId == null) {
+          final created = await ApiService.addAddress({
+            'label': 'OTHER',
+            'customName': 'Delivery location',
+            'address': AddressService().activeDeliveryLabel,
+            if (AddressService().temporaryLatitude != null) 'latitude': AddressService().temporaryLatitude,
+            if (AddressService().temporaryLongitude != null) 'longitude': AddressService().temporaryLongitude,
+          });
+          addressId = created?['id']?.toString();
+        }
       }
-    }
 
-    final res = await ApiService.createOrder(
-      branchId: branch.id,
-      type: isPickup ? 'PICKUP' : 'DELIVERY',
-      items: orderItems,
-      paymentMethod: paymentMethod,
-      addressId: addressId,
-      deliveryAddress: isPickup ? null : (_selectedAddress?.address ?? AddressService().activeDeliveryLabel),
-      notes: _instructionsController.text.trim().isNotEmpty ? _instructionsController.text.trim() : null,
-      couponCode: _appliedVoucherCode,
-    );
+      res = await ApiService.createOrder(
+        branchId: branch.id,
+        type: isPickup ? 'PICKUP' : 'DELIVERY',
+        items: orderItems,
+        paymentMethod: paymentMethod,
+        addressId: addressId,
+        deliveryAddress: isPickup ? null : (_selectedAddress?.address ?? AddressService().activeDeliveryLabel),
+        notes: _instructionsController.text.trim().isNotEmpty ? _instructionsController.text.trim() : null,
+        couponCode: _appliedVoucherCode,
+      );
+    } catch (e) {
+      debugPrint('Place order failed: $e');
+      res = {'success': false, 'message': 'Something went wrong while placing your order. Please try again.'};
+    }
 
     // Dismiss loading dialog
     if (mounted) Navigator.pop(context);
@@ -334,27 +372,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final bool orderSucceeded = res['success'] == true && res['data'] != null;
 
     if (!orderSucceeded) {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text(
-            'Order Failed',
-            style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E1B4B)),
-          ),
-          content: Text(
-            res['message']?.toString() ?? 'We could not place your order. Please try again.',
-            style: const TextStyle(color: Color(0xFF6B7280)),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFF5722))),
-            ),
-          ],
-        ),
-      );
+      _showOrderFailed(res['message']?.toString() ?? 'We could not place your order. Please try again.');
       return;
     }
 

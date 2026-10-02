@@ -43,12 +43,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     return name.contains('pizza') || cat.contains('pizza') || desc.contains('pizza') || desc.contains('crust');
   }
 
-  bool get _isBurger {
-    final name = (widget.item['name'] ?? '').toString().toLowerCase();
-    final cat = (widget.item['category'] ?? '').toString().toLowerCase();
-    return name.contains('burger') || cat.contains('burger');
-  }
-
   @override
   void initState() {
     super.initState();
@@ -63,24 +57,20 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     if (backendVariants != null && backendVariants.isNotEmpty) {
       _variations = backendVariants.map<Map<String, dynamic>>((v) {
         final rawP = v['price'];
-        int p = rawP is num ? rawP.toInt() : (double.tryParse(rawP?.toString() ?? '')?.toInt() ?? 0);
-        // If variant price is delta (0 or less than half base price), add base price
-        if (p == 0) {
-          p = _basePrice;
-        } else if (p < (_basePrice * 0.5) && _basePrice > 0) {
-          p = _basePrice + p;
-        }
+        final offset = rawP is num ? rawP.toInt() : (double.tryParse(rawP?.toString() ?? '')?.toInt() ?? 0);
         final name = v['name']?.toString() ?? 'Regular';
         return {
-          'id': v['id']?.toString() ?? name,
+          'id': v['id']?.toString(),
           'name': name,
-          'price': p,
+          // The admin enters a size's price as "PKR +" on top of the product's
+          // base price, and the server charges it the same way.
+          'price': _basePrice + offset,
           'sizeKey': _normalizeSizeKey(name),
         };
       }).toList();
     } else {
       _variations = [
-        {'id': 'v_regular', 'name': 'Regular', 'price': _basePrice, 'sizeKey': 'regular'},
+        {'id': null, 'name': 'Regular', 'price': _basePrice, 'sizeKey': 'regular'},
       ];
     }
 
@@ -207,47 +197,15 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
   }
 
-  // ─── FLAVOURS (Backed by real database products) ───────────────
-  // True whenever this product actually has something to choose between:
-  // admin-configured flavours (any product type), or one of the two
-  // categories that still get a demo fallback when nothing's configured.
-  bool get _hasFlavours => _dynamicFlavours.isNotEmpty || _isPizza || _isBurger;
+  // ─── FLAVOURS / DRINKS / ADD-ONS ───────────────────────────────
+  // Only what the admin has actually configured is offered. Nothing is made up
+  // here: anything shown can be ordered and is priced by the server.
+  bool get _hasFlavours => _dynamicFlavours.isNotEmpty;
 
-  List<Map<String, String>> get _flavourOptions {
-    if (_dynamicFlavours.isNotEmpty) {
-      return _dynamicFlavours;
-    }
-    if (_isBurger) {
-      return [
-        {'name': 'Classic Crispy', 'desc': 'Mildly seasoned crunchy recipe with signature sauce'},
-        {'name': 'Spicy Jalapeño', 'desc': 'Fiery chili glaze with pickled jalapeños & hot sauce'},
-        {'name': 'Smokey BBQ', 'desc': 'Sweet and smokey barbecue glaze with caramelized onions'},
-      ];
-    }
-    return [
-      {'name': 'Chicken Tikka', 'desc': 'Traditional spicy marinated chicken with fresh onions & herbs'},
-      {'name': 'Chicken Fajita', 'desc': 'Mexican spiced chicken with crisp bell peppers & onions'},
-      {'name': 'Pepperoni Passion', 'desc': 'Loaded beef pepperoni with premium double mozzarella cheese'},
-      {'name': 'Veggie Supreme', 'desc': 'Sweet corn, mushrooms, olives, bell peppers & juicy tomatoes'},
-      {'name': 'Cheese Feast', 'desc': 'Triple blend of melted mozzarella, cheddar & parmesan cheese'},
-    ];
-  }
+  List<Map<String, String>> get _flavourOptions => _dynamicFlavours;
 
-  // ─── DRINKS (Backed by real database beverages from admin panel) ─
-  List<Map<String, dynamic>> get _drinkOptions {
-    if (_backendDrinks.isNotEmpty) {
-      return _backendDrinks;
-    }
-    return [
-      {'name': 'Coca-Cola (345ml)', 'price': 140, 'tag': 'Chilled'},
-      {'name': 'Sprite (345ml)', 'price': 140, 'tag': 'Chilled'},
-      {'name': 'Fanta (345ml)', 'price': 140, 'tag': 'Chilled'},
-      {'name': 'Diet Coke (345ml Can)', 'price': 160, 'tag': 'Sugar Free'},
-      {'name': 'Fresh Lime Soda', 'price': 180, 'tag': 'Refreshing'},
-      {'name': 'Mint Margarita', 'price': 220, 'tag': 'Signature'},
-      {'name': 'Nestle Mineral Water (500ml)', 'price': 80, 'tag': 'Pure'},
-    ];
-  }
+  // Real products the admin has flagged as beverages.
+  List<Map<String, dynamic>> get _drinkOptions => _backendDrinks;
 
   // ─── ADDONS / TOPPINGS (Backed by real admin add-ons) ───────────
   List<Map<String, dynamic>> get _filteredToppings {
@@ -274,7 +232,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       });
     }
 
-    // 1. Linked addons for this product from admin panel
+    // 1. Add-ons the admin linked to this product.
     final prodAddons = widget.item['addons'] as List<dynamic>?;
     if (prodAddons != null) {
       for (final a in prodAddons) {
@@ -282,21 +240,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       }
     }
 
-    // 2. All active addons from backend
-    for (final a in _backendAddons) {
-      addAddon(a);
-    }
-
-    // 3. Fallback catalog if backend has not configured addons yet
+    // 2. A product with no linked add-ons falls back to the shop-wide active
+    // add-ons, so extras created in the admin panel are never unavailable.
     if (result.isEmpty) {
-      return [
-        {'id': 'top_cheese', 'name': 'Extra Cheese', 'price': 120, 'sizeKey': 'all', 'baseToppingKey': 'cheese'},
-        {'id': 'top_chicken', 'name': 'Extra Chicken / Meat', 'price': 150, 'sizeKey': 'all', 'baseToppingKey': 'chicken'},
-        {'id': 'top_olives', 'name': 'Black Olives & Mushrooms', 'price': 80, 'sizeKey': 'all', 'baseToppingKey': 'olives'},
-        {'id': 'top_jalapenos', 'name': 'Pickled Jalapeños', 'price': 60, 'sizeKey': 'all', 'baseToppingKey': 'jalapenos'},
-        {'id': 'top_garlic_dip', 'name': 'Garlic Mayo Dip Cup', 'price': 70, 'sizeKey': 'all', 'baseToppingKey': 'garlic_dip'},
-        {'id': 'top_ranch_dip', 'name': 'Creamy Ranch Dip Cup', 'price': 80, 'sizeKey': 'all', 'baseToppingKey': 'ranch_dip'},
-      ];
+      for (final a in _backendAddons) {
+        addAddon(a);
+      }
     }
 
     return result;
@@ -381,7 +330,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       );
     }).toList();
 
-    final variationName = _variations[_selectedVariationIndex!]['name'].toString();
+    final selectedVariation = _variations[_selectedVariationIndex!];
+    final variationName = selectedVariation['name'].toString();
 
     final cartItem = {
       'id': widget.item['id'] ?? widget.item['name'],
@@ -389,8 +339,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       'name': widget.item['name'],
       'desc': widget.item['desc'],
       'image': widget.item['image'],
+      'variantId': selectedVariation['id'],
       'variation': variationName,
       'flavour': _selectedFlavour ?? '',
+      'drinkId': _selectedDrink?['id'],
       'drink': _selectedDrink != null ? _selectedDrink!['name'] : '',
       'toppings': selectedToppingsList,
       'instructions': _instructionsController.text.trim(),
@@ -610,7 +562,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          'Starting from PKR ${_variations.isNotEmpty ? _variations.first['price'] : widget.item['price']}',
+                          'Starting from PKR ${_variations.map((v) => v['price'] as int).reduce((a, b) => a < b ? a : b)}',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
@@ -721,7 +673,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                             const SizedBox(height: 28),
                           ],
 
-                          // ─── 3. DRINK FLAVOUR SELECTION (ALL UNCHECKED INITIALLY) ───
+                          // ─── 3. DRINK (only real beverages the admin created) ───
+                          if (_drinkOptions.isNotEmpty) ...[
                           _buildSectionHeader(
                             title: 'Drink Flavour',
                             badgeText: 'OPTIONAL',
@@ -796,8 +749,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                             );
                           }),
                           const SizedBox(height: 28),
+                          ],
 
-                          // ─── 4. DYNAMIC EXTRA ADD-ONS & TOPPINGS (FROM ADMIN PANEL) ───
+                          // ─── 4. EXTRA ADD-ONS & TOPPINGS (only real add-ons from the admin panel) ───
+                          if (_filteredToppings.isNotEmpty) ...[
                           _buildSectionHeader(
                             title: 'Extra Add-ons & Toppings',
                             badgeText: 'OPTIONAL • Multi-select',
@@ -881,6 +836,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                             );
                           }),
                           const SizedBox(height: 28),
+                          ],
 
                           // ─── 5. SPECIAL INSTRUCTIONS / NOTES ───
                           _buildSectionHeader(

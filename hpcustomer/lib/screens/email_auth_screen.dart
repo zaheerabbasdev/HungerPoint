@@ -28,6 +28,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String _errorMessage = '';
+  String _successMessage = '';
 
   @override
   void dispose() {
@@ -43,6 +44,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
     setState(() {
       _isRegister = register;
       _errorMessage = '';
+      _successMessage = '';
     });
   }
 
@@ -61,6 +63,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
+      _successMessage = '';
     });
 
     final email = _emailController.text.trim();
@@ -81,6 +84,20 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
       setState(() {
         _isLoading = false;
         _errorMessage = res['message']?.toString() ?? 'Something went wrong. Please try again.';
+      });
+      return;
+    }
+
+    // A new account goes back to the sign-in screen with the email filled in;
+    // the customer signs in themselves.
+    if (_isRegister) {
+      setState(() {
+        _isLoading = false;
+        _isRegister = false;
+        _successMessage = 'Account created! Please sign in with your email and password.';
+        _nameController.clear();
+        _phoneController.clear();
+        _passwordController.clear();
       });
       return;
     }
@@ -197,6 +214,27 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                if (_successMessage.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      border: Border.all(color: Colors.green.shade200),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(_successMessage, style: TextStyle(color: Colors.green.shade800, fontSize: 13, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  ),
 
                 if (_errorMessage.isNotEmpty)
                   Container(

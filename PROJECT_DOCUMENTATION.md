@@ -351,6 +351,11 @@ total        = subtotal − discount + deliveryFee + tax
 ```
 
 - Defaults are **5% tax** and a **PKR 50** delivery fee. A Super Admin can change both in **Settings → System** without redeploying.
+- A size's **price is an offset** ("PKR +" in the admin form) added to the product's base price: a 500 product with a Large size of +300 costs 800. All apps show it that way.
+- **Order lines carry the real choices.** Each line sends `productId`, `variantId` (size), `addonIds`, `quantity` and `notes` (flavour and the customer's note). A chosen drink is its own line, priced from the beverage product. The apps never send prices; the server prices everything.
+- The server rejects: an unknown, inactive or foreign `variantId`; an unknown or inactive add-on; a quantity that is not a whole number from 1 to 50; and an empty order (400).
+- The customer app only offers flavours, drinks and add-ons that the admin has actually created. Nothing is made up as a fallback, because anything shown must be orderable.
+- An order needs a branch. If none exists (a new installation), the customer app says so instead of waiting.
 - Inactive or unknown products are rejected (400 / 404).
 - **Coupons** (`couponCode` on order creation) check:
   - active, start and expiry dates, and the global usage limit;

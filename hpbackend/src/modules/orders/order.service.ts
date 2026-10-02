@@ -35,7 +35,15 @@ export class OrderService {
     let subtotal = 0;
     const orderItemsData: any[] = [];
 
+    if (!Array.isArray(data.items) || data.items.length === 0) {
+      throw new AppError('An order needs at least one item', 400);
+    }
+
     for (const item of data.items) {
+      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 50) {
+        throw new AppError('Each item needs a quantity between 1 and 50', 400);
+      }
+
       const product = await prisma.product.findUnique({ where: { id: item.productId } });
       if (!product) {
         throw new AppError(`Product not found: ${item.productId}`, 404);
@@ -44,18 +52,25 @@ export class OrderService {
         throw new AppError(`"${product.name}" is no longer available`, 400);
       }
 
+      // A chosen size must be a live size of this very product — otherwise it
+      // would silently be priced as the base size.
       let variantPrice = 0;
       if (item.variantId) {
         const variant = await prisma.productVariant.findUnique({ where: { id: item.variantId } });
-        if (variant) {
-          variantPrice = Number(variant.price);
+        if (!variant || !variant.isActive || variant.productId !== product.id) {
+          throw new AppError(`The selected size of "${product.name}" is no longer available`, 400);
         }
+        variantPrice = Number(variant.price);
       }
 
       let addonsPrice = 0;
       const addonCreates: { addonId: string; addonName: string; price: number }[] = [];
       if (item.addonIds && item.addonIds.length > 0) {
-        const addonRecords = await prisma.addon.findMany({ where: { id: { in: item.addonIds } } });
+        const wanted = [...new Set(item.addonIds)];
+        const addonRecords = await prisma.addon.findMany({ where: { id: { in: wanted }, isActive: true } });
+        if (addonRecords.length !== wanted.length) {
+          throw new AppError(`An add-on chosen for "${product.name}" is no longer available`, 400);
+        }
         for (const a of addonRecords) {
           const price = Number(a.price);
           addonsPrice += price;

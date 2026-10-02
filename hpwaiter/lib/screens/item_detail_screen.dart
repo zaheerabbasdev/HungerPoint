@@ -60,12 +60,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     if (_hasRealVariants) {
       _variations = backendVariants!.map<Map<String, dynamic>>((v) {
         final rawP = v['price'];
-        int p = rawP is num ? rawP.toInt() : (double.tryParse(rawP?.toString() ?? '')?.toInt() ?? 0);
-        if (p == 0) {
-          p = _basePrice;
-        } else if (p < (_basePrice * 0.5) && _basePrice > 0) {
-          p = _basePrice + p;
-        }
+        final offset = rawP is num ? rawP.toInt() : (double.tryParse(rawP?.toString() ?? '')?.toInt() ?? 0);
+        // The admin enters a size's price as '+ PKR' on top of the base price,
+        // and the server charges it the same way.
+        final p = _basePrice + offset;
         return {
           'id': v['id']?.toString(),
           'name': v['name']?.toString() ?? 'Regular',

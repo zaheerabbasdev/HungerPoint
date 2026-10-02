@@ -166,11 +166,8 @@ class ApiService {
 
       final data = jsonDecode(res.body);
       if ((res.statusCode == 200 || res.statusCode == 201) && data['success'] == true) {
-        setAuthTokens(
-          accessToken: data['data']['accessToken'],
-          refreshToken: data['data']['refreshToken'],
-          user: data['data']['user'],
-        );
+        // Creating an account does not sign anyone in: the customer is sent to
+        // the sign-in screen, so no session is stored here.
         return {'success': true, 'data': data['data']};
       }
       return {'success': false, 'message': data['message'] ?? 'Registration failed'};
