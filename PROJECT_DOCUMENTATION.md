@@ -509,6 +509,10 @@ Access legend: **Public** means no token needed, **Auth** means any signed-in us
 | POST | `/riders/location` | RIDER (`latitude, longitude, heading?, speed?`) |
 | GET / POST / PUT | `/riders`, `/riders/:id` | SA, AD, BM |
 | POST | `/riders/assign` | SA, AD, BM (`{ orderId, riderId }`) |
+
+**Editing a rider:** `PUT /riders/:id` accepts `name`, `email`, `phone`, `password` (≥ 8 characters, optional), `vehicle`, `licensePlate`, `branchId`, `isActive`. Use it to give an older rider (created before email sign-in) an email so they can sign in to the Rider app. A Branch Manager can only edit riders of their own branch.
+
+**Duplicates:** an email or phone number already used by any account is refused with 409 and a message naming the owner. Phone numbers are matched in every stored format (`+92300…`, `0300…`, `92300…`), so accounts created before numbers were normalised are still recognised. Creating a rider is all-or-nothing, and an unknown or inactive branch is refused with 400 (riders, staff and orders).
 | GET | `/deliveries/me/active`, `/deliveries/me/history` | RIDER |
 | PATCH | `/deliveries/:id/accept` · `/pickup` · `/out-for-delivery` · `/delivered` · `/failed` | RIDER (own deliveries only, strict order) |
 

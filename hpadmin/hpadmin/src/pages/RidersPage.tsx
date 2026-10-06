@@ -29,6 +29,8 @@ export default function RidersPage() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const [showCreate, setShowCreate] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [modalError, setModalError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', branchId: '', vehicle: '', licensePlate: '' });
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -75,35 +77,77 @@ export default function RidersPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleCreate = async () => {
-    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.password.trim()) {
-      showToast('Name, email, phone and password are all required');
+  const emptyForm = { name: '', email: '', phone: '', password: '', branchId: '', vehicle: '', licensePlate: '' };
+
+  const openCreate = () => {
+    setModalError('');
+    setEditingId(null);
+    setForm(emptyForm);
+    setShowCreate(true);
+  };
+
+  const openEdit = (r: any) => {
+    setModalError('');
+    setEditingId(r.id);
+    setForm({
+      name: r.user?.name || '',
+      email: r.user?.email || '',
+      phone: r.user?.phone || '',
+      password: '',
+      branchId: r.branchId || '',
+      vehicle: r.vehicle || '',
+      licensePlate: r.licensePlate || '',
+    });
+    setShowCreate(true);
+  };
+
+  const closeModal = () => {
+    setModalError('');
+    setShowCreate(false);
+    setEditingId(null);
+  };
+
+  const handleSave = async () => {
+    const editing = editingId !== null;
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || (!editing && !form.password.trim())) {
+      setModalError(editing ? 'Name, email and phone are required' : 'Name, email, phone and password are all required');
       return;
     }
+    if (form.password && form.password.length < 8) {
+      setModalError('Password must be at least 8 characters');
+      return;
+    }
+    setModalError('');
     setSaving(true);
     try {
-      const res = await fetchApi('/riders', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim(),
-          password: form.password,
-          branchId: form.branchId || currentUser?.branchId || undefined,
-          vehicle: form.vehicle.trim() || undefined,
-          licensePlate: form.licensePlate.trim() || undefined,
-        }),
+      const body: Record<string, unknown> = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        vehicle: form.vehicle.trim() || undefined,
+        licensePlate: form.licensePlate.trim() || undefined,
+      };
+      if (form.password) body.password = form.password;
+      if (editing) {
+        if (currentUser?.role !== 'BRANCH_MANAGER' && form.branchId) body.branchId = form.branchId;
+      } else {
+        body.branchId = form.branchId || currentUser?.branchId || undefined;
+      }
+
+      const res = await fetchApi(editing ? `/riders/${editingId}` : '/riders', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(body),
       });
       if (res.success) {
-        showToast('Rider created successfully');
-        setShowCreate(false);
-        setForm({ name: '', email: '', phone: '', password: '', branchId: '', vehicle: '', licensePlate: '' });
+        showToast(editing ? 'Rider updated' : 'Rider created successfully');
+        closeModal();
+        setForm(emptyForm);
         await loadRiders();
       } else {
-        showToast(res.message || 'Failed to create rider');
+        setModalError(res.message || (editing ? 'Failed to update rider' : 'Failed to create rider'));
       }
     } catch (err: any) {
-      showToast(err.message || 'Failed to create rider');
+      setModalError(err.message || (editing ? 'Failed to update rider' : 'Failed to create rider'));
     } finally {
       setSaving(false);
     }
@@ -158,7 +202,7 @@ export default function RidersPage() {
               <option value="ON_DELIVERY">On Delivery</option>
               <option value="OFFLINE">Offline</option>
             </select>
-            <button onClick={() => setShowCreate(true)} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black rounded-xl">
+            <button onClick={openCreate} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black rounded-xl">
               + New Rider
             </button>
           </div>
@@ -204,6 +248,12 @@ export default function RidersPage() {
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <button
+                        onClick={() => openEdit(r)}
+                        className="mr-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-stone-800 text-amber-400 hover:bg-stone-700"
+                      >
+                        Edit
+                      </button>
+                      <button
                         onClick={() => handleToggleActive(r)}
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
                           r.isActive ? 'bg-red-500/15 text-red-400 hover:bg-red-500/25' : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25'
@@ -224,14 +274,17 @@ export default function RidersPage() {
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-stone-900 border border-stone-800 rounded-3xl p-5 space-y-3">
-            <h3 className="text-base font-black text-stone-100">New Rider</h3>
+            <h3 className="text-base font-black text-stone-100">{editingId ? 'Edit Rider' : 'New Rider'}</h3>
+            {modalError && (
+              <div className="p-2.5 bg-red-950/60 border border-red-800/60 text-red-300 text-xs font-semibold rounded-xl">{modalError}</div>
+            )}
             <input type="text" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
             <input type="email" placeholder="Email (used to sign in)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
             <input type="text" placeholder="Phone number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
-            <input type="password" placeholder="Temporary password (min 8 characters)" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+            <input type="password" placeholder={editingId ? 'New password (leave empty to keep the current one)' : 'Temporary password (min 8 characters)'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
             {currentUser?.role !== 'BRANCH_MANAGER' && (
               <select value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}
@@ -245,9 +298,9 @@ export default function RidersPage() {
             <input type="text" placeholder="License plate" value={form.licensePlate} onChange={(e) => setForm({ ...form, licensePlate: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
             <div className="flex gap-2 pt-1">
-              <button onClick={() => setShowCreate(false)} className="flex-1 py-2.5 text-xs font-bold text-stone-400 hover:text-stone-200">Cancel</button>
-              <button onClick={handleCreate} disabled={saving} className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black rounded-xl disabled:opacity-50">
-                {saving ? 'Creating...' : 'Create Rider'}
+              <button onClick={closeModal} className="flex-1 py-2.5 text-xs font-bold text-stone-400 hover:text-stone-200">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black rounded-xl disabled:opacity-50">
+                {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Rider'}
               </button>
             </div>
           </div>

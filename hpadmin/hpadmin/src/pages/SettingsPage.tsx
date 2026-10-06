@@ -28,6 +28,7 @@ export default function SettingsPage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const [showStaffForm, setShowStaffForm] = useState(false);
+  const [staffError, setStaffError] = useState('');
   const [staffForm, setStaffForm] = useState(emptyStaffForm);
   const [saving, setSaving] = useState(false);
 
@@ -80,9 +81,10 @@ export default function SettingsPage() {
 
   const handleCreateStaff = async () => {
     if (!staffForm.name.trim() || !staffForm.email.trim() || !staffForm.phone.trim() || !staffForm.password.trim()) {
-      showToast('Name, email, phone and password are all required');
+      setStaffError('Name, email, phone and password are all required');
       return;
     }
+    setStaffError('');
     setSaving(true);
     try {
       const res = await fetchApi('/users', {
@@ -102,10 +104,10 @@ export default function SettingsPage() {
         setStaffForm(emptyStaffForm);
         await loadData();
       } else {
-        showToast(res.message || 'Failed to create account');
+        setStaffError(res.message || 'Failed to create account');
       }
     } catch (err: any) {
-      showToast(err.message || 'Failed to create account');
+      setStaffError(err.message || 'Failed to create account');
     } finally {
       setSaving(false);
     }
@@ -188,7 +190,7 @@ export default function SettingsPage() {
           <div className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-stone-800 flex justify-between items-center">
               <h2 className="text-sm font-extrabold text-stone-100">Staff Accounts</h2>
-              <button onClick={() => setShowStaffForm(true)} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black rounded-xl">
+              <button onClick={() => { setStaffError(''); setShowStaffForm(true); }} className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black rounded-xl">
                 + New Staff Account
               </button>
             </div>
@@ -286,6 +288,9 @@ export default function SettingsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-stone-900 border border-stone-800 rounded-3xl p-5 space-y-3">
             <h3 className="text-base font-black text-stone-100">New Staff Account</h3>
+            {staffError && (
+              <div className="p-2.5 bg-red-950/60 border border-red-800/60 text-red-300 text-xs font-semibold rounded-xl">{staffError}</div>
+            )}
             <input type="text" placeholder="Full name" value={staffForm.name} onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })}
               className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3 py-2.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
             <input type="email" placeholder="Email (used to sign in)" value={staffForm.email} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
@@ -304,7 +309,7 @@ export default function SettingsPage() {
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
             <div className="flex gap-2 pt-1">
-              <button onClick={() => setShowStaffForm(false)} className="flex-1 py-2.5 text-xs font-bold text-stone-400 hover:text-stone-200">Cancel</button>
+              <button onClick={() => { setStaffError(''); setShowStaffForm(false); }} className="flex-1 py-2.5 text-xs font-bold text-stone-400 hover:text-stone-200">Cancel</button>
               <button onClick={handleCreateStaff} disabled={saving} className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-black rounded-xl disabled:opacity-50">
                 {saving ? 'Creating...' : 'Create Account'}
               </button>

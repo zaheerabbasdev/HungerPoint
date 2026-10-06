@@ -7,6 +7,8 @@ import { prisma } from '../../config/database';
 import { UserRole } from '@prisma/client';
 import { AppError } from '../../middleware/error.middleware';
 import { requireEmail, requirePhone } from '../../utils/identity';
+import { assertIdentityAvailable } from './account-identity';
+import { assertBranchAvailable } from '../branches/branch-guard';
 
 const SALT_ROUNDS = 12;
 const STAFF_ROLES: UserRole[] = [
@@ -56,6 +58,8 @@ export class UserService {
     }
     const email = requireEmail(data.email);
     const phone = requirePhone(data.phone);
+    if (data.branchId) await assertBranchAvailable(data.branchId);
+    await assertIdentityAvailable({ email, phone });
     const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
     return prisma.user.create({
       data: {

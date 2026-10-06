@@ -9,6 +9,8 @@ import { emitToUser, SOCKET_EVENTS } from '../../sockets';
 import { OrderService } from '../orders/order.service';
 import { AppError } from '../../middleware/error.middleware';
 import { requireEmail, requirePhone } from '../../utils/identity';
+import { assertIdentityAvailable } from '../users/account-identity';
+import { assertBranchAvailable } from '../branches/branch-guard';
 
 const SALT_ROUNDS = 12;
 
@@ -24,35 +26,62 @@ export class RiderService {
   }) {
     const email = requireEmail(data.email);
     const phone = requirePhone(data.phone);
+    if (!data.password || data.password.length < 8) throw new AppError('Password must be at least 8 characters', 400);
+    if (data.branchId) await assertBranchAvailable(data.branchId);
+    await assertIdentityAvailable({ email, phone });
     const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
-    const user = await prisma.user.create({
-      data: {
-        name: data.name,
-        phone,
-        email,
-        password: hashedPassword,
-        role: UserRole.RIDER,
-        branchId: data.branchId,
-        isVerified: true,
-      },
-    });
 
-    return prisma.rider.create({
-      data: {
-        userId: user.id,
-        branchId: data.branchId,
-        vehicle: data.vehicle,
-        licensePlate: data.licensePlate,
-      },
-      include: { user: { select: { id: true, name: true, phone: true, email: true } }, branch: { select: { name: true } } },
+    // User and rider profile are created together or not at all.
+    return prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { name: data.name, phone, email, password: hashedPassword, role: UserRole.RIDER, branchId: data.branchId, isVerified: true },
+      });
+      return tx.rider.create({
+        data: { userId: user.id, branchId: data.branchId, vehicle: data.vehicle, licensePlate: data.licensePlate },
+        include: { user: { select: { id: true, name: true, phone: true, email: true } }, branch: { select: { name: true } } },
+      });
     });
   }
 
-  static async updateRider(id: string, data: { vehicle?: string; licensePlate?: string; branchId?: string; isActive?: boolean }) {
-    return prisma.rider.update({
-      where: { id },
-      data,
-      include: { user: { select: { id: true, name: true, phone: true } }, branch: { select: { name: true } } },
+  static async updateRider(
+    id: string,
+    data: {
+      name?: string; email?: string; phone?: string; password?: string;
+      vehicle?: string; licensePlate?: string; branchId?: string; isActive?: boolean;
+    },
+  ) {
+    const rider = await prisma.rider.findUnique({ where: { id }, select: { userId: true } });
+    if (!rider) throw new AppError('Rider not found', 404);
+
+    // Sign-in details live on the user account behind the rider profile.
+    const userData: { name?: string; email?: string; phone?: string; password?: string } = {};
+    if (data.name !== undefined) {
+      if (!data.name.trim()) throw new AppError('Name cannot be empty', 400);
+      userData.name = data.name.trim();
+    }
+    if (data.email !== undefined) userData.email = requireEmail(data.email);
+    if (data.phone !== undefined) userData.phone = requirePhone(data.phone);
+    if (data.password) {
+      if (data.password.length < 8) throw new AppError('Password must be at least 8 characters', 400);
+      userData.password = await bcrypt.hash(data.password, SALT_ROUNDS);
+    }
+    if (data.branchId) await assertBranchAvailable(data.branchId);
+    await assertIdentityAvailable({ email: userData.email, phone: userData.phone }, rider.userId);
+
+    const { vehicle, licensePlate, branchId, isActive } = data;
+    return prisma.$transaction(async (tx) => {
+      if (Object.keys(userData).length > 0) {
+        await tx.user.update({ where: { id: rider.userId }, data: userData });
+      }
+      // A rider's branch is kept on both records; the user's isActive follows the profile's.
+      if (branchId !== undefined || isActive !== undefined) {
+        await tx.user.update({ where: { id: rider.userId }, data: { ...(branchId !== undefined ? { branchId } : {}), ...(isActive !== undefined ? { isActive } : {}) } });
+      }
+      return tx.rider.update({
+        where: { id },
+        data: { vehicle, licensePlate, branchId, isActive },
+        include: { user: { select: { id: true, name: true, phone: true, email: true } }, branch: { select: { name: true } } },
+      });
     });
   }
 

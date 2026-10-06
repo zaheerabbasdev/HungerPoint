@@ -5,6 +5,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { RiderService } from './rider.service';
 import { RiderStatus } from '@prisma/client';
+import { prisma } from '../../config/database';
+import { AppError } from '../../middleware/error.middleware';
 
 export class RiderController {
   static async getMe(req: Request, res: Response, next: NextFunction) {
@@ -32,7 +34,12 @@ export class RiderController {
     try {
       const user = (req as any).user;
       const data = { ...req.body };
-      if (user.role === 'BRANCH_MANAGER') delete data.branchId;
+      if (user.role === 'BRANCH_MANAGER') {
+        delete data.branchId;
+        // A manager can only edit riders of their own branch.
+        const target = await prisma.rider.findUnique({ where: { id: req.params.id as string }, select: { branchId: true } });
+        if (!target || target.branchId !== user.branchId) throw new AppError('Rider not found', 404);
+      }
       const rider = await RiderService.updateRider(req.params.id as string, data);
       res.json({ success: true, message: 'Rider updated successfully', data: rider });
     } catch (error) {

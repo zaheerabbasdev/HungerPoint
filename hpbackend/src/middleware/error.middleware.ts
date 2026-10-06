@@ -33,8 +33,14 @@ export const errorHandler = (
 
     if (prismaError.code === 'P2002') {
       const target = prismaError.meta?.target;
-      const field = Array.isArray(target) ? target.join(', ') : target || 'field';
-      sendError(res, `Duplicate value for: ${field}`, 409);
+      const field = (Array.isArray(target) ? target.join(', ') : target || '').toString();
+      // Plain wording for the fields people actually collide on.
+      const friendly = /phone/i.test(field)
+        ? 'This phone number is already used by another account.'
+        : /email/i.test(field)
+          ? 'This email is already used by another account.'
+          : `Duplicate value for: ${field || 'field'}`;
+      sendError(res, friendly, 409);
       return;
     }
 

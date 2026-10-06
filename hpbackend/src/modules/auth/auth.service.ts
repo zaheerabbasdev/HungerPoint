@@ -10,7 +10,8 @@ import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/error.middleware';
 import { AuthPayload } from '../../middleware/auth.middleware';
 import { UserRole } from '@prisma/client';
-import { normalizeEmail, normalizePhone } from '../../utils/identity';
+import { normalizeEmail, phoneVariants } from '../../utils/identity';
+import { assertIdentityAvailable } from '../users/account-identity';
 
 const SALT_ROUNDS = 12;
 
@@ -41,11 +42,7 @@ export const registerCustomer = async (data: {
   password: string;
   dateOfBirth?: string;
 }) => {
-  const exists = await prisma.user.findUnique({ where: { phone: data.phone } });
-  if (exists) throw new AppError('Phone number already registered', 409);
-
-  const emailExists = await prisma.user.findUnique({ where: { email: data.email } });
-  if (emailExists) throw new AppError('Email already registered', 409);
+  await assertIdentityAvailable({ email: data.email, phone: data.phone });
 
   const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
 
@@ -87,14 +84,11 @@ export const registerCustomer = async (data: {
 // ─── Login ────────────────────────────────────────────────────
 export const login = async (data: { phone?: string; email?: string; password: string }) => {
   const raw = (data.phone || data.email || '').trim();
-  const identifier = raw.includes('@') ? normalizeEmail(raw) : normalizePhone(raw);
+  const where = raw.includes('@')
+    ? { email: normalizeEmail(raw) }
+    : { phone: { in: phoneVariants(raw) } };
   const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { phone: identifier },
-        { email: identifier },
-      ],
-    },
+    where,
     select: {
       id: true, name: true, phone: true, email: true,
       role: true, isActive: true, isVerified: true,

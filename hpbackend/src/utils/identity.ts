@@ -40,3 +40,21 @@ export const requirePhone = (value: unknown): string => {
   if (!isValidPhone(phone)) throw new AppError('A valid phone number is required', 400);
   return phone;
 };
+
+/**
+ * Every way the same Pakistani number may be stored in the database:
+ * +923001234567, 03001234567, 923001234567 or 3001234567. Accounts created
+ * before numbers were normalised keep their original format, so lookups and
+ * duplicate checks have to consider all of them.
+ */
+export const phoneVariants = (value: string): string[] => {
+  const normalized = normalizePhone(value);
+  const variants = new Set<string>([normalized]);
+  if (normalized.startsWith('+92')) {
+    const national = normalized.slice(3);
+    variants.add(`0${national}`);
+    variants.add(`92${national}`);
+    variants.add(national);
+  }
+  return [...variants];
+};

@@ -9,6 +9,7 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { AppError } from '../../middleware/error.middleware';
 import { SettingService } from '../settings/setting.service';
 import { CouponService } from '../coupons/coupon.service';
+import { assertBranchAvailable } from '../branches/branch-guard';
 
 export class OrderService {
   static async createOrder(data: {
@@ -38,6 +39,7 @@ export class OrderService {
     if (!Array.isArray(data.items) || data.items.length === 0) {
       throw new AppError('An order needs at least one item', 400);
     }
+    await assertBranchAvailable(data.branchId);
 
     for (const item of data.items) {
       if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 50) {
