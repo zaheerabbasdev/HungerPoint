@@ -123,20 +123,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     return 'regular';
   }
 
-  String get _currentSizeKey {
-    if (_selectedVariationIndex == null || _selectedVariationIndex! >= _variations.length) {
-      return 'regular';
-    }
-    return _variations[_selectedVariationIndex!]['sizeKey'] as String? ?? 'regular';
-  }
-
-  String get _currentSizeName {
-    if (_selectedVariationIndex == null || _selectedVariationIndex! >= _variations.length) {
-      return 'Regular';
-    }
-    return _variations[_selectedVariationIndex!]['name'] as String? ?? 'Regular';
-  }
-
   // ─── REAL-TIME BACKEND DATA LOADER ───────────────────────────
   Future<void> _loadBackendCustomizations() async {
     try {

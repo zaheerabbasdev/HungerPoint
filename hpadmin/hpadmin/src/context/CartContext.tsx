@@ -40,7 +40,8 @@ function mapBackendCart(cart: any): CartItem[] {
     productId: it.productId,
     name: it.product?.name || 'Item',
     image: it.product?.image || undefined,
-    price: Number(it.variant?.price ?? it.product?.basePrice ?? 0),
+    // A size's price is an offset on top of the product's base price.
+    price: Number(it.product?.basePrice ?? 0) + Number(it.variant?.price ?? 0),
     quantity: it.quantity,
     variantId: it.variantId || undefined,
     variantName: it.variant?.name || undefined,

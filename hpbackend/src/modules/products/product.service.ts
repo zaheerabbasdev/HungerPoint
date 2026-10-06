@@ -3,6 +3,7 @@
 // ============================================================
 
 import { prisma } from '../../config/database';
+import { AppError } from '../../middleware/error.middleware';
 
 export class ProductService {
   static async getAllProducts(query: { categoryId?: string; search?: string; branchId?: string; includeInactive?: boolean }) {
@@ -58,9 +59,7 @@ export class ProductService {
     });
 
     if (!product) {
-      const error: any = new Error('Product not found');
-      error.statusCode = 404;
-      throw error;
+      throw new AppError('Product not found', 404);
     }
 
     return product;

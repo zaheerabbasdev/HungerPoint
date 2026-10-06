@@ -3,6 +3,7 @@
 // ============================================================
 
 import { prisma } from '../../config/database';
+import { AppError } from '../../middleware/error.middleware';
 
 export class BranchService {
   static async getAllBranches(includeInactive = false) {
@@ -29,9 +30,7 @@ export class BranchService {
     });
 
     if (!branch) {
-      const error: any = new Error('Branch not found');
-      error.statusCode = 404;
-      throw error;
+      throw new AppError('Branch not found', 404);
     }
 
     return branch;
@@ -51,9 +50,7 @@ export class BranchService {
   }) {
     const existing = await prisma.branch.findUnique({ where: { code: data.code } });
     if (existing) {
-      const error: any = new Error('Branch with this code already exists');
-      error.statusCode = 400;
-      throw error;
+      throw new AppError('Branch with this code already exists', 400);
     }
 
     return prisma.branch.create({ data });

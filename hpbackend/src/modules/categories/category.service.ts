@@ -3,6 +3,7 @@
 // ============================================================
 
 import { prisma } from '../../config/database';
+import { AppError } from '../../middleware/error.middleware';
 
 export class CategoryService {
   static async getAllCategories(includeInactive = false) {
@@ -32,9 +33,7 @@ export class CategoryService {
     });
 
     if (!category) {
-      const error: any = new Error('Category not found');
-      error.statusCode = 404;
-      throw error;
+      throw new AppError('Category not found', 404);
     }
 
     return category;
@@ -43,9 +42,7 @@ export class CategoryService {
   static async createCategory(data: { name: string; description?: string; image?: string; sortOrder?: number }) {
     const existing = await prisma.category.findUnique({ where: { name: data.name } });
     if (existing) {
-      const error: any = new Error('Category with this name already exists');
-      error.statusCode = 400;
-      throw error;
+      throw new AppError('Category with this name already exists', 400);
     }
 
     return prisma.category.create({ data });
