@@ -12,6 +12,7 @@ const PromotionsPage = lazy(() => import('./pages/PromotionsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const ReviewsPage = lazy(() => import('./pages/ReviewsPage'));
 const RidersPage = lazy(() => import('./pages/RidersPage'));
+const TablesPage = lazy(() => import('./pages/TablesPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 function NotFoundPage() {
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/reviews" element={<ReviewsPage />} />
         <Route path="/riders" element={<RidersPage />} />
+        <Route path="/tables" element={<TablesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

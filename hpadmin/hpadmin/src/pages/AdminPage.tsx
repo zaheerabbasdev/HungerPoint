@@ -1050,6 +1050,13 @@ export default function AdminPortalPage() {
             </Link>
 
             <Link
+              to="/tables"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
+            >
+              <span>🪑 Tables</span>
+            </Link>
+
+            <Link
               to="/promotions"
               className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
             >
