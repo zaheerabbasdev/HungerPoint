@@ -19,6 +19,9 @@ class ApiService {
 
   static String get baseUrl {
     if (_overrideBaseUrl.isNotEmpty) return _overrideBaseUrl;
+    // Release builds (APK / store) talk to the live server; debug runs use the
+    // local backend below unless API_BASE_URL is given.
+    if (kReleaseMode) return 'https://api.eaglesoft.org/api/v1';
     if (kIsWeb) {
       return 'http://localhost:$port/api/v1';
     }
