@@ -216,6 +216,10 @@ Phone numbers must be entered exactly in `+92…` format.
 
 ## 6. Core Business Flows
 
+### Self-correcting delivery time
+
+The countdown starts from the cook's prep minutes and the map's ride time, then corrects itself from each branch's own history (`modules/orders/calibration.service.ts`). For the last 30 days of finished orders at a branch it computes the median of *actual / estimated* for the ride (`pickedUpAt` to `deliveredAt` against `mapRideMinutes`) and for the kitchen (`acceptedAt` to `readyAt` against `prepMinutesEntered`). Rules: at least 10 orders (`ETA_CALIBRATION_MIN_SAMPLES`) before anything changes; single ratios outside 0.3x to 4x are ignored as bad data; a factor is limited to 0.8x to 2x; set `ETA_CALIBRATION=off` to disable. Corrections are cached for 10 minutes. `promisedPrepMinutes` and `estimatedDeliveryTime` hold the corrected figures shown to the customer; `estimatedPrepTime` stays the cook's own number for the kitchen screen.
+
 ### Dine-in flow (waiter app)
 
 1. The waiter sends the order: it goes straight to the kitchen as `CONFIRMED`. The kitchen picks the preparation minutes; the waiter app shows **Expected ready in N min** (from `promisedAt`) on the table screen and the table tile.

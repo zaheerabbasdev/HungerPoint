@@ -8,6 +8,7 @@
 import { OrderStatus } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { RoutingService } from '../../utils/routing';
+import { CalibrationService } from './calibration.service';
 import { emitToOrder, emitToAdmins, emitToBranchRiders, SOCKET_EVENTS } from '../../sockets';
 
 const ON_THE_WAY: OrderStatus[] = [OrderStatus.PICKED_UP, OrderStatus.OUT_FOR_DELIVERY];
@@ -27,21 +28,24 @@ export class EtaService {
         where: { id: orderId },
         select: {
           status: true, type: true, branchId: true, acceptedAt: true, estimatedPrepTime: true,
-          promisedAt: true, estimatedDeliveryTime: true,
+          promisedAt: true, estimatedDeliveryTime: true, promisedPrepMinutes: true,
           branch: { select: { latitude: true, longitude: true } },
           address: { select: { latitude: true, longitude: true } },
         },
       });
       if (!order || order.type !== 'DELIVERY' || FINISHED.includes(order.status)) return;
 
-      const minutes = await RoutingService.travelMinutes(from ?? order.branch, order.address);
+      const raw = await RoutingService.travelMinutes(from ?? order.branch, order.address);
+      const factors = await CalibrationService.getFactors(order.branchId);
+      const minutes = CalibrationService.applyRide(raw, factors);
 
       // Food still being made: the customer waits for the rest of the prep, then the ride.
       // Food in the rider's hands: just the ride.
       const now = Date.now();
       let start = now;
       if (!ON_THE_WAY.includes(order.status) && order.acceptedAt && order.estimatedPrepTime) {
-        start = Math.max(now, order.acceptedAt.getTime() + order.estimatedPrepTime * 60_000);
+        const prep = order.promisedPrepMinutes ?? order.estimatedPrepTime;
+        start = Math.max(now, order.acceptedAt.getTime() + prep * 60_000);
       }
       const promisedAt = new Date(start + minutes * 60_000);
 
@@ -49,7 +53,12 @@ export class EtaService {
       const closeEnough = order.promisedAt && Math.abs(promisedAt.getTime() - order.promisedAt.getTime()) < 60_000;
       if (sameRide && closeEnough) return;
 
-      await prisma.order.update({ where: { id: orderId }, data: { promisedAt, estimatedDeliveryTime: minutes } });
+      // The full branch -> customer estimate is what the rider-speed learning compares with; a live
+      // update from the rider's position is only the remaining part, so it is not stored for learning.
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { promisedAt, estimatedDeliveryTime: minutes, ...(from ? {} : { mapRideMinutes: raw }) },
+      });
       const payload = { orderId, promisedAt };
       emitToOrder(orderId, SOCKET_EVENTS.ORDER_ETA_UPDATED, payload);
       emitToAdmins(SOCKET_EVENTS.ORDER_ETA_UPDATED, payload);

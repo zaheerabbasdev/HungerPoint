@@ -219,7 +219,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     final minutesLeft = promisedAt == null
         ? null
         : _nonNegative((promisedAt.difference(DateTime.now()).inSeconds / 60).ceil());
-    final prep = order['estimatedPrepTime'];
+    final prep = order['promisedPrepMinutes'] ?? order['estimatedPrepTime'];
     final travel = order['estimatedDeliveryTime'];
     final address = order['address'] as Map<String, dynamic>?;
     final onTheWay = status == 'OUT_FOR_DELIVERY';

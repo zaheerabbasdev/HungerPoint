@@ -145,9 +145,9 @@ export default function OrderTrackingPage() {
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-center">
               <p className="text-[10px] font-bold uppercase tracking-wider text-stone-400">{etaHeadline}</p>
               <p className="text-3xl font-black text-amber-400 mt-1">{minutesLeft} min</p>
-              {order.estimatedPrepTime && order.estimatedDeliveryTime && order.status !== 'OUT_FOR_DELIVERY' && (
+              {(order.promisedPrepMinutes ?? order.estimatedPrepTime) && order.estimatedDeliveryTime && order.status !== 'OUT_FOR_DELIVERY' && (
                 <p className="text-[10px] text-stone-500 mt-1">
-                  {order.estimatedPrepTime} min preparing + {order.estimatedDeliveryTime} min delivery
+                  {order.promisedPrepMinutes ?? order.estimatedPrepTime} min preparing + {order.estimatedDeliveryTime} min delivery
                 </p>
               )}
             </div>

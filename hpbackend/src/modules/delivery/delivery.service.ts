@@ -9,6 +9,7 @@ import { OrderService } from '../orders/order.service';
 import { emitToBranchRiders, emitToOrder, SOCKET_EVENTS } from '../../sockets';
 import { RoutingService } from '../../utils/routing';
 import { EtaService } from '../orders/eta.service';
+import { CalibrationService } from '../orders/calibration.service';
 
 const INCLUDE_FULL_DELIVERY = {
   order: {
@@ -191,11 +192,15 @@ export class DeliveryService {
     // The food is in the rider's hands: the countdown is now just the ride to the customer.
     const route = await prisma.order.findUnique({
       where: { id: delivery.orderId },
-      select: { branch: { select: { latitude: true, longitude: true } }, address: { select: { latitude: true, longitude: true } } },
+      select: { branchId: true, branch: { select: { latitude: true, longitude: true } }, address: { select: { latitude: true, longitude: true } } },
     });
-    const minutes = RoutingService.estimateNow(route?.branch, route?.address);
+    const rawRide = RoutingService.estimateNow(route?.branch, route?.address);
+    const minutes = CalibrationService.applyRide(rawRide, await CalibrationService.getFactors(route?.branchId));
     const promisedAt = new Date(Date.now() + minutes * 60_000);
-    await prisma.order.update({ where: { id: delivery.orderId }, data: { promisedAt, estimatedDeliveryTime: minutes } });
+    await prisma.order.update({
+      where: { id: delivery.orderId },
+      data: { promisedAt, estimatedDeliveryTime: minutes, mapRideMinutes: rawRide },
+    });
     emitToOrder(delivery.orderId, SOCKET_EVENTS.ORDER_ETA_UPDATED, { orderId: delivery.orderId, promisedAt });
     void EtaService.refresh(delivery.orderId);
     return updated;

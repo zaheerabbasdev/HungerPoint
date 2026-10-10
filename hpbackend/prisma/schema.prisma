@@ -533,6 +533,9 @@ model Order {
   estimatedPrepTime   Int?      // minutes
   estimatedDeliveryTime Int?    // minutes (rider travel time)
   promisedAt      DateTime?     // when the customer is promised the food (prep + travel); drives the countdown
+  prepMinutesEntered Int?       // what the cook typed at Start Cooking (never extended) - used to learn how the kitchen performs
+  mapRideMinutes  Int?          // raw map ride estimate branch -> customer - used to learn how the riders perform
+  promisedPrepMinutes Int?      // prep minutes included in the customer's promise (cook's number corrected by the kitchen's history)
   cashCollected   Decimal?      @db.Decimal(10, 2) // cash the rider collected at handover
   // Timestamps
   confirmedAt     DateTime?
