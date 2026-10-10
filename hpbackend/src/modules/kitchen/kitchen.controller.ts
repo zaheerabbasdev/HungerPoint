@@ -37,6 +37,15 @@ export class KitchenController {
     }
   }
 
+  static async extend(req: Request, res: Response, next: NextFunction) {
+    try {
+      const order = await KitchenService.extendPrepTime(req.params.id as string, Number(req.body.extraMinutes) || 5, ownBranchOnly(req));
+      res.json({ success: true, message: 'Preparation time extended', data: order });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async markReady(req: Request, res: Response, next: NextFunction) {
     try {
       const order = await KitchenService.markOrderAsReady(req.params.id as string, ownBranchOnly(req));

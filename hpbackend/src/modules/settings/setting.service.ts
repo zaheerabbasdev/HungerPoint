@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS: { key: string; value: string; group: string }[] = [
   { key: 'currency', value: 'PKR', group: 'general' },
   { key: 'default_tax_percent', value: '5', group: 'pricing' },
   { key: 'default_delivery_fee', value: '50', group: 'pricing' },
+  { key: 'unclaimed_order_alert_minutes', value: '3', group: 'delivery' },
 ];
 
 export class SettingService {

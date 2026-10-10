@@ -4,7 +4,7 @@
 
 import { prisma } from '../../config/database';
 import { OrderStatus, PaymentMethod, OrderType, OrderSource, LoyaltyTransactionType } from '@prisma/client';
-import { emitToKitchen, emitToAdmins, emitToOrder, SOCKET_EVENTS } from '../../sockets';
+import { emitToKitchen, emitToAdmins, emitToOrder, emitToBranchRiders, SOCKET_EVENTS } from '../../sockets';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { AppError } from '../../middleware/error.middleware';
 import { SettingService } from '../settings/setting.service';
@@ -270,6 +270,10 @@ export class OrderService {
 
     emitToOrder(id, `order.${status.toLowerCase()}`, updated);
     emitToAdmins(`order.${status.toLowerCase()}`, updated);
+    // Confirm / cancel changes what the branch's riders see in "Upcoming orders".
+    if (updated.branchId && updated.type === OrderType.DELIVERY) {
+      emitToBranchRiders(updated.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId: id, status });
+    }
 
     // A dine-in table frees up once its order is done — served & paid
     // (COMPLETED) or called off (CANCELLED) — either way, seats free up.

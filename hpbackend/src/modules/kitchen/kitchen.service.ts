@@ -4,7 +4,8 @@
 
 import { prisma } from '../../config/database';
 import { OrderStatus } from '@prisma/client';
-import { emitToOrder, emitToKitchen, emitToAdmins, SOCKET_EVENTS } from '../../sockets';
+import { emitToOrder, emitToKitchen, emitToAdmins, emitToBranchRiders, SOCKET_EVENTS } from '../../sockets';
+import { travelMinutes } from '../../utils/eta';
 import { AppError } from '../../middleware/error.middleware';
 
 export class KitchenService {
@@ -46,16 +47,22 @@ export class KitchenService {
   static async markOrderAsPreparing(orderId: string, estimatedPrepTimeMinutes = 15, restrictToBranchId?: string) {
     await this.getTicket(orderId, [OrderStatus.CONFIRMED, OrderStatus.ACCEPTED], restrictToBranchId);
 
+    const prepMinutes = Math.min(180, Math.max(1, Math.round(estimatedPrepTimeMinutes)));
+    const { travel, promisedAt } = await this.computePromise(orderId, prepMinutes);
+    const now = new Date();
+
     const order = await prisma.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.PREPARING,
-        acceptedAt: new Date(),
-        estimatedPrepTime: estimatedPrepTimeMinutes,
+        acceptedAt: now,
+        estimatedPrepTime: prepMinutes,
+        estimatedDeliveryTime: travel,
+        promisedAt,
         statusHistory: {
           create: {
             status: OrderStatus.PREPARING,
-            notes: `Preparation started (${estimatedPrepTimeMinutes} mins estimated)`,
+            notes: `Preparation started (${prepMinutes} mins estimated)`,
           },
         },
       },
@@ -64,8 +71,42 @@ export class KitchenService {
     emitToOrder(orderId, SOCKET_EVENTS.ORDER_PREPARING, order);
     if (order.branchId) emitToKitchen(order.branchId, 'kitchen.queue_updated', order);
     emitToAdmins(SOCKET_EVENTS.ORDER_PREPARING, order);
+    if (order.branchId) emitToBranchRiders(order.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId, status: order.status });
 
     return order;
+  }
+
+  /** Kitchen asks for more time: pushes the promised time (and the customer's countdown) back. */
+  static async extendPrepTime(orderId: string, extraMinutes: number, restrictToBranchId?: string) {
+    await this.getTicket(orderId, [OrderStatus.PREPARING], restrictToBranchId);
+    const extra = Math.min(60, Math.max(1, Math.round(extraMinutes)));
+    const current = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+
+    const order = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        estimatedPrepTime: (current.estimatedPrepTime ?? 0) + extra,
+        promisedAt: new Date((current.promisedAt ?? new Date()).getTime() + extra * 60_000),
+        statusHistory: { create: { status: OrderStatus.PREPARING, notes: `Kitchen added ${extra} more minutes` } },
+      },
+    });
+
+    emitToOrder(orderId, SOCKET_EVENTS.ORDER_ETA_UPDATED, { orderId, promisedAt: order.promisedAt });
+    if (order.branchId) {
+      emitToKitchen(order.branchId, 'kitchen.queue_updated', order);
+      emitToBranchRiders(order.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId, status: order.status });
+    }
+    return order;
+  }
+
+  // promisedAt = now + kitchen prep time + estimated ride from the branch to the customer.
+  private static async computePromise(orderId: string, prepMinutes: number) {
+    const o = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { type: true, branch: { select: { latitude: true, longitude: true } }, address: { select: { latitude: true, longitude: true } } },
+    });
+    const travel = o?.type === 'DELIVERY' ? travelMinutes(o.branch, o.address) : 0;
+    return { travel, promisedAt: new Date(Date.now() + (prepMinutes + travel) * 60_000) };
   }
 
   static async markOrderAsReady(orderId: string, restrictToBranchId?: string) {
@@ -89,6 +130,7 @@ export class KitchenService {
     emitToOrder(orderId, SOCKET_EVENTS.ORDER_READY, order);
     if (order.branchId) emitToKitchen(order.branchId, 'kitchen.queue_updated', order);
     emitToAdmins(SOCKET_EVENTS.ORDER_READY, order);
+    if (order.branchId) emitToBranchRiders(order.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId, status: order.status, ready: true });
 
     return order;
   }

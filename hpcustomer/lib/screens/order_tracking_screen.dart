@@ -1,7 +1,5 @@
-import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
@@ -19,7 +17,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   static const _statusSteps = [
     {'key': 'PENDING', 'label': 'Order Received', 'icon': '📝'},
     {'key': 'CONFIRMED', 'label': 'Confirmed', 'icon': '✓'},
-    {'key': 'PREPARING', 'label': 'In Kitchen', 'icon': '🍳'},
+    {'key': 'PREPARING', 'label': 'Preparing', 'icon': '🍳'},
     {'key': 'READY', 'label': 'Ready', 'icon': '📦'},
     {'key': 'OUT_FOR_DELIVERY', 'label': 'Out for Delivery', 'icon': '🛵'},
     {'key': 'DELIVERED', 'label': 'Delivered', 'icon': '🎉'},
@@ -29,16 +27,21 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     'order.pending', 'order.confirmed', 'order.accepted', 'order.preparing', 'order.ready',
     'order.assigned', 'order.picked_up', 'order.out_for_delivery', 'order.delivered',
     'order.completed', 'order.cancelled', 'order.rejected', 'order.payment_failed', 'order.refunded',
+    'order.eta_updated',
   ];
+
+  // Statuses between "Ready" and "Out for Delivery" show under the Ready step.
+  static const _stepAlias = {
+    'ACCEPTED': 'CONFIRMED',
+    'ASSIGNED': 'READY',
+    'PICKED_UP': 'READY',
+    'COMPLETED': 'DELIVERED',
+  };
 
   Map<String, dynamic>? _order;
   bool _loading = true;
 
-  double? _riderLat;
-  double? _riderLng;
-  final MapController _mapController = MapController();
-
-  static const _trackableDeliveryStatuses = ['ASSIGNED', 'ACCEPTED', 'PICKED_UP', 'OUT_FOR_DELIVERY'];
+  Timer? _ticker;
 
   @override
   void initState() {
@@ -50,7 +53,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     for (final evt in _statusEvents) {
       socket.on(evt, _handleStatusEvent);
     }
-    socket.on('rider.location_updated', _handleRiderLocation);
+    // Re-draw regularly so the countdown keeps shrinking.
+    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -59,36 +65,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     for (final evt in _statusEvents) {
       socket.off(evt, _handleStatusEvent);
     }
-    socket.off('rider.location_updated', _handleRiderLocation);
+    _ticker?.cancel();
     super.dispose();
   }
 
+  // Status events carry a partial order, so refetch the full, current one.
   void _handleStatusEvent(dynamic data) {
-    if (data is Map && data['id']?.toString() == widget.orderId && mounted) {
-      setState(() => _order = Map<String, dynamic>.from(data));
+    if (data is Map && (data['id'] ?? data['orderId'])?.toString() == widget.orderId && mounted) {
+      _loadOrder();
     }
-  }
-
-  void _handleRiderLocation(dynamic data) {
-    if (!mounted || data is! Map) return;
-    final lat = double.tryParse(data['latitude']?.toString() ?? '');
-    final lng = double.tryParse(data['longitude']?.toString() ?? '');
-    if (lat == null || lng == null) return;
-    setState(() {
-      _riderLat = lat;
-      _riderLng = lng;
-    });
-  }
-
-  /// Great-circle distance between two coordinates, in kilometers (Haversine formula).
-  double _distanceKm(double lat1, double lng1, double lat2, double lng2) {
-    const earthRadiusKm = 6371.0;
-    final dLat = (lat2 - lat1) * math.pi / 180;
-    final dLng = (lng2 - lng1) * math.pi / 180;
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) * math.sin(dLng / 2) * math.sin(dLng / 2);
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadiusKm * c;
   }
 
   Future<void> _loadOrder() async {
@@ -132,7 +117,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
   Widget _buildTracker(BuildContext context, Map<String, dynamic> order) {
     final status = order['status']?.toString() ?? 'PENDING';
-    final currentIndex = _statusSteps.indexWhere((s) => s['key'] == status);
+    final currentIndex = _statusSteps.indexWhere((s) => s['key'] == (_stepAlias[status] ?? status));
     final items = (order['items'] as List<dynamic>? ?? []);
     final total = num.tryParse(order['total']?.toString() ?? '') ?? 0;
 
@@ -172,7 +157,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
           const SizedBox(height: 16),
 
-          _buildRiderTrackingCard(order),
+          _buildEtaCard(order),
 
           Container(
             padding: const EdgeInsets.all(16),
@@ -220,65 +205,85 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     );
   }
 
-  Widget _buildRiderTrackingCard(Map<String, dynamic> order) {
-    final delivery = order['delivery'] as Map<String, dynamic>?;
+  int _nonNegative(int v) => v < 0 ? 0 : v;
+
+  /// One combined time (kitchen preparation + the rider's trip) counting down to the
+  /// promised time, plus the delivery address. There is no rider map.
+  Widget _buildEtaCard(Map<String, dynamic> order) {
+    final status = order['status']?.toString() ?? 'PENDING';
+    const finished = ['DELIVERED', 'COMPLETED', 'CANCELLED', 'REJECTED', 'REFUNDED', 'PAYMENT_FAILED'];
+    final isDelivery = order['type'] == 'DELIVERY';
+    if (finished.contains(status) || !isDelivery) return const SizedBox.shrink();
+
+    final promisedAt = DateTime.tryParse(order['promisedAt']?.toString() ?? '')?.toLocal();
+    final minutesLeft = promisedAt == null
+        ? null
+        : _nonNegative((promisedAt.difference(DateTime.now()).inSeconds / 60).ceil());
+    final prep = order['estimatedPrepTime'];
+    final travel = order['estimatedDeliveryTime'];
     final address = order['address'] as Map<String, dynamic>?;
-    final isDeliveryOrder = order['type'] != 'PICKUP';
-    final deliveryStatus = delivery?['status']?.toString();
+    final onTheWay = status == 'OUT_FOR_DELIVERY';
 
-    if (delivery == null || !isDeliveryOrder || !_trackableDeliveryStatuses.contains(deliveryStatus)) {
-      return const SizedBox.shrink();
-    }
+    final headline = onTheWay
+        ? 'On the way, arriving in'
+        : status == 'PREPARING'
+            ? 'Your food will reach you in about'
+            : 'Estimated delivery time';
 
-    final rider = delivery['rider'] as Map<String, dynamic>?;
-    final riderName = rider?['user']?['name']?.toString() ?? 'Your rider';
+    final rider = (order['delivery'] as Map<String, dynamic>?)?['rider'] as Map<String, dynamic>?;
+    final riderName = rider?['user']?['name']?.toString();
     final riderPhone = rider?['user']?['phone']?.toString();
-
-    final destLat = double.tryParse(address?['latitude']?.toString() ?? '');
-    final destLng = double.tryParse(address?['longitude']?.toString() ?? '');
-
-    double? distanceKm;
-    if (_riderLat != null && _riderLng != null && destLat != null && destLng != null) {
-      distanceKm = _distanceKm(_riderLat!, _riderLng!, destLat, destLng);
-    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Container(
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFF3F4F6)),
         ),
-        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Rider info row
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
+            Text(headline, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF6B7280))),
+            const SizedBox(height: 4),
+            Text(
+              minutesLeft == null ? 'Calculating...' : '$minutesLeft min',
+              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Color(0xFFFF5722)),
+            ),
+            if (!onTheWay && prep != null && travel != null)
+              Text('$prep min preparing + $travel min delivery', style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+            if (address != null) ...[
+              const Divider(height: 24, color: Color(0xFFF3F4F6)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: const BoxDecoration(color: Color(0xFFFFF3ED), shape: BoxShape.circle),
-                    child: const Icon(Icons.two_wheeler, color: Color(0xFFFF5722), size: 22),
-                  ),
-                  const SizedBox(width: 12),
+                  const Icon(Icons.location_on, color: Color(0xFF1E1B4B), size: 20),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(riderName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF1E1B4B))),
+                        const Text('Delivering to', style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
                         Text(
-                          distanceKm != null
-                              ? '${distanceKm < 1 ? '${(distanceKm * 1000).round()} m' : '${distanceKm.toStringAsFixed(1)} km'} away'
-                              : 'Waiting for live location...',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                          address['address']?.toString() ?? '',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E1B4B)),
                         ),
                       ],
                     ),
+                  ),
+                ],
+              ),
+            ],
+            if (onTheWay && riderName != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.two_wheeler, color: Color(0xFFFF5722), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(riderName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF1E1B4B))),
                   ),
                   if (riderPhone != null)
                     IconButton(
@@ -287,60 +292,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     ),
                 ],
               ),
-            ),
-
-            // Live map
-            if (destLat != null && destLng != null)
-              SizedBox(
-                height: 220,
-                child: Stack(
-                  children: [
-                    FlutterMap(
-                      mapController: _mapController,
-                      options: MapOptions(
-                        initialCenter: _riderLat != null && _riderLng != null ? LatLng(_riderLat!, _riderLng!) : LatLng(destLat, destLng),
-                        initialZoom: 14,
-                        interactionOptions: const InteractionOptions(flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag),
-                      ),
-                      children: [
-                        TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.example.hpcustomer',
-                          maxZoom: 19,
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: LatLng(destLat, destLng),
-                              width: 34,
-                              height: 34,
-                              child: const Icon(Icons.location_on, color: Color(0xFF1E1B4B), size: 34),
-                            ),
-                            if (_riderLat != null && _riderLng != null)
-                              Marker(
-                                point: LatLng(_riderLat!, _riderLng!),
-                                width: 34,
-                                height: 34,
-                                child: const Icon(Icons.two_wheeler, color: Color(0xFFFF5722), size: 30),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    if (_riderLat == null)
-                      Container(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        child: const Center(
-                          child: Text(
-                            'Waiting for your rider\'s live location...',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+            ],
           ],
         ),
       ),

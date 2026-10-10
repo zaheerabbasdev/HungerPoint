@@ -5,7 +5,8 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database';
 import { RiderStatus, DeliveryStatus, OrderStatus, UserRole } from '@prisma/client';
-import { emitToUser, SOCKET_EVENTS } from '../../sockets';
+import { emitToUser, emitToOrder, emitToBranchRiders, SOCKET_EVENTS } from '../../sockets';
+import { travelMinutes } from '../../utils/eta';
 import { OrderService } from '../orders/order.service';
 import { AppError } from '../../middleware/error.middleware';
 import { requireEmail, requirePhone } from '../../utils/identity';
@@ -130,7 +131,7 @@ export class RiderService {
   }
 
   static async updateLocation(riderId: string, latitude: number, longitude: number, heading?: number, speed?: number) {
-    return prisma.riderLocation.create({
+    const location = await prisma.riderLocation.create({
       data: {
         riderId,
         latitude,
@@ -139,6 +140,28 @@ export class RiderService {
         speed,
       },
     });
+    await this.refreshEta(riderId, latitude, longitude);
+    return location;
+  }
+
+  // While the rider is on the way, the customer's countdown follows the rider's real
+  // position (the customer never sees the position itself, only the time).
+  private static async refreshEta(riderId: string, latitude: number, longitude: number) {
+    try {
+      const delivery = await prisma.delivery.findFirst({
+        where: { riderId, status: { in: [DeliveryStatus.PICKED_UP, DeliveryStatus.OUT_FOR_DELIVERY] } },
+        include: { order: { select: { id: true, promisedAt: true, address: { select: { latitude: true, longitude: true } } } } },
+      });
+      if (!delivery) return;
+      const minutes = travelMinutes({ latitude, longitude }, delivery.order.address);
+      const promisedAt = new Date(Date.now() + minutes * 60_000);
+      // Only push a change worth showing (a minute or more).
+      if (delivery.order.promisedAt && Math.abs(promisedAt.getTime() - delivery.order.promisedAt.getTime()) < 60_000) return;
+      await prisma.order.update({ where: { id: delivery.order.id }, data: { promisedAt, estimatedDeliveryTime: minutes } });
+      emitToOrder(delivery.order.id, SOCKET_EVENTS.ORDER_ETA_UPDATED, { orderId: delivery.order.id, promisedAt });
+    } catch (err) {
+      console.error('ETA refresh failed:', err);
+    }
   }
 
   static async assignRiderToOrder(orderId: string, riderId: string) {
@@ -194,6 +217,7 @@ export class RiderService {
 
     // Notify the rider's app in real time so a new assignment shows up immediately.
     emitToUser(rider.userId, SOCKET_EVENTS.RIDER_ASSIGNMENT, delivery);
+    if (order.branchId) emitToBranchRiders(order.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId, status: OrderStatus.ASSIGNED, takenBy: riderId });
 
     return delivery;
   }

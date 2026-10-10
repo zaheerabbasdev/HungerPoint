@@ -13,6 +13,9 @@ router.use(authenticate, authorize(UserRole.RIDER));
 
 router.get('/me/active', DeliveryController.getActive);
 router.get('/me/history', DeliveryController.getHistory);
+router.get('/available', DeliveryController.available);
+router.post('/claim/:orderId', DeliveryController.claim);
+router.patch('/:id/release', DeliveryController.release);
 router.patch('/:id/accept', DeliveryController.accept);
 router.patch('/:id/pickup', DeliveryController.pickup);
 router.patch('/:id/out-for-delivery', DeliveryController.outForDelivery);

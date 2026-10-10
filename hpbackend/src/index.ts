@@ -6,6 +6,7 @@ import app from './app';
 import { createServer } from 'http';
 import { initSocket } from './sockets';
 import { prisma } from './config/database';
+import { startUnclaimedOrderWatcher } from './jobs/unclaimed-orders';
 
 const PORT = process.env.PORT || 5000;
 
@@ -25,6 +26,7 @@ httpServer.listen(PORT, async () => {
   console.log(`║  🗄️  DB:  hungerpointdb                   ║`);
   console.log('╚══════════════════════════════════════════╝');
   console.log('');
+  startUnclaimedOrderWatcher();
 });
 
 // Graceful shutdown

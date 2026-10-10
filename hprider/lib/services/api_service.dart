@@ -236,7 +236,40 @@ class ApiService {
   static Future<Map<String, dynamic>> acceptDelivery(String deliveryId) => _deliveryAction(deliveryId, 'accept');
   static Future<Map<String, dynamic>> markPickedUp(String deliveryId) => _deliveryAction(deliveryId, 'pickup');
   static Future<Map<String, dynamic>> markOutForDelivery(String deliveryId) => _deliveryAction(deliveryId, 'out-for-delivery');
-  static Future<Map<String, dynamic>> markDelivered(String deliveryId) => _deliveryAction(deliveryId, 'delivered');
+  static Future<Map<String, dynamic>> markDelivered(String deliveryId, {num? cashCollected}) =>
+      _deliveryAction(deliveryId, 'delivered', body: cashCollected == null ? null : {'cashCollected': cashCollected});
+  static Future<Map<String, dynamic>> releaseDelivery(String deliveryId) => _deliveryAction(deliveryId, 'release');
+
+  /// "Upcoming orders": this branch's delivery orders that still need a rider.
+  static Future<List<dynamic>> getAvailableOrders() async {
+    try {
+      final res = await _authedRequest(() => http.get(
+            Uri.parse('$baseUrl/deliveries/available'),
+            headers: _headers(needsAuth: true),
+          ).timeout(const Duration(seconds: 10)));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['data'] ?? [];
+      }
+    } catch (e) {
+      debugPrint('API Error (getAvailableOrders): $e');
+    }
+    return [];
+  }
+
+  /// Take a READY order. The first rider to do so wins; others get a "taken" message.
+  static Future<Map<String, dynamic>> claimOrder(String orderId) async {
+    try {
+      final res = await _authedRequest(() => http.post(
+            Uri.parse('$baseUrl/deliveries/claim/$orderId'),
+            headers: _headers(needsAuth: true),
+          ).timeout(const Duration(seconds: 10)));
+      return jsonDecode(res.body);
+    } catch (e) {
+      debugPrint('API Error (claimOrder): $e');
+      return {'success': false, 'message': 'Network error. Please try again.'};
+    }
+  }
   static Future<Map<String, dynamic>> markFailed(String deliveryId, String reason) =>
       _deliveryAction(deliveryId, 'failed', body: {'reason': reason});
 }

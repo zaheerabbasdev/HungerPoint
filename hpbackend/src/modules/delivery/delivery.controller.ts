@@ -34,6 +34,36 @@ export class DeliveryController {
     }
   }
 
+  static async available(req: Request, res: Response, next: NextFunction) {
+    try {
+      const riderId = await resolveRiderId(req);
+      const orders = await DeliveryService.getAvailableForRider(riderId);
+      res.json({ success: true, count: orders.length, data: orders });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async claim(req: Request, res: Response, next: NextFunction) {
+    try {
+      const riderId = await resolveRiderId(req);
+      const delivery = await DeliveryService.claim(req.params.orderId as string, riderId);
+      res.json({ success: true, message: 'Order taken', data: delivery });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async release(req: Request, res: Response, next: NextFunction) {
+    try {
+      const riderId = await resolveRiderId(req);
+      const result = await DeliveryService.release(req.params.id as string, riderId);
+      res.json({ success: true, message: 'Order released', data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async accept(req: Request, res: Response, next: NextFunction) {
     try {
       const riderId = await resolveRiderId(req);
@@ -67,7 +97,11 @@ export class DeliveryController {
   static async delivered(req: Request, res: Response, next: NextFunction) {
     try {
       const riderId = await resolveRiderId(req);
-      const delivery = await DeliveryService.markDelivered(req.params.id as string, riderId);
+      const delivery = await DeliveryService.markDelivered(
+        req.params.id as string,
+        riderId,
+        req.body?.cashCollected === undefined ? undefined : Number(req.body.cashCollected),
+      );
       res.json({ success: true, message: 'Delivery completed', data: delivery });
     } catch (error) {
       next(error);

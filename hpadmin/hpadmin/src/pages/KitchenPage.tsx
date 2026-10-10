@@ -25,6 +25,9 @@ export default function KitchenDisplayPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [queue, setQueue] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // Prep minutes the cook picks per ticket before pressing Start Cooking.
+  const [prepMinutes, setPrepMinutes] = useState<Record<string, number>>({});
+  const [now, setNow] = useState(Date.now());
 
   // Login form
   const [identifier, setIdentifier] = useState('');
@@ -82,11 +85,13 @@ export default function KitchenDisplayPage() {
 
     // Fallback safety-net refresh in case a socket event is missed/disconnected
     const interval = setInterval(loadKitchenQueue, 30000);
+    const tick = setInterval(() => setNow(Date.now()), 15000);
 
     return () => {
       socket.off('order.created', handleQueueEvent);
       socket.off('kitchen.queue_updated', handleQueueEvent);
       clearInterval(interval);
+      clearInterval(tick);
     };
   }, [kitchenUser]);
 
@@ -135,13 +140,37 @@ export default function KitchenDisplayPage() {
 
   const handleStartPrepare = async (orderId: string) => {
     try {
-      const res = await kitchenFetch(`/kitchen/orders/${orderId}/prepare`, { method: 'PATCH' });
+      const res = await kitchenFetch(`/kitchen/orders/${orderId}/prepare`, {
+        method: 'PATCH',
+        body: JSON.stringify({ estimatedPrepTime: prepMinutes[orderId] ?? 15 }),
+      });
       if (res.success) {
-        setQueue((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'PREPARING' } : o)));
+        setQueue((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...res.data } : o)));
       }
     } catch (e: any) {
       alert(e.message || 'Error updating order');
     }
+  };
+
+  const handleExtend = async (orderId: string, extraMinutes: number) => {
+    try {
+      const res = await kitchenFetch(`/kitchen/orders/${orderId}/extend`, {
+        method: 'PATCH',
+        body: JSON.stringify({ extraMinutes }),
+      });
+      if (res.success) {
+        setQueue((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...res.data } : o)));
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error updating order');
+    }
+  };
+
+  // Minutes left until the food is due (cooking start + prep time).
+  const minutesLeft = (order: any): number | null => {
+    if (!order.acceptedAt || !order.estimatedPrepTime) return null;
+    const due = new Date(order.acceptedAt).getTime() + order.estimatedPrepTime * 60_000;
+    return Math.round((due - now) / 60_000);
   };
 
   const handleMarkReady = async (orderId: string) => {
@@ -277,21 +306,58 @@ export default function KitchenDisplayPage() {
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-stone-800 flex gap-2">
+                <div className="pt-3 border-t border-stone-800 space-y-3">
                   {order.status === 'CONFIRMED' || order.status === 'PENDING' ? (
-                    <button
-                      onClick={() => handleStartPrepare(order.id)}
-                      className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 font-extrabold text-stone-950 text-xs rounded-xl transition-all"
-                    >
-                      Start Cooking 🔥
-                    </button>
+                    <>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-1.5">Preparation time (minutes)</p>
+                        <div className="flex gap-1.5">
+                          {[10, 15, 20, 30, 45].map((m) => (
+                            <button
+                              key={m}
+                              onClick={() => setPrepMinutes((p) => ({ ...p, [order.id]: m }))}
+                              className={`flex-1 py-1.5 rounded-lg text-xs font-black border transition-all ${
+                                (prepMinutes[order.id] ?? 15) === m
+                                  ? 'bg-amber-500 text-stone-950 border-amber-500'
+                                  : 'bg-stone-950 text-stone-300 border-stone-700 hover:border-amber-500'
+                              }`}
+                            >
+                              {m}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleStartPrepare(order.id)}
+                        className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 font-extrabold text-stone-950 text-xs rounded-xl transition-all"
+                      >
+                        Start Cooking — {prepMinutes[order.id] ?? 15} min 🔥
+                      </button>
+                    </>
                   ) : (
-                    <button
-                      onClick={() => handleMarkReady(order.id)}
-                      className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 font-extrabold text-white text-xs rounded-xl transition-all shadow-lg"
-                    >
-                      Mark Ready for Dispatch ✓
-                    </button>
+                    <>
+                      {minutesLeft(order) !== null && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className={`font-black ${(minutesLeft(order) as number) < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                            {(minutesLeft(order) as number) < 0
+                              ? `Running late by ${Math.abs(minutesLeft(order) as number)} min`
+                              : `Due in ${minutesLeft(order)} min`}
+                          </span>
+                          <button
+                            onClick={() => handleExtend(order.id, 5)}
+                            className="px-2.5 py-1 bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold rounded-lg"
+                          >
+                            +5 min
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleMarkReady(order.id)}
+                        className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 font-extrabold text-white text-xs rounded-xl transition-all shadow-lg"
+                      >
+                        Mark Ready for Dispatch ✓
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

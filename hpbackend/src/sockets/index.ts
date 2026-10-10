@@ -53,6 +53,7 @@ export const initSocket = (httpServer: HttpServer): SocketServer => {
       if (user.branchId) {
         socket.join(`branch:${user.branchId}`);
         socket.join(`kitchen:${user.branchId}`);
+        if (user.role === 'RIDER') socket.join(`riders:${user.branchId}`);
       }
 
       // Role-based rooms
@@ -75,11 +76,8 @@ export const initSocket = (httpServer: HttpServer): SocketServer => {
 
       const locationPayload = { riderId: user.userId, latitude, longitude };
 
-      // Broadcast to order room if on delivery
-      if (orderId) {
-        io.to(`order:${orderId}`).emit('rider.location_updated', locationPayload);
-      }
-
+      // The customer no longer sees the rider on a map — only an ETA countdown —
+      // so the position goes to admins only.
       // Broadcast to admin room
       io.to('role:ADMIN').emit('rider.location_updated', locationPayload);
     });
@@ -120,6 +118,11 @@ export const emitToAdmins = (event: string, data: unknown): void => {
   io?.to('role:ADMIN').emit(event, data);
 };
 
+/** Emit to the riders of one branch (the "available orders" pool) */
+export const emitToBranchRiders = (branchId: string, event: string, data: unknown): void => {
+  io?.to(`riders:${branchId}`).emit(event, data);
+};
+
 /** Emit to all riders */
 export const emitToRiders = (event: string, data: unknown): void => {
   io?.to('role:RIDER').emit(event, data);
@@ -140,6 +143,8 @@ export const SOCKET_EVENTS = {
   ORDER_CANCELLED:        'order.cancelled',
   RIDER_LOCATION_UPDATED: 'rider.location_updated',
   RIDER_ASSIGNMENT:       'rider.assignment_created',
+  RIDER_POOL_UPDATED:     'rider.pool_updated',
+  ORDER_ETA_UPDATED:      'order.eta_updated',
   INVENTORY_LOW_STOCK:    'inventory.low_stock',
 } as const;
 

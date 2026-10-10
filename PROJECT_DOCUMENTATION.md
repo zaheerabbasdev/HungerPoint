@@ -216,6 +216,17 @@ Phone numbers must be entered exactly in `+92…` format.
 
 ## 6. Core Business Flows
 
+### Delivery order flow (rider claims the order)
+
+1. Customer places the order: `PENDING`. The admin confirms it: `CONFIRMED`. The kitchen gets the ticket and the branch's riders see it under **Upcoming orders** (read-only; only the customer's area, no phone or exact address).
+2. Kitchen presses **Start Cooking** and picks the preparation minutes: `PREPARING`. The server sets `promisedAt = now + prep + estimated ride` (distance-based). Riders see "Being prepared, ready in ~N min". The kitchen can add time with **+5 min**.
+3. Kitchen presses **Mark Ready**: `READY`. Riders of that branch are notified over Socket.IO (`rider.pool_updated`) and the order shows **Take this order**.
+4. A rider who is online and not on another delivery taps it (`POST /deliveries/claim/:orderId`). The first insert wins (unique `deliveries.orderId`); others get "Another rider already took this order". Status: `ASSIGNED`. The admin can still assign manually (`POST /riders/assign`). A rider can give the order back before pickup (`PATCH /deliveries/:id/release`).
+5. Rider sees the customer's address and a Navigate button, then accepts, picks up and starts the delivery: `OUT_FOR_DELIVERY`. `promisedAt` is recalculated from the rider's GPS.
+6. At handover the rider confirms the cash collected (`PATCH /deliveries/:id/delivered` with `cashCollected`): `DELIVERED`, `paymentStatus = PAID`, `Order.cashCollected` stored.
+7. The customer sees steps Received, Confirmed, **Preparing**, Ready, On the way, Delivered, one countdown (`promisedAt`) and the delivery address. There is no rider map and the rider's position is no longer sent to the customer.
+
+
 ### 6.1 Authentication
 
 **All apps (customer, rider, waiter) and the web: email + password**

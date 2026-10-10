@@ -24,6 +24,12 @@ export function getSocket(): Socket {
   return socket;
 }
 
+/** Drops the cached admin socket so the next getSocket() reconnects with the current login token. */
+export function resetSocket(): void {
+  socket?.disconnect();
+  socket = null;
+}
+
 let kitchenSocket: Socket | null = null;
 
 /** Separate socket authenticated with the kitchen session token only. */

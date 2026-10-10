@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
 import { fetchApi } from '../lib/api';
+import { getSocket, resetSocket } from '../lib/socket';
 import {
   Utensils,
   ShoppingBag,
@@ -80,7 +81,13 @@ interface Order {
   type?: string;
   branchId?: string;
   paymentMethod: string;
+  paymentStatus?: string;
   createdAt: string;
+  acceptedAt?: string | null;
+  readyAt?: string | null;
+  promisedAt?: string | null;
+  estimatedPrepTime?: number | null;
+  estimatedDeliveryTime?: number | null;
   customer?: { user?: { name: string; phone: string } };
   branch?: { name: string };
   items?: any[];
@@ -317,6 +324,44 @@ export default function AdminPortalPage() {
       loadAllData();
     }
   }, [authToken]);
+
+  // ─── 2b. Live order updates + "no rider took it" alerts ───────
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => {
+    if (!authToken) return;
+    const tick = setInterval(() => setClock(Date.now()), 30000);
+
+    // Reconnect with this login's token so the server puts us in the admin room.
+    resetSocket();
+    const socket = getSocket();
+    const refreshOrders = () => {
+      fetchApi('/orders')
+        .then((res) => {
+          if (res.success) setOrders(res.orders || res.data || []);
+        })
+        .catch(() => {});
+    };
+    const orderEvents = [
+      'order.created', 'order.confirmed', 'order.preparing', 'order.ready', 'order.assigned',
+      'order.picked_up', 'order.out_for_delivery', 'order.delivered', 'order.cancelled', 'order.eta_updated',
+    ];
+    orderEvents.forEach((evt) => socket.on(evt, refreshOrders));
+    const onUnclaimed = (data: any) => {
+      showToast(`Order ${data.orderNumber} is ready but no rider has taken it for ${data.waitingMinutes} min — assign one.`, 'error');
+      refreshOrders();
+    };
+    socket.on('order.unclaimed', onUnclaimed);
+
+    return () => {
+      clearInterval(tick);
+      orderEvents.forEach((evt) => socket.off(evt, refreshOrders));
+      socket.off('order.unclaimed', onUnclaimed);
+    };
+  }, [authToken]);
+
+  // "ready in 12 min" / "due in 25 min" / "late by 4 min" helpers for the orders table
+  const minutesBetween = (fromMs: number, toMs: number) => Math.round((toMs - fromMs) / 60000);
+  const minutesWaiting = (since?: string) => (since ? Math.max(0, minutesBetween(new Date(since).getTime(), clock)) : 0);
 
   // ─── 3. Auth Actions ─────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
@@ -1654,6 +1699,7 @@ export default function AdminPortalPage() {
                       <th className="py-3 px-4">Total</th>
                       <th className="py-3 px-4">Payment</th>
                       <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Timing</th>
                       <th className="py-3 px-4">Rider</th>
                       <th className="py-3 px-4">Change Status</th>
                     </tr>
@@ -1698,6 +1744,30 @@ export default function AdminPortalPage() {
                             )}
                           </div>
                         </td>
+                        <td className="py-3 px-4 min-w-[150px] text-[11px]">
+                          {['PENDING', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'REJECTED', 'REFUNDED', 'PAYMENT_FAILED'].includes(ord.status) ? (
+                            <span className="text-stone-600">—</span>
+                          ) : (
+                            <div className="space-y-0.5">
+                              {ord.estimatedPrepTime ? (
+                                <span className="block text-stone-300">
+                                  🍳 {ord.estimatedPrepTime} min prep
+                                  {ord.estimatedDeliveryTime ? ` + 🛵 ${ord.estimatedDeliveryTime} min ride` : ''}
+                                </span>
+                              ) : (
+                                <span className="block text-stone-500">Waiting for kitchen</span>
+                              )}
+                              {ord.promisedAt && (() => {
+                                const left = minutesBetween(clock, new Date(ord.promisedAt).getTime());
+                                return (
+                                  <span className={`block font-black ${left < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                                    {left < 0 ? `Late by ${Math.abs(left)} min` : `Customer in ${left} min`}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          )}
+                        </td>
                         <td className="py-3 px-4 min-w-[180px]">
                           {ord.delivery?.rider ? (
                             <div>
@@ -1706,6 +1776,18 @@ export default function AdminPortalPage() {
                               <span className="block text-[10px] text-stone-500 uppercase">{ord.delivery.status}</span>
                             </div>
                           ) : ord.type === 'DELIVERY' && ord.status === 'READY' ? (
+                            <div className="space-y-1.5">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                minutesWaiting(ord.readyAt || undefined) >= 3
+                                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                  : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                              }`}
+                            >
+                              {minutesWaiting(ord.readyAt || undefined) >= 3
+                                ? `No rider for ${minutesWaiting(ord.readyAt || undefined)} min`
+                                : 'Riders notified — waiting'}
+                            </span>
                             <div className="flex items-center gap-1.5">
                               <select
                                 value={selectedRiderByOrder[ord.id] || ''}
@@ -1727,6 +1809,9 @@ export default function AdminPortalPage() {
                                 {assigningOrderId === ord.id ? '...' : 'Assign'}
                               </button>
                             </div>
+                            </div>
+                          ) : ord.type === 'DELIVERY' && ['CONFIRMED', 'PREPARING'].includes(ord.status) ? (
+                            <span className="text-stone-500 text-[11px]">Visible to riders — can be taken once ready</span>
                           ) : (
                             <span className="text-stone-600 text-[11px]">
                               {ord.type === 'PICKUP' ? 'Pickup order' : '—'}
@@ -1768,7 +1853,7 @@ export default function AdminPortalPage() {
                     ))}
                     {filteredOrders.length === 0 && (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-stone-500">
+                        <td colSpan={10} className="py-8 text-center text-stone-500">
                           No orders found matching this filter.
                         </td>
                       </tr>

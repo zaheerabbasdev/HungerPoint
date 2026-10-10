@@ -14,6 +14,7 @@ router.use(authenticate, authorize(UserRole.KITCHEN_STAFF));
 
 router.get('/queue', KitchenController.getQueue);
 router.patch('/orders/:id/prepare', KitchenController.startPreparing);
+router.patch('/orders/:id/extend', KitchenController.extend);
 router.patch('/orders/:id/ready', KitchenController.markReady);
 
 export default router;

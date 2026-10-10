@@ -151,47 +151,31 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Navigate card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.surfaceBorder)),
-              child: Row(
-                children: [
-                  Icon(beforePickup ? Icons.storefront : Icons.location_on, color: AppColors.amber),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(beforePickup ? 'Pickup from' : 'Deliver to', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                        Text(
-                          beforePickup
-                              ? (branch?['name'] ?? 'Branch')
-                              : (isPickupType ? 'Customer pickup' : (address?['address'] ?? 'No address on file')),
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!isPickupType || beforePickup)
-                    IconButton(
-                      icon: const Icon(Icons.directions, color: AppColors.amber),
-                      onPressed: () => beforePickup
-                          ? _navigateTo(
-                              double.tryParse(branch?['latitude']?.toString() ?? ''),
-                              double.tryParse(branch?['longitude']?.toString() ?? ''),
-                              branch?['name'] ?? 'Branch',
-                            )
-                          : _navigateTo(
-                              double.tryParse(address?['latitude']?.toString() ?? ''),
-                              double.tryParse(address?['longitude']?.toString() ?? ''),
-                              'Delivery Address',
-                            ),
-                    ),
-                ],
+            // Pickup from the branch (only until the food is picked up)
+            if (beforePickup) ...[
+              _locationCard(
+                icon: Icons.storefront,
+                title: 'Pickup from',
+                text: branch?['name'] ?? 'Branch',
+                lat: double.tryParse(branch?['latitude']?.toString() ?? ''),
+                lng: double.tryParse(branch?['longitude']?.toString() ?? ''),
+                label: branch?['name'] ?? 'Branch',
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 12),
+            ],
+
+            // The customer's location is visible from the moment the rider takes the order
+            if (!isPickupType) ...[
+              _locationCard(
+                icon: Icons.location_on,
+                title: 'Deliver to',
+                text: address?['address'] ?? 'No address on file',
+                lat: double.tryParse(address?['latitude']?.toString() ?? ''),
+                lng: double.tryParse(address?['longitude']?.toString() ?? ''),
+                label: 'Delivery Address',
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Customer card
             Container(
@@ -244,6 +228,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
             _buildActionButton(),
             const SizedBox(height: 10),
+            if (beforePickup)
+              TextButton(
+                onPressed: _isSubmitting ? null : _releaseOrder,
+                child: const Text('Give this order back', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              ),
             if (_status != 'DELIVERED')
               TextButton(
                 onPressed: _isSubmitting ? null : _reportIssue,
@@ -253,6 +242,106 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         ),
       ),
     );
+  }
+
+  Widget _locationCard({
+    required IconData icon,
+    required String title,
+    required String text,
+    required double? lat,
+    required double? lng,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.surfaceBorder)),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.amber),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.directions, color: AppColors.amber),
+            onPressed: () => _navigateTo(lat, lng, label),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Handover = payment confirmation: cash orders need the collected amount before completing.
+  Future<Map<String, dynamic>> _deliverWithPayment() async {
+    final total = num.tryParse(_order['total']?.toString() ?? '') ?? 0;
+    final needsCash = _order['paymentMethod']?.toString() == 'CASH_ON_DELIVERY' && _order['paymentStatus']?.toString() != 'PAID';
+    if (!needsCash) return ApiService.markDelivered(_delivery['id']);
+
+    final controller = TextEditingController(text: total.toStringAsFixed(0));
+    final amount = await showDialog<num>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Collect cash', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Order total: PKR ${total.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.textMuted)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: const InputDecoration(labelText: 'Cash received (PKR)', labelStyle: TextStyle(color: AppColors.textMuted)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, num.tryParse(controller.text.trim())),
+            child: const Text('Confirm & hand over', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (amount == null) return {'success': false, 'message': 'Cash collection not confirmed.'};
+    return ApiService.markDelivered(_delivery['id'], cashCollected: amount);
+  }
+
+  Future<void> _releaseOrder() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Give this order back?', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        content: const Text('Other riders will be able to take it.', style: TextStyle(color: AppColors.textMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: const Text('Keep it', style: TextStyle(color: AppColors.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx, true), child: const Text('Give back', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold))),
+        ],
+      ),
+    );
+    if (ok != true || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    final result = await ApiService.releaseDelivery(_delivery['id']);
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+    if (result['success'] == true) {
+      widget.onChanged();
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? 'Could not release the order.'), backgroundColor: AppColors.danger),
+      );
+    }
   }
 
   Widget _buildActionButton() {
@@ -281,10 +370,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         action = () => ApiService.markOutForDelivery(_delivery['id']);
         break;
       case 'OUT_FOR_DELIVERY':
-        label = 'Mark Delivered';
+        label = 'Hand Over & Confirm Payment';
         icon = Icons.done_all;
         color = AppColors.success;
-        action = () => ApiService.markDelivered(_delivery['id']);
+        action = _deliverWithPayment;
         break;
       default:
         return const SizedBox.shrink();

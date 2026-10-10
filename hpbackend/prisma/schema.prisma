@@ -531,7 +531,9 @@ model Order {
   couponDiscount  Decimal       @default(0) @db.Decimal(10, 2)
   // Estimated times
   estimatedPrepTime   Int?      // minutes
-  estimatedDeliveryTime Int?    // minutes
+  estimatedDeliveryTime Int?    // minutes (rider travel time)
+  promisedAt      DateTime?     // when the customer is promised the food (prep + travel); drives the countdown
+  cashCollected   Decimal?      @db.Decimal(10, 2) // cash the rider collected at handover
   // Timestamps
   confirmedAt     DateTime?
   acceptedAt      DateTime?

@@ -11,21 +11,36 @@ const ORDER_STATUS_EVENTS = [
   'order.pending', 'order.confirmed', 'order.accepted', 'order.preparing', 'order.ready',
   'order.assigned', 'order.picked_up', 'order.out_for_delivery', 'order.delivered',
   'order.completed', 'order.cancelled', 'order.rejected', 'order.payment_failed', 'order.refunded',
+  'order.eta_updated',
 ];
 
 const STATUS_STEPS = [
   { key: 'PENDING', label: 'Order Received', icon: '📝' },
   { key: 'CONFIRMED', label: 'Confirmed', icon: '✓' },
-  { key: 'PREPARING', label: 'In Kitchen', icon: '🍳' },
-  { key: 'READY', label: 'Ready for Pickup', icon: '📦' },
+  { key: 'PREPARING', label: 'Preparing', icon: '🍳' },
+  { key: 'READY', label: 'Ready', icon: '📦' },
   { key: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', icon: '🛵' },
   { key: 'DELIVERED', label: 'Delivered', icon: '🎉' },
 ];
+
+// Statuses between "Ready" and "Out for Delivery" show under the Ready step.
+const STEP_ALIAS: Record<string, string> = {
+  ACCEPTED: 'CONFIRMED',
+  ASSIGNED: 'READY',
+  PICKED_UP: 'READY',
+  COMPLETED: 'DELIVERED',
+};
 
 export default function OrderTrackingPage() {
   const { id = '' } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(tick);
+  }, []);
 
   useEffect(() => {
     async function loadOrder() {
@@ -44,8 +59,9 @@ export default function OrderTrackingPage() {
     const socket = getSocket();
     socket.emit('order:track', { orderId: id });
 
-    const handleStatusEvent = (updatedOrder: any) => {
-      if (updatedOrder?.id === id) setOrder(updatedOrder);
+    // Status events carry a partial order, so refetch the full, current one.
+    const handleStatusEvent = (payload: any) => {
+      if ((payload?.id ?? payload?.orderId) === id) loadOrder();
     };
     ORDER_STATUS_EVENTS.forEach((evt) => socket.on(evt, handleStatusEvent));
 
@@ -87,7 +103,15 @@ export default function OrderTrackingPage() {
     );
   }
 
-  const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === order.status);
+  const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === (STEP_ALIAS[order.status] ?? order.status));
+
+  // One combined time: kitchen preparation + the rider's trip, counting down to the promised time.
+  const isFinished = ['DELIVERED', 'COMPLETED', 'CANCELLED', 'REJECTED', 'REFUNDED', 'PAYMENT_FAILED'].includes(order.status);
+  const minutesLeft = order.promisedAt ? Math.max(0, Math.ceil((new Date(order.promisedAt).getTime() - now) / 60_000)) : null;
+  const etaHeadline =
+    order.status === 'OUT_FOR_DELIVERY' ? 'On the way — arriving in'
+    : order.status === 'PREPARING' ? 'Your food will reach you in about'
+    : 'Estimated delivery in about';
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100 p-4 sm:p-8">
@@ -115,6 +139,25 @@ export default function OrderTrackingPage() {
               {order.status}
             </span>
           </div>
+
+          {/* Combined time (preparation + delivery), no map */}
+          {!isFinished && minutesLeft !== null && order.type === 'DELIVERY' && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-stone-400">{etaHeadline}</p>
+              <p className="text-3xl font-black text-amber-400 mt-1">{minutesLeft} min</p>
+              {order.estimatedPrepTime && order.estimatedDeliveryTime && order.status !== 'OUT_FOR_DELIVERY' && (
+                <p className="text-[10px] text-stone-500 mt-1">
+                  {order.estimatedPrepTime} min preparing + {order.estimatedDeliveryTime} min delivery
+                </p>
+              )}
+            </div>
+          )}
+          {order.address && order.type === 'DELIVERY' && !isFinished && (
+            <div className="text-xs text-stone-400 bg-stone-950 border border-stone-800 rounded-xl px-4 py-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">Delivering to</span>
+              <span className="text-stone-200 font-bold">{order.address.address}</span>
+            </div>
+          )}
 
           {/* Stepper Bar */}
           <div className="grid grid-cols-6 gap-2 pt-4 relative">
@@ -186,7 +229,7 @@ export default function OrderTrackingPage() {
               <span>PKR {Number(order.tax).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm font-black text-stone-100 pt-2 border-t border-stone-800">
-              <span>Total Paid ({order.paymentMethod})</span>
+              <span>{order.paymentStatus === 'PAID' ? 'Total Paid' : 'Total to pay'} ({order.paymentMethod})</span>
               <span className="text-amber-400">PKR {Number(order.total).toFixed(2)}</span>
             </div>
           </div>
