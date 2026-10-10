@@ -15,8 +15,9 @@ import { assertBranchAvailable } from '../branches/branch-guard';
 
 const SALT_ROUNDS = 12;
 
-// Live-ETA refresh is limited per rider: the routing server is asked about once a minute.
-const ETA_REFRESH_EVERY_MS = 60_000;
+// Live-ETA refresh is limited per rider (default every 2 minutes; ETA_LIVE_REFRESH_SECONDS) so a
+// paid routing service is not called on every GPS ping.
+const ETA_REFRESH_EVERY_MS = (Number(process.env.ETA_LIVE_REFRESH_SECONDS) || 120) * 1000;
 const lastEtaRefresh = new Map<string, number>();
 
 export class RiderService {
