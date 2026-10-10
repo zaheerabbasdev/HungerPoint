@@ -7,7 +7,8 @@ import { DeliveryStatus, OrderStatus, OrderType, PaymentMethod, PaymentStatus, R
 import { AppError } from '../../middleware/error.middleware';
 import { OrderService } from '../orders/order.service';
 import { emitToBranchRiders, emitToOrder, SOCKET_EVENTS } from '../../sockets';
-import { travelMinutes } from '../../utils/eta';
+import { RoutingService } from '../../utils/routing';
+import { EtaService } from '../orders/eta.service';
 
 const INCLUDE_FULL_DELIVERY = {
   order: {
@@ -192,10 +193,11 @@ export class DeliveryService {
       where: { id: delivery.orderId },
       select: { branch: { select: { latitude: true, longitude: true } }, address: { select: { latitude: true, longitude: true } } },
     });
-    const minutes = travelMinutes(route?.branch, route?.address);
+    const minutes = RoutingService.estimateNow(route?.branch, route?.address);
     const promisedAt = new Date(Date.now() + minutes * 60_000);
     await prisma.order.update({ where: { id: delivery.orderId }, data: { promisedAt, estimatedDeliveryTime: minutes } });
     emitToOrder(delivery.orderId, SOCKET_EVENTS.ORDER_ETA_UPDATED, { orderId: delivery.orderId, promisedAt });
+    void EtaService.refresh(delivery.orderId);
     return updated;
   }
 

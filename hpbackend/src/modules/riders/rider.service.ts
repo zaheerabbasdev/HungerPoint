@@ -5,8 +5,8 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database';
 import { RiderStatus, DeliveryStatus, OrderStatus, UserRole } from '@prisma/client';
-import { emitToUser, emitToOrder, emitToBranchRiders, SOCKET_EVENTS } from '../../sockets';
-import { travelMinutes } from '../../utils/eta';
+import { emitToUser, emitToBranchRiders, SOCKET_EVENTS } from '../../sockets';
+import { EtaService } from '../orders/eta.service';
 import { OrderService } from '../orders/order.service';
 import { AppError } from '../../middleware/error.middleware';
 import { requireEmail, requirePhone } from '../../utils/identity';
@@ -14,6 +14,10 @@ import { assertIdentityAvailable } from '../users/account-identity';
 import { assertBranchAvailable } from '../branches/branch-guard';
 
 const SALT_ROUNDS = 12;
+
+// Live-ETA refresh is limited per rider: the routing server is asked about once a minute.
+const ETA_REFRESH_EVERY_MS = 60_000;
+const lastEtaRefresh = new Map<string, number>();
 
 export class RiderService {
   static async createRider(data: {
@@ -140,25 +144,22 @@ export class RiderService {
         speed,
       },
     });
-    await this.refreshEta(riderId, latitude, longitude);
+    void this.refreshEta(riderId, latitude, longitude);
     return location;
   }
 
   // While the rider is on the way, the customer's countdown follows the rider's real
   // position (the customer never sees the position itself, only the time).
   private static async refreshEta(riderId: string, latitude: number, longitude: number) {
+    const last = lastEtaRefresh.get(riderId) ?? 0;
+    if (Date.now() - last < ETA_REFRESH_EVERY_MS) return;
+    lastEtaRefresh.set(riderId, Date.now());
     try {
       const delivery = await prisma.delivery.findFirst({
         where: { riderId, status: { in: [DeliveryStatus.PICKED_UP, DeliveryStatus.OUT_FOR_DELIVERY] } },
-        include: { order: { select: { id: true, promisedAt: true, address: { select: { latitude: true, longitude: true } } } } },
+        select: { orderId: true },
       });
-      if (!delivery) return;
-      const minutes = travelMinutes({ latitude, longitude }, delivery.order.address);
-      const promisedAt = new Date(Date.now() + minutes * 60_000);
-      // Only push a change worth showing (a minute or more).
-      if (delivery.order.promisedAt && Math.abs(promisedAt.getTime() - delivery.order.promisedAt.getTime()) < 60_000) return;
-      await prisma.order.update({ where: { id: delivery.order.id }, data: { promisedAt, estimatedDeliveryTime: minutes } });
-      emitToOrder(delivery.order.id, SOCKET_EVENTS.ORDER_ETA_UPDATED, { orderId: delivery.order.id, promisedAt });
+      if (delivery) void EtaService.refresh(delivery.orderId, { latitude, longitude });
     } catch (err) {
       console.error('ETA refresh failed:', err);
     }

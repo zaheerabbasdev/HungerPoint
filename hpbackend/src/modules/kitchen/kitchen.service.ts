@@ -5,7 +5,8 @@
 import { prisma } from '../../config/database';
 import { OrderStatus } from '@prisma/client';
 import { emitToOrder, emitToKitchen, emitToAdmins, emitToBranchRiders, SOCKET_EVENTS } from '../../sockets';
-import { travelMinutes } from '../../utils/eta';
+import { RoutingService } from '../../utils/routing';
+import { EtaService } from '../orders/eta.service';
 import { AppError } from '../../middleware/error.middleware';
 
 export class KitchenService {
@@ -69,6 +70,8 @@ export class KitchenService {
     });
 
     emitToOrder(orderId, SOCKET_EVENTS.ORDER_PREPARING, order);
+    // Swap the instant estimate for the road-based ride time as soon as it is known.
+    void EtaService.refresh(orderId);
     if (order.branchId) emitToKitchen(order.branchId, 'kitchen.queue_updated', order);
     emitToAdmins(SOCKET_EVENTS.ORDER_PREPARING, order);
     if (order.branchId) emitToBranchRiders(order.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId, status: order.status });
@@ -105,7 +108,7 @@ export class KitchenService {
       where: { id: orderId },
       select: { type: true, branch: { select: { latitude: true, longitude: true } }, address: { select: { latitude: true, longitude: true } } },
     });
-    const travel = o?.type === 'DELIVERY' ? travelMinutes(o.branch, o.address) : 0;
+    const travel = o?.type === 'DELIVERY' ? RoutingService.estimateNow(o.branch, o.address) : 0;
     return { travel, promisedAt: new Date(Date.now() + (prepMinutes + travel) * 60_000) };
   }
 

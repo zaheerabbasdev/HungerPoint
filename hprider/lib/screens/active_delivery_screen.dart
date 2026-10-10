@@ -173,6 +173,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 lat: double.tryParse(address?['latitude']?.toString() ?? ''),
                 lng: double.tryParse(address?['longitude']?.toString() ?? ''),
                 label: 'Delivery Address',
+                note: _rideNote(),
               ),
               const SizedBox(height: 16),
             ],
@@ -244,6 +245,18 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     );
   }
 
+  // "Ride about 12 min" (by road) and, once on the way, how long until the customer expects it.
+  String? _rideNote() {
+    final ride = num.tryParse(_order['estimatedDeliveryTime']?.toString() ?? '');
+    final promised = DateTime.tryParse(_order['promisedAt']?.toString() ?? '')?.toLocal();
+    final onTheWay = _status == 'PICKED_UP' || _status == 'OUT_FOR_DELIVERY';
+    if (onTheWay && promised != null) {
+      final left = (promised.difference(DateTime.now()).inSeconds / 60).ceil();
+      return left > 0 ? 'Customer expects it in $left min' : 'Customer is expecting it now';
+    }
+    return ride == null ? null : 'Ride about ${ride.round()} min';
+  }
+
   Widget _locationCard({
     required IconData icon,
     required String title,
@@ -251,6 +264,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     required double? lat,
     required double? lng,
     required String label,
+    String? note,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -265,6 +279,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: [
                 Text(title, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                 Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                if (note != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(note, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.amber)),
+                  ),
               ],
             ),
           ),

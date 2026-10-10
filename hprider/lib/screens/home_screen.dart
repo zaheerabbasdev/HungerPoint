@@ -263,6 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final itemCount = o['_count']?['items'] ?? 0;
     final isCash = o['paymentMethod']?.toString() == 'CASH_ON_DELIVERY' && o['paymentStatus']?.toString() != 'PAID';
     final claiming = _claimingOrderId == o['id']?.toString();
+    final ride = num.tryParse(o['estimatedDeliveryTime']?.toString() ?? '');
     final canTake = isReady && _isOnline && _activeDelivery == null;
 
     return Container(
@@ -295,7 +296,8 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Text(area.isEmpty ? 'Delivery area not set' : area, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
               ),
-              Text('$itemCount item(s)', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              Text(ride == null ? '$itemCount item(s)' : 'Ride ~${ride.round()} min · $itemCount item(s)',
+                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
             ],
           ),
           if (isReady) ...[
