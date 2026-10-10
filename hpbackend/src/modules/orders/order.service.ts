@@ -3,7 +3,7 @@
 // ============================================================
 
 import { prisma } from '../../config/database';
-import { OrderStatus, PaymentMethod, OrderType, OrderSource, LoyaltyTransactionType } from '@prisma/client';
+import { OrderStatus, PaymentMethod, PaymentStatus, OrderType, OrderSource, LoyaltyTransactionType } from '@prisma/client';
 import { emitToKitchen, emitToAdmins, emitToOrder, emitToBranchRiders, SOCKET_EVENTS } from '../../sockets';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { AppError } from '../../middleware/error.middleware';
@@ -235,6 +235,77 @@ export class OrderService {
     }
 
     return order;
+  }
+
+  // ─── Dine-in: served → payment → close table ─────────────────
+  // "Mark as done" only records that the food reached the table. The table stays occupied until
+  // the payment is confirmed, which is also what completes the order and frees the table.
+
+  static async markServed(id: string, changedById?: string) {
+    const order = await prisma.order.findUnique({ where: { id }, select: { type: true, status: true, servedAt: true, branchId: true } });
+    if (!order) throw new AppError('Order not found', 404);
+    if (order.type !== OrderType.DINE_IN) throw new AppError('Only dine-in orders are served at a table', 400);
+    if (order.status !== OrderStatus.READY) {
+      throw new AppError(`The kitchen has not marked this order Ready yet (it is ${order.status})`, 400);
+    }
+    if (order.servedAt) throw new AppError('This order is already marked as served', 400);
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: {
+        servedAt: new Date(),
+        statusHistory: { create: { status: OrderStatus.READY, notes: 'Served to the table', changedBy: changedById } },
+      },
+    });
+    emitToOrder(id, 'order.served', updated);
+    emitToAdmins('order.served', updated);
+    if (updated.branchId) emitToKitchen(updated.branchId, 'kitchen.queue_updated', updated);
+    return updated;
+  }
+
+  static async confirmDineInPayment(
+    id: string,
+    data: { method: PaymentMethod; amountReceived?: number },
+    changedById?: string,
+  ) {
+    const order = await prisma.order.findUnique({ where: { id } });
+    if (!order) throw new AppError('Order not found', 404);
+    if (order.type !== OrderType.DINE_IN) throw new AppError('Only dine-in orders are paid at the table', 400);
+    if (order.status !== OrderStatus.READY || !order.servedAt) {
+      throw new AppError('Mark the order as done (served) before confirming payment', 400);
+    }
+    if (order.paymentStatus === PaymentStatus.PAID) throw new AppError('This order is already paid', 400);
+
+    const allowed: PaymentMethod[] = [
+      PaymentMethod.POS_CASH, PaymentMethod.DEBIT_CARD, PaymentMethod.CREDIT_CARD,
+      PaymentMethod.JAZZCASH, PaymentMethod.EASYPAISA,
+    ];
+    if (!allowed.includes(data.method)) throw new AppError('Choose how the guest paid (cash, card, JazzCash or EasyPaisa)', 400);
+
+    const total = Number(order.total);
+    let cashCollected: number | null = null;
+    if (data.method === PaymentMethod.POS_CASH) {
+      const received = Number(data.amountReceived);
+      if (!Number.isFinite(received)) throw new AppError(`Enter the cash received (PKR ${total.toFixed(0)} due)`, 400);
+      if (received < total) throw new AppError(`Cash received is less than the bill (PKR ${total.toFixed(0)})`, 400);
+      cashCollected = received;
+    }
+
+    const paidAt = new Date();
+    await prisma.order.update({
+      where: { id },
+      data: { paymentMethod: data.method, paymentStatus: PaymentStatus.PAID, cashCollected },
+    });
+    await prisma.payment.upsert({
+      where: { orderId: id },
+      create: { orderId: id, method: data.method, status: PaymentStatus.PAID, amount: total, paidAmount: cashCollected ?? total, paidAt },
+      update: { method: data.method, status: PaymentStatus.PAID, paidAmount: cashCollected ?? total, paidAt },
+    });
+
+    // Paying is what closes the table: COMPLETED frees it and awards loyalty points.
+    const completed = await this.updateOrderStatus(id, OrderStatus.COMPLETED, 'Payment confirmed — table closed', changedById);
+    if (completed.branchId) emitToKitchen(completed.branchId, 'kitchen.queue_updated', completed);
+    return completed;
   }
 
   static async updateOrderStatus(id: string, status: OrderStatus, notes?: string, changedById?: string) {

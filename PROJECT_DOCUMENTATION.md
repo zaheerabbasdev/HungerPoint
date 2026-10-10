@@ -216,6 +216,14 @@ Phone numbers must be entered exactly in `+92…` format.
 
 ## 6. Core Business Flows
 
+### Dine-in flow (waiter app)
+
+1. The waiter sends the order: it goes straight to the kitchen as `CONFIRMED`. The kitchen picks the preparation minutes; the waiter app shows **Expected ready in N min** (from `promisedAt`) on the table screen and the table tile.
+2. Kitchen marks it Ready: the waiter sees **Mark as Done**.
+3. **Mark as Done** (`PATCH /orders/:id/served`) only sets `servedAt`. The table stays occupied and the order stays `READY`.
+4. The next screen is **Confirm payment**: payment method (cash, card, JazzCash, EasyPaisa), cash received and change due. **Confirm Payment & Close Table** (`PATCH /orders/:id/payment`) stores the payment (`paymentStatus = PAID`, `cashCollected` for cash), sets the order to `COMPLETED`, frees the table and awards loyalty points.
+5. Payment is refused before the order is served, and a waiter cannot close an unpaid dine-in table through `PATCH /orders/:id/status` (Admins can).
+
 ### Delivery order flow (rider claims the order)
 
 1. Customer places the order: `PENDING`. The admin confirms it: `CONFIRMED`. The kitchen gets the ticket and the branch's riders see it under **Upcoming orders** (read-only; only the customer's area, no phone or exact address).

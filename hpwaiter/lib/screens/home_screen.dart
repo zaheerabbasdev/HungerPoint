@@ -212,6 +212,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Table tile caption: where the order is, plus the kitchen's expected time while it is cooking.
+  String _tileStatus(Map<String, dynamic> order) {
+    final status = order['status']?.toString() ?? '';
+    switch (status) {
+      case 'CONFIRMED':
+      case 'PENDING':
+        return 'SENT TO KITCHEN';
+      case 'PREPARING':
+        final promised = DateTime.tryParse(order['promisedAt']?.toString() ?? '')?.toLocal();
+        if (promised == null) return 'PREPARING';
+        final mins = (promised.difference(DateTime.now()).inSeconds / 60).ceil();
+        return mins > 0 ? 'PREPARING · ~$mins MIN' : 'PREPARING · DUE NOW';
+      case 'READY':
+        return order['servedAt'] != null ? 'AWAITING PAYMENT' : 'READY TO SERVE';
+      default:
+        return status.replaceAll('_', ' ');
+    }
+  }
+
   Widget _buildTableCard(Map<String, dynamic> table) {
     final status = table['status']?.toString() ?? 'AVAILABLE';
     final order = _activeOrder(table);
@@ -273,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      (order['status'] ?? '').toString().replaceAll('_', ' '),
+                      _tileStatus(order),
                       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryOrange),
                       overflow: TextOverflow.ellipsis,
                     ),

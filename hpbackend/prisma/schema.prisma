@@ -539,6 +539,7 @@ model Order {
   acceptedAt      DateTime?
   preparedAt      DateTime?
   readyAt         DateTime?
+  servedAt        DateTime?     // dine-in: food brought to the table (payment + closing the table come next)
   pickedUpAt      DateTime?
   deliveredAt     DateTime?
   cancelledAt     DateTime?

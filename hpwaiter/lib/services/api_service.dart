@@ -324,6 +324,49 @@ class ApiService {
     }
   }
 
+  /// Dine-in "Mark as Done": the food reached the table. The table stays open until payment.
+  static Future<Map<String, dynamic>> markOrderServed(String orderId) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/orders/$orderId/served'),
+        headers: _headers(needsAuth: true),
+      ).timeout(const Duration(seconds: 8));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Failed to mark as served'};
+    } catch (e) {
+      debugPrint('API Error (markOrderServed): $e');
+      return {'success': false, 'message': 'Network error'};
+    }
+  }
+
+  /// Confirms how the guest paid. This is what completes the order and closes the table.
+  static Future<Map<String, dynamic>> confirmOrderPayment(
+    String orderId, {
+    required String method,
+    num? amountReceived,
+  }) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/orders/$orderId/payment'),
+        headers: _headers(needsAuth: true),
+        body: jsonEncode({'method': method, 'amountReceived': ?amountReceived}),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Failed to confirm payment'};
+    } catch (e) {
+      debugPrint('API Error (confirmOrderPayment): $e');
+      return {'success': false, 'message': 'Network error'};
+    }
+  }
+
   static Future<Map<String, dynamic>?> getOrderById(String orderId) async {
     try {
       final res = await http.get(

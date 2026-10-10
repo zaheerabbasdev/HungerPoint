@@ -29,4 +29,16 @@ router.patch(
   OrderController.updateStatus
 );
 
+// Dine-in finish: served ("Mark as done") then payment, which closes the table.
+router.patch(
+  '/:id/served',
+  authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
+  OrderController.markServed
+);
+router.patch(
+  '/:id/payment',
+  authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
+  OrderController.confirmPayment
+);
+
 export default router;

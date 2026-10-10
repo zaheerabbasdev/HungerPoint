@@ -104,6 +104,40 @@ export class OrderController {
     }
   }
 
+  // Dine-in: the waiter marks the food as served ("Mark as done")...
+  static async markServed(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = (req as any).user;
+      const existing = await OrderService.getOrderById(req.params.id as string);
+      if (BRANCH_SCOPED_ROLES.includes(user.role) && existing.branchId !== user.branchId) {
+        throw new AppError('Order not found', 404);
+      }
+      const order = await OrderService.markServed(req.params.id as string, user?.userId);
+      res.json({ success: true, message: 'Order marked as served', data: order });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ...then confirms the payment, which closes the table.
+  static async confirmPayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = (req as any).user;
+      const existing = await OrderService.getOrderById(req.params.id as string);
+      if (BRANCH_SCOPED_ROLES.includes(user.role) && existing.branchId !== user.branchId) {
+        throw new AppError('Order not found', 404);
+      }
+      const order = await OrderService.confirmDineInPayment(
+        req.params.id as string,
+        { method: req.body.method, amountReceived: req.body.amountReceived === undefined ? undefined : Number(req.body.amountReceived) },
+        user?.userId,
+      );
+      res.json({ success: true, message: 'Payment confirmed and table closed', data: order });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const { status, notes } = req.body;
@@ -132,6 +166,11 @@ export class OrderController {
       // effects like loyalty points on a second DELIVERED/COMPLETED.
       if (FINAL_STATUSES.includes(existing.status)) {
         throw new AppError(`This order is already ${existing.status} and can't be edited further.`, 400);
+      }
+
+      // A dine-in table is closed by confirming payment (PATCH /:id/payment), not by a bare status change.
+      if (status === 'COMPLETED' && existing.type === 'DINE_IN' && existing.paymentStatus !== 'PAID' && user.role !== 'ADMIN') {
+        throw new AppError('Confirm the payment first — closing a dine-in table now happens in the payment step.', 400);
       }
 
       const order = await OrderService.updateOrderStatus(req.params.id as string, status, notes, userId);
