@@ -9,7 +9,8 @@ import { UserRole } from '@prisma/client';
 
 const router = Router();
 
-router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.KITCHEN_STAFF));
+// Kitchen is a fully separate console: only Kitchen Staff accounts may use it.
+router.use(authenticate, authorize(UserRole.KITCHEN_STAFF));
 
 router.get('/queue', KitchenController.getQueue);
 router.patch('/orders/:id/prepare', KitchenController.startPreparing);

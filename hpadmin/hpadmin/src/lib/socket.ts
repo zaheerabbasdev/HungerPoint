@@ -23,3 +23,25 @@ export function getSocket(): Socket {
 
   return socket;
 }
+
+let kitchenSocket: Socket | null = null;
+
+/** Separate socket authenticated with the kitchen session token only. */
+export function getKitchenSocket(): Socket {
+  if (kitchenSocket) return kitchenSocket;
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('hp_kitchen_access_token') : null;
+
+  kitchenSocket = io(SOCKET_URL, {
+    auth: token ? { token } : {},
+    transports: ['websocket', 'polling'],
+    autoConnect: true,
+  });
+
+  return kitchenSocket;
+}
+
+export function resetKitchenSocket(): void {
+  kitchenSocket?.disconnect();
+  kitchenSocket = null;
+}

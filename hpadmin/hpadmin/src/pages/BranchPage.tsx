@@ -105,7 +105,6 @@ export default function BranchDashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link to="/pos" className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-amber-400 text-xs font-bold rounded-xl">POS</Link>
-            <Link to="/admin/kitchen" className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-amber-400 text-xs font-bold rounded-xl">Kitchen</Link>
             <Link to="/inventory" className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-amber-400 text-xs font-bold rounded-xl">Inventory</Link>
           </div>
         </div>

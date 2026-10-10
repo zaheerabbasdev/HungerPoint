@@ -5,11 +5,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { KitchenService } from './kitchen.service';
 
-// Branch Managers and Kitchen Staff only ever work their own branch's
-// tickets; Admins may pick any branch (or all) via ?branchId.
+// Kitchen Staff only ever work their own branch's tickets.
 const ownBranchOnly = (req: Request): string | undefined => {
   const user = (req as any).user;
-  if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') return undefined;
   // Staff with no branch assigned must not fall through to "all branches".
   return user.branchId || '__no_branch__';
 };

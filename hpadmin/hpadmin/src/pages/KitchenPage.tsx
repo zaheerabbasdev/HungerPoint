@@ -1,47 +1,71 @@
 // ============================================================
 // HungerPoint Web App — Kitchen Display Unit (KDU)
+// Route: /kitchen
+//
+// Fully separate from the Admin console: its own login screen, its own
+// browser session (hp_kitchen_* keys) and KITCHEN_STAFF accounts only.
+// Admin / Super Admin / Branch Manager cannot sign in here.
 // ============================================================
 
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
-import { fetchApi } from '../lib/api';
-import { getSocket } from '../lib/socket';
+import React, { useState, useEffect } from 'react';
+import { fetchApi, KITCHEN_SESSION } from '../lib/api';
+import { getKitchenSocket, resetKitchenSocket } from '../lib/socket';
 
-const KITCHEN_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'KITCHEN_STAFF'];
+const kitchenFetch = (endpoint: string, options: RequestInit = {}) =>
+  fetchApi(endpoint, options, KITCHEN_SESSION);
+
+function clearKitchenSession() {
+  localStorage.removeItem(KITCHEN_SESSION.access);
+  localStorage.removeItem(KITCHEN_SESSION.refresh);
+  localStorage.removeItem(KITCHEN_SESSION.user);
+}
 
 export default function KitchenDisplayPage() {
-  const navigate = useNavigate();
+  const [kitchenUser, setKitchenUser] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [queue, setQueue] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
 
+  // Login form
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // ─── Restore kitchen session ─────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem('hp_access_token');
-    const userStr = localStorage.getItem('hp_user');
-    let role: string | null = null;
-    if (userStr) {
+    const token = localStorage.getItem(KITCHEN_SESSION.access);
+    const userStr = localStorage.getItem(KITCHEN_SESSION.user);
+    if (token && userStr) {
       try {
-        role = JSON.parse(userStr)?.role ?? null;
+        const u = JSON.parse(userStr);
+        if (u?.role === 'KITCHEN_STAFF') {
+          setKitchenUser(u);
+        } else {
+          clearKitchenSession();
+        }
       } catch {
-        role = null;
+        clearKitchenSession();
       }
     }
-
-    if (!token || !role || !KITCHEN_ALLOWED_ROLES.includes(role)) {
-      navigate('/admin', { replace: true });
-      return;
-    }
-    setAuthorized(true);
     setCheckingAuth(false);
-  }, [navigate]);
 
+    const handleExpired = () => {
+      resetKitchenSocket();
+      setKitchenUser(null);
+      setLoginError('Your session has expired. Please sign in again.');
+    };
+    window.addEventListener(KITCHEN_SESSION.expiredEvent, handleExpired);
+    return () => window.removeEventListener(KITCHEN_SESSION.expiredEvent, handleExpired);
+  }, []);
+
+  // ─── Queue + realtime ────────────────────────────────────────
   useEffect(() => {
-    if (!authorized) return;
+    if (!kitchenUser) return;
 
     async function loadKitchenQueue() {
       try {
-        const res = await fetchApi('/kitchen/queue');
+        const res = await kitchenFetch('/kitchen/queue');
         if (res.success) setQueue(res.data);
       } catch (err) {
         console.error('Failed to load kitchen queue:', err);
@@ -51,8 +75,7 @@ export default function KitchenDisplayPage() {
     }
     loadKitchenQueue();
 
-    // Real-time queue updates via Socket.IO (new orders + prepare/ready transitions)
-    const socket = getSocket();
+    const socket = getKitchenSocket();
     const handleQueueEvent = () => loadKitchenQueue();
     socket.on('order.created', handleQueueEvent);
     socket.on('kitchen.queue_updated', handleQueueEvent);
@@ -65,21 +88,54 @@ export default function KitchenDisplayPage() {
       socket.off('kitchen.queue_updated', handleQueueEvent);
       clearInterval(interval);
     };
-  }, [authorized]);
+  }, [kitchenUser]);
 
-  if (checkingAuth) {
-    return (
-      <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center">
-        <p className="text-stone-500 text-sm">Checking access...</p>
-      </div>
-    );
-  }
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setLoginError('');
+    try {
+      const id = identifier.trim();
+      const body = id.includes('@')
+        ? { email: id, password }
+        : { phone: id, password };
 
-  if (!authorized) return null;
+      const res = await kitchenFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+
+      if (!res.success || !res.data) throw new Error(res.message || 'Login failed');
+
+      const { user, accessToken, refreshToken } = res.data;
+      if (user.role !== 'KITCHEN_STAFF') {
+        throw new Error('This login is for Kitchen Staff only. Admins sign in at /admin.');
+      }
+
+      localStorage.setItem(KITCHEN_SESSION.access, accessToken);
+      if (refreshToken) localStorage.setItem(KITCHEN_SESSION.refresh, refreshToken);
+      localStorage.setItem(KITCHEN_SESSION.user, JSON.stringify(user));
+      resetKitchenSocket();
+      setLoading(true);
+      setKitchenUser(user);
+      setPassword('');
+    } catch (err: any) {
+      setLoginError(err.message || 'Authentication failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLogout = () => {
+    clearKitchenSession();
+    resetKitchenSocket();
+    setQueue([]);
+    setKitchenUser(null);
+  };
 
   const handleStartPrepare = async (orderId: string) => {
     try {
-      const res = await fetchApi(`/kitchen/orders/${orderId}/prepare`, { method: 'PATCH' });
+      const res = await kitchenFetch(`/kitchen/orders/${orderId}/prepare`, { method: 'PATCH' });
       if (res.success) {
         setQueue((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'PREPARING' } : o)));
       }
@@ -90,7 +146,7 @@ export default function KitchenDisplayPage() {
 
   const handleMarkReady = async (orderId: string) => {
     try {
-      const res = await fetchApi(`/kitchen/orders/${orderId}/ready`, { method: 'PATCH' });
+      const res = await kitchenFetch(`/kitchen/orders/${orderId}/ready`, { method: 'PATCH' });
       if (res.success) {
         setQueue((prev) => prev.filter((o) => o.id !== orderId));
       }
@@ -99,23 +155,87 @@ export default function KitchenDisplayPage() {
     }
   };
 
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center">
+        <p className="text-stone-500 text-sm">Loading...</p>
+      </div>
+    );
+  }
+
+  // ─── Kitchen login ───────────────────────────────────────────
+  if (!kitchenUser) {
+    return (
+      <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center p-6">
+        <form
+          onSubmit={handleLogin}
+          className="w-full max-w-sm bg-stone-900 border border-stone-800 rounded-3xl p-8 space-y-5 shadow-xl"
+        >
+          <div className="text-center space-y-1">
+            <span className="text-4xl block">🍳</span>
+            <h1 className="text-xl font-black text-amber-400">Kitchen Login</h1>
+            <p className="text-xs text-stone-500">Kitchen Display Unit — staff only</p>
+          </div>
+
+          {loginError && (
+            <p className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
+              {loginError}
+            </p>
+          )}
+
+          <input
+            type="text"
+            required
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="Email or phone"
+            autoComplete="username"
+            className="w-full px-4 py-2.5 bg-stone-950 border border-stone-800 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+          />
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            autoComplete="current-password"
+            className="w-full px-4 py-2.5 bg-stone-950 border border-stone-800 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+          />
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 font-extrabold text-stone-950 text-sm rounded-xl transition-all"
+          >
+            {submitting ? 'Signing in...' : 'Sign in to Kitchen'}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        
+
         {/* Header */}
         <div className="flex justify-between items-center pb-4 border-b border-stone-800">
           <div>
-            <Link to="/admin" className="text-xs text-amber-400 font-bold hover:underline">
-              ← Back to Admin Dashboard
-            </Link>
-            <h1 className="text-2xl font-black text-amber-400 mt-1 flex items-center gap-2">
+            <h1 className="text-2xl font-black text-amber-400 flex items-center gap-2">
               <span>🍳</span> Kitchen Display Unit (KDU)
             </h1>
+            <p className="text-xs text-stone-500 mt-1">Signed in as {kitchenUser.name}</p>
           </div>
-          <div className="text-right">
-            <span className="text-xs text-stone-400">Live Orders Queue:</span>
-            <p className="text-lg font-black text-emerald-400">{queue.length} Ticket(s)</p>
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <span className="text-xs text-stone-400">Live Orders Queue:</span>
+              <p className="text-lg font-black text-emerald-400">{queue.length} Ticket(s)</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-bold rounded-xl"
+            >
+              Log out
+            </button>
           </div>
         </div>
 

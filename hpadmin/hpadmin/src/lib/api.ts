@@ -4,6 +4,27 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
+// Each console keeps its own browser session so the kitchen login is fully
+// independent of the admin login (signing into one never signs into the other).
+export interface SessionKeys {
+  access: string;
+  refresh: string;
+  user: string;
+  expiredEvent: string;
+}
+export const ADMIN_SESSION: SessionKeys = {
+  access: 'hp_access_token',
+  refresh: 'hp_refresh_token',
+  user: 'hp_user',
+  expiredEvent: 'hp_auth_expired',
+};
+export const KITCHEN_SESSION: SessionKeys = {
+  access: 'hp_kitchen_access_token',
+  refresh: 'hp_kitchen_refresh_token',
+  user: 'hp_kitchen_user',
+  expiredEvent: 'hp_kitchen_auth_expired',
+};
+
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
 
@@ -12,9 +33,9 @@ function onRefreshed(token: string) {
   refreshSubscribers = [];
 }
 
-async function tryRefreshToken(): Promise<string | null> {
+async function tryRefreshToken(session: SessionKeys): Promise<string | null> {
   if (typeof window === 'undefined') return null;
-  const refreshToken = localStorage.getItem('hp_refresh_token');
+  const refreshToken = localStorage.getItem(session.refresh);
   if (!refreshToken) return null;
 
   try {
@@ -25,7 +46,7 @@ async function tryRefreshToken(): Promise<string | null> {
     });
     const data = await res.json();
     if (res.ok && data.success && data.data?.accessToken) {
-      localStorage.setItem('hp_access_token', data.data.accessToken);
+      localStorage.setItem(session.access, data.data.accessToken);
       return data.data.accessToken;
     }
   } catch (e) {
@@ -34,8 +55,12 @@ async function tryRefreshToken(): Promise<string | null> {
   return null;
 }
 
-export async function fetchApi(endpoint: string, options: RequestInit = {}): Promise<any> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('hp_access_token') : null;
+export async function fetchApi(
+  endpoint: string,
+  options: RequestInit = {},
+  session: SessionKeys = ADMIN_SESSION,
+): Promise<any> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem(session.access) : null;
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -58,20 +83,20 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}): Pro
 
     if (!isRefreshing) {
       isRefreshing = true;
-      const newToken = await tryRefreshToken();
+      const newToken = await tryRefreshToken(session);
       isRefreshing = false;
 
       if (newToken) {
         onRefreshed(newToken);
         // Retry original request with new token
-        return fetchApi(endpoint, options);
+        return fetchApi(endpoint, options, session);
       } else {
         // Clear expired session and notify UI
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('hp_access_token');
-          localStorage.removeItem('hp_refresh_token');
-          localStorage.removeItem('hp_user');
-          window.dispatchEvent(new Event('hp_auth_expired'));
+          localStorage.removeItem(session.access);
+          localStorage.removeItem(session.refresh);
+          localStorage.removeItem(session.user);
+          window.dispatchEvent(new Event(session.expiredEvent));
         }
         throw new Error('Your session has expired. Please log in again.');
       }
@@ -79,7 +104,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}): Pro
       // Queue request until token is refreshed
       return new Promise((resolve) => {
         refreshSubscribers.push(() => {
-          resolve(fetchApi(endpoint, options));
+          resolve(fetchApi(endpoint, options, session));
         });
       });
     }

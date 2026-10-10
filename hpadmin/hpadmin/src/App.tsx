@@ -44,7 +44,7 @@ export default function App() {
         <Route path="/" element={<StorefrontPage />} />
         <Route path="/orders/:id" element={<OrderTrackingPage />} />
         <Route path="/admin" element={<AdminPage />} />
-        <Route path="/admin/kitchen" element={<KitchenPage />} />
+        <Route path="/kitchen" element={<KitchenPage />} />
         <Route path="/pos" element={<PosPage />} />
         <Route path="/branch" element={<BranchPage />} />
         <Route path="/inventory" element={<InventoryPage />} />

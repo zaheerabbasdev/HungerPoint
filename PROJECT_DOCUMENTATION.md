@@ -164,7 +164,7 @@ HungerPoint/
 | `ADMIN` | hpweb `/admin` | Phone/email + password | All branches | Day-to-day operations: menu, orders, POS, riders, inventory, KDU, reports, promotions, staff (below Admin tier). Settings are **view-only** |
 | `BRANCH_MANAGER` | hpweb `/admin` | Password | Own branch | Runs one branch: menu edits, orders, kitchen, riders, inventory, reports, tables |
 | `BRANCH_STAFF` | hpweb `/admin` | Password | Own branch | Front-of-house: POS, orders, reservations, branch dashboard |
-| `KITCHEN_STAFF` | hpweb → redirected to `/admin/kitchen` | Password | Own branch | Kitchen Display Unit: start preparing / mark ready |
+| `KITCHEN_STAFF` | hpadmin `/kitchen` (own login, own session) | Email/phone + password | Own branch | Kitchen Display Unit only: start preparing / mark ready. Cannot sign in to `/admin`; Admin roles cannot sign in to `/kitchen` |
 | `RIDER` | hprider app | Password | Assigned deliveries | Delivery lifecycle + live GPS |
 | `WAITER` | hpwaiter app | Password | Own branch | Tables, dine-in orders, reservations |
 | `CUSTOMER` | hpcustomer app or hpweb storefront | Email + password | Own data only | Orders, addresses, favorites, vouchers, loyalty, reviews |
@@ -191,7 +191,7 @@ HungerPoint/
 | Place order | ✅ | ✅ | ✅ | ✅ | — | — | ✅ | ✅ (own) |
 | View order | all | all | branch | branch | branch | assigned | branch | own |
 | Change order status (`PATCH /orders/:id/status`) | ✅ | ✅ | branch | branch | branch | ❌ | branch | ❌ |
-| Kitchen queue & actions | ✅ | ✅ | branch | — | branch | — | — | — |
+| Kitchen queue & actions (`/kitchen`, KITCHEN_STAFF only) | — | — | — | — | branch | — | — | — |
 | Assign rider | ✅ | ✅ | ✅ | — | — | — | — | — |
 | Delivery lifecycle (`/deliveries`) | — | — | — | — | — | own | — | — |
 | Tables & reservations | ✅ | ✅ | ✅ | ✅ | — | — | ✅ | — |

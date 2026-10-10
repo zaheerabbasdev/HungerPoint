@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { fetchApi } from '../lib/api';
 import {
   Utensils,
@@ -110,8 +110,6 @@ interface Branch {
 }
 
 export default function AdminPortalPage() {
-  const navigate = useNavigate();
-
   // Auth state
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -339,7 +337,10 @@ export default function AdminPortalPage() {
 
       if (res.success && res.data) {
         const { user, accessToken, refreshToken } = res.data;
-        const ADMIN_CONSOLE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF', 'KITCHEN_STAFF'];
+        const ADMIN_CONSOLE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF'];
+        if (user.role === 'KITCHEN_STAFF') {
+          throw new Error('Kitchen staff must sign in at the Kitchen login (/kitchen).');
+        }
         if (!ADMIN_CONSOLE_ROLES.includes(user.role)) {
           throw new Error('Access denied: You need administrative privileges to access this console.');
         }
@@ -348,13 +349,6 @@ export default function AdminPortalPage() {
           localStorage.setItem('hp_refresh_token', refreshToken);
         }
         localStorage.setItem('hp_user', JSON.stringify(user));
-
-        if (user.role === 'KITCHEN_STAFF') {
-          // Kitchen staff belong on the KDU ticket board, not the
-          // menu/product management dashboard this page otherwise shows.
-          navigate('/admin/kitchen');
-          return;
-        }
 
         setAuthToken(accessToken);
         setCurrentUser(user);
@@ -1089,13 +1083,6 @@ export default function AdminPortalPage() {
               className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
             >
               <span>⚙️ Settings</span>
-            </Link>
-
-            <Link
-              to="/admin/kitchen"
-              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 font-bold text-xs rounded-xl transition-all hidden sm:flex items-center gap-1.5"
-            >
-              <span>🍳 KDU Kitchen Display</span>
             </Link>
 
             <button
