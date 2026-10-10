@@ -14,8 +14,8 @@ router.get('/', CategoryController.getAll);
 router.get('/:id', CategoryController.getById);
 
 // Admin-only routes
-router.post('/', authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN), CategoryController.create);
-router.put('/:id', authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN), CategoryController.update);
-router.delete('/:id', authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN), CategoryController.remove);
+router.post('/', authenticate, authorize(UserRole.ADMIN), CategoryController.create);
+router.put('/:id', authenticate, authorize(UserRole.ADMIN), CategoryController.update);
+router.delete('/:id', authenticate, authorize(UserRole.ADMIN), CategoryController.remove);
 
 export default router;

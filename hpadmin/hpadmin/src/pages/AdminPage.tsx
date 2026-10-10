@@ -337,7 +337,7 @@ export default function AdminPortalPage() {
 
       if (res.success && res.data) {
         const { user, accessToken, refreshToken } = res.data;
-        const ADMIN_CONSOLE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF'];
+        const ADMIN_CONSOLE_ROLES = ['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF'];
         if (user.role === 'KITCHEN_STAFF') {
           throw new Error('Kitchen staff must sign in at the Kitchen login (/kitchen).');
         }
@@ -958,7 +958,7 @@ export default function AdminPortalPage() {
               }}
               className="text-xs text-stone-500 hover:text-amber-400 underline transition-colors"
             >
-              Prefill Seed Super Admin Credentials
+              Prefill Seed Admin Credentials
             </button>
           </div>
         </div>
@@ -1098,7 +1098,7 @@ export default function AdminPortalPage() {
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-bold text-stone-200">{currentUser?.name || 'Administrator'}</p>
                 <p className="text-[10px] font-black text-amber-500 uppercase tracking-wider">
-                  {currentUser?.role || 'SUPER_ADMIN'}
+                  {currentUser?.role || 'ADMIN'}
                 </p>
               </div>
               <button

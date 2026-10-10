@@ -9,7 +9,7 @@ import { UserRole } from '@prisma/client';
 
 const router = Router();
 
-const STAFF = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER];
+const STAFF = [UserRole.ADMIN, UserRole.BRANCH_MANAGER];
 
 router.get('/', CouponController.getActive);
 router.post('/validate', CouponController.validate);

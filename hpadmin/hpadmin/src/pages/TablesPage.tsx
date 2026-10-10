@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router';
 import { fetchApi } from '../lib/api';
 import { useBranch } from '../context/BranchContext';
 
-const TABLES_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER'];
+const TABLES_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER'];
 
 const STATUS_STYLES: Record<string, string> = {
   AVAILABLE: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400',

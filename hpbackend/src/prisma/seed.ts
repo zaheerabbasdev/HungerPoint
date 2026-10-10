@@ -56,15 +56,15 @@ async function main() {
 
   // 2. Create Users
   console.log('👤 Seeding Users & Roles...');
-  const superAdmin = await prisma.user.upsert({
+  const admin = await prisma.user.upsert({
     where: { phone: '+923000000001' },
     update: {},
     create: {
-      name: 'Super Administrator',
+      name: 'Administrator',
       email: 'admin@hungerpoint.pk',
       phone: '+923000000001',
       password: passwordHash,
-      role: UserRole.SUPER_ADMIN,
+      role: UserRole.ADMIN,
       isVerified: true,
     },
   });

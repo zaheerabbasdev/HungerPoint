@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router';
 import { fetchApi } from '../lib/api';
 import { useBranch } from '../context/BranchContext';
 
-const REPORTS_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER'];
+const REPORTS_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER'];
 
 type RangePreset = 'today' | 'week' | 'month' | 'custom' | 'all';
 

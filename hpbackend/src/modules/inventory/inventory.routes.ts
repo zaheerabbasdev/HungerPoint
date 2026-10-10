@@ -9,7 +9,7 @@ import { UserRole } from '@prisma/client';
 
 const router = Router();
 
-router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER));
+router.use(authenticate, authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER));
 
 router.get('/items', InventoryController.getAllItems);
 router.get('/branch/:branchId', InventoryController.getStock);

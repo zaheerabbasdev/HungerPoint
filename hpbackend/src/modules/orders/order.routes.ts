@@ -20,7 +20,6 @@ router.get('/:id', OrderController.getById);
 router.patch(
   '/:id/status',
   authorize(
-    UserRole.SUPER_ADMIN,
     UserRole.ADMIN,
     UserRole.BRANCH_MANAGER,
     UserRole.BRANCH_STAFF,

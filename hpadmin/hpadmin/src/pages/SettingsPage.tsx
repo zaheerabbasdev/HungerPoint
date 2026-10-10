@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router';
 import { fetchApi } from '../lib/api';
 import { useBranch } from '../context/BranchContext';
 
-const SETTINGS_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+const SETTINGS_ALLOWED_ROLES = ['ADMIN'];
 const STAFF_ROLES = ['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF', 'KITCHEN_STAFF', 'WAITER'];
 
 const emptyStaffForm = { name: '', email: '', phone: '', password: '', role: 'BRANCH_STAFF', branchId: '' };
@@ -19,7 +19,6 @@ export default function SettingsPage() {
 
   const [authorized, setAuthorized] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [currentRole, setCurrentRole] = useState<string | null>(null);
 
   const [tab, setTab] = useState<'staff' | 'system'>('staff');
   const [staff, setStaff] = useState<any[]>([]);
@@ -49,7 +48,6 @@ export default function SettingsPage() {
       navigate('/admin', { replace: true });
       return;
     }
-    setCurrentRole(user.role);
     setAuthorized(true);
     setCheckingAuth(false);
   }, [navigate]);
@@ -246,11 +244,6 @@ export default function SettingsPage() {
 
         {tab === 'system' && (
           <div className="space-y-6">
-            {currentRole !== 'SUPER_ADMIN' && (
-              <p className="text-xs text-stone-500 bg-stone-900 border border-stone-800 rounded-xl px-4 py-2.5">
-                System settings are view-only for your role. Only a Super Admin can change these values.
-              </p>
-            )}
             {Object.entries(settingGroups).map(([group, items]) => (
               <div key={group} className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden">
                 <div className="p-4 border-b border-stone-800">
@@ -264,13 +257,11 @@ export default function SettingsPage() {
                         type="text"
                         defaultValue={s.value}
                         onChange={(e) => setSettingEdits({ ...settingEdits, [s.key]: e.target.value })}
-                        disabled={currentRole !== 'SUPER_ADMIN'}
-                        className="flex-1 bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-xs text-stone-100 outline-none focus:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 bg-stone-800 border border-stone-700 rounded-xl px-3 py-2 text-xs text-stone-100 outline-none focus:border-amber-500"
                       />
                       <button
                         onClick={() => handleSaveSetting(s.key, s.group)}
-                        disabled={currentRole !== 'SUPER_ADMIN'}
-                        className="px-3 py-2 bg-stone-800 hover:bg-stone-700 text-amber-400 text-xs font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-stone-800"
+                        className="px-3 py-2 bg-stone-800 hover:bg-stone-700 text-amber-400 text-xs font-bold rounded-xl"
                       >
                         Save
                       </button>

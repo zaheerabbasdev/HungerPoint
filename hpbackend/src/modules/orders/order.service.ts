@@ -96,7 +96,7 @@ export class OrderService {
       });
     }
 
-    // Pricing comes from System Settings so a Super Admin change takes effect
+    // Pricing comes from System Settings so an Admin change takes effect
     // without a redeploy. Dine-in and pickup orders never carry a delivery fee.
     const [taxPercent, standardDeliveryFee] = await Promise.all([
       SettingService.getNumber('default_tax_percent', 5),

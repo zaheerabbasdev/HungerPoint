@@ -158,10 +158,9 @@ export const authorize = (...allowedRoles: UserRole[]) => {
 };
 
 // ─── Convenient Role Shorthands ──────────────────────────────
-export const isAdmin = authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN);
-export const isSuperAdmin = authorize(UserRole.SUPER_ADMIN);
-export const isBranchManager = authorize(UserRole.BRANCH_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN);
-export const isKitchen = authorize(UserRole.KITCHEN_STAFF, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.ADMIN, UserRole.SUPER_ADMIN);
+export const isAdmin = authorize(UserRole.ADMIN);
+export const isBranchManager = authorize(UserRole.BRANCH_MANAGER, UserRole.ADMIN);
+export const isKitchen = authorize(UserRole.KITCHEN_STAFF, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.ADMIN);
 export const isRider = authorize(UserRole.RIDER);
 export const isCustomer = authorize(UserRole.CUSTOMER);
-export const isStaff = authorize(UserRole.BRANCH_STAFF, UserRole.BRANCH_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN);
+export const isStaff = authorize(UserRole.BRANCH_STAFF, UserRole.BRANCH_MANAGER, UserRole.ADMIN);

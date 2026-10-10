@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router';
 import { fetchApi } from '../lib/api';
 import { useBranch } from '../context/BranchContext';
 
-const INVENTORY_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER'];
+const INVENTORY_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER'];
 
 const TRANSACTION_TYPES = ['STOCK_IN', 'STOCK_OUT', 'CONSUMPTION', 'WASTE', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT'];
 

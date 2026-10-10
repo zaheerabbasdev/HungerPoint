@@ -4,7 +4,7 @@
 //
 // Fully separate from the Admin console: its own login screen, its own
 // browser session (hp_kitchen_* keys) and KITCHEN_STAFF accounts only.
-// Admin / Super Admin / Branch Manager cannot sign in here.
+// Admin / Branch Manager cannot sign in here.
 // ============================================================
 
 import React, { useState, useEffect } from 'react';

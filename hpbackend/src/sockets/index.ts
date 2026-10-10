@@ -82,7 +82,6 @@ export const initSocket = (httpServer: HttpServer): SocketServer => {
 
       // Broadcast to admin room
       io.to('role:ADMIN').emit('rider.location_updated', locationPayload);
-      io.to('role:SUPER_ADMIN').emit('rider.location_updated', locationPayload);
     });
 
     // ─── Disconnect ─────────────────────────────────────────
@@ -118,7 +117,7 @@ export const emitToBranch = (branchId: string, event: string, data: unknown): vo
 
 /** Emit to all admins */
 export const emitToAdmins = (event: string, data: unknown): void => {
-  io?.to('role:ADMIN').to('role:SUPER_ADMIN').emit(event, data);
+  io?.to('role:ADMIN').emit(event, data);
 };
 
 /** Emit to all riders */

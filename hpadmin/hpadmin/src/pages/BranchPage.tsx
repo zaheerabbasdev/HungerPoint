@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { fetchApi } from '../lib/api';
 
-const BRANCH_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF'];
+const BRANCH_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF'];
 
 interface Overview {
   totalOrders: number;

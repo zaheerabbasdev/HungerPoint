@@ -1225,7 +1225,6 @@ KITCHEN_STAFF
 BRANCH_MANAGER
 BRANCH_STAFF
 ADMIN
-SUPER_ADMIN
 ```
 
 Backend must enforce permissions.

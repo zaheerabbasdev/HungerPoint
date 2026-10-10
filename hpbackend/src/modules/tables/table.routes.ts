@@ -14,21 +14,21 @@ router.use(authenticate);
 // Waiters need to see the floor plan; staff/admin can manage tables.
 router.get(
   '/',
-  authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
+  authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
   TableController.getAll
 );
 router.get(
   '/floors',
-  authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
+  authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
   TableController.getFloors
 );
 router.get(
   '/:id',
-  authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
+  authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER),
   TableController.getById
 );
-router.post('/', authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER), TableController.create);
-router.put('/:id', authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER), TableController.update);
-router.delete('/:id', authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN), TableController.remove);
+router.post('/', authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER), TableController.create);
+router.put('/:id', authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER), TableController.update);
+router.delete('/:id', authorize(UserRole.ADMIN), TableController.remove);
 
 export default router;

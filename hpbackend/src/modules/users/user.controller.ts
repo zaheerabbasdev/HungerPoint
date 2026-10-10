@@ -17,8 +17,7 @@ export class UserController {
 
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const actorRole = (req as any).user?.role;
-      const user = await UserService.createStaffUser(actorRole, req.body);
+      const user = await UserService.createStaffUser(req.body);
       res.status(201).json({ success: true, message: 'Staff account created', data: user });
     } catch (error) {
       next(error);
@@ -27,8 +26,7 @@ export class UserController {
 
   static async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const actorRole = (req as any).user?.role;
-      const user = await UserService.updateStaffUser(actorRole, req.params.id as string, req.body);
+      const user = await UserService.updateStaffUser(req.params.id as string, req.body);
       res.json({ success: true, message: 'Staff account updated', data: user });
     } catch (error) {
       next(error);

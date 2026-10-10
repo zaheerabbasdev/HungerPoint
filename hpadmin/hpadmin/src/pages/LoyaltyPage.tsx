@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { fetchApi } from '../lib/api';
 
-const LOYALTY_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER'];
+const LOYALTY_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER'];
 
 export default function LoyaltyPage() {
   const navigate = useNavigate();

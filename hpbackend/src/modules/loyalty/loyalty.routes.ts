@@ -11,7 +11,7 @@ const router = Router();
 
 router.use(authenticate);
 
-const STAFF = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER];
+const STAFF = [UserRole.ADMIN, UserRole.BRANCH_MANAGER];
 
 router.get('/me', LoyaltyController.getMyAccount);
 

@@ -8,14 +8,14 @@ import { OrderStatus, OrderSource } from '@prisma/client';
 import { CustomerService } from '../customers/customer.service';
 import { AppError } from '../../middleware/error.middleware';
 
-const STAFF_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF', 'WAITER'];
+const STAFF_ROLES = ['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF', 'WAITER'];
 const BRANCH_SCOPED_ROLES = ['BRANCH_MANAGER', 'BRANCH_STAFF', 'KITCHEN_STAFF', 'WAITER'];
 const FINAL_STATUSES = ['DELIVERED', 'COMPLETED', 'CANCELLED', 'REJECTED', 'REFUNDED'];
 
 // Admins see every order; branch staff only their branch's; a customer only
 // their own; a rider only the one they're delivering.
 const canViewOrder = (user: { userId: string; role: string; branchId?: string }, order: any): boolean => {
-  if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') return true;
+  if (user.role === 'ADMIN') return true;
   if (BRANCH_SCOPED_ROLES.includes(user.role)) return !!user.branchId && order.branchId === user.branchId;
   if (user.role === 'CUSTOMER') return order.customer?.userId === user.userId;
   if (user.role === 'RIDER') return order.delivery?.rider?.userId === user.userId;

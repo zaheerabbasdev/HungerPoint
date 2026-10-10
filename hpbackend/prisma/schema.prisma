@@ -17,7 +17,6 @@ datasource db {
 // ============================================================
 
 enum UserRole {
-  SUPER_ADMIN
   ADMIN
   BRANCH_MANAGER
   BRANCH_STAFF

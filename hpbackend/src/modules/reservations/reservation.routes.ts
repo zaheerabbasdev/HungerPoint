@@ -11,7 +11,7 @@ const router = Router();
 
 router.use(authenticate);
 
-const STAFF = authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER);
+const STAFF = authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF, UserRole.WAITER);
 
 router.get('/', STAFF, ReservationController.getAll);
 router.post('/', STAFF, ReservationController.create);

@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { fetchApi } from '../lib/api';
 
-const PROMOTIONS_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER'];
+const PROMOTIONS_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER'];
 
 const emptyForm = {
   code: '',

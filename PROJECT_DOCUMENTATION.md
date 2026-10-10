@@ -54,7 +54,7 @@ HungerPoint is one backend serving four clients:
 - Three order types: **Delivery**, **Pickup** and **Dine-In**. Orders come from five sources: mobile app, website, POS, phone and waiter app.
 - Kitchen Display Unit (KDU), rider dispatch, and live order and rider tracking.
 - Coupons / vouchers, a loyalty points program, reviews moderation, inventory and reports.
-- Role-based access with 8 roles.
+- Role-based access with 7 roles.
 
 ---
 
@@ -156,12 +156,11 @@ HungerPoint/
 
 ## 5. Roles & Access Control
 
-### 5.1 The 8 roles
+### 5.1 The 7 roles
 
 | Role | Signs in on | How | Scope | Summary |
 |---|---|---|---|---|
-| `SUPER_ADMIN` | hpweb `/admin` | Phone/email + password | All branches | Platform owner. Everything an Admin can do, plus: delete branches, edit System Settings, create/manage Admin & Super Admin accounts |
-| `ADMIN` | hpweb `/admin` | Phone/email + password | All branches | Day-to-day operations: menu, orders, POS, riders, inventory, KDU, reports, promotions, staff (below Admin tier). Settings are **view-only** |
+| `ADMIN` | hpweb `/admin` | Phone/email + password | All branches | Owner / full control: everything below plus delete branches, edit System Settings and create/manage any staff account (including other Admins) |
 | `BRANCH_MANAGER` | hpweb `/admin` | Password | Own branch | Runs one branch: menu edits, orders, kitchen, riders, inventory, reports, tables |
 | `BRANCH_STAFF` | hpweb `/admin` | Password | Own branch | Front-of-house: POS, orders, reservations, branch dashboard |
 | `KITCHEN_STAFF` | hpadmin `/kitchen` (own login, own session) | Email/phone + password | Own branch | Kitchen Display Unit only: start preparing / mark ready. Cannot sign in to `/admin`; Admin roles cannot sign in to `/kitchen` |
@@ -171,44 +170,36 @@ HungerPoint/
 
 > **Every app signs in with email + password.** Accounts created by an admin (riders, waiters, branch staff…) must be given an email, otherwise they cannot sign in to the mobile apps. The web admin console also accepts the phone number.
 
-### 5.2 Super Admin vs Admin
+### 5.2 Admin
 
-| Capability | SUPER_ADMIN | ADMIN |
-|---|:-:|:-:|
-| Menu, orders, POS, riders, inventory, KDU, reports, promotions, reviews, loyalty | ✅ | ✅ |
-| Create branches / edit branches | ✅ | ✅ |
-| **Delete branches** | ✅ | ❌ |
-| View System Settings | ✅ | ✅ |
-| **Edit System Settings** (tax %, delivery fee, business info) | ✅ | ❌ (view-only) |
-| Create/edit Branch Manager, Branch Staff, Kitchen Staff accounts | ✅ | ✅ |
-| **Create/edit/promote Admin or Super Admin accounts** | ✅ | ❌ (HTTP 403) |
+There is a single top-level role, `ADMIN`. It can do everything: all branches, menu, orders, POS, riders, inventory, reports, promotions, reviews, loyalty, create/edit/delete branches, edit System Settings, and create/manage every staff account including other Admins. (The former Super Admin role was removed; existing Super Admin accounts are converted to Admin on the next `npm start`.)
 
 ### 5.3 Permission matrix (backend-enforced)
 
-| Area | SA | AD | BM | BS | KS | RD | WT | CU |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Browse menu / branches / coupons (public) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Place order | ✅ | ✅ | ✅ | ✅ | — | — | ✅ | ✅ (own) |
-| View order | all | all | branch | branch | branch | assigned | branch | own |
-| Change order status (`PATCH /orders/:id/status`) | ✅ | ✅ | branch | branch | branch | ❌ | branch | ❌ |
-| Kitchen queue & actions (`/kitchen`, KITCHEN_STAFF only) | — | — | — | — | branch | — | — | — |
-| Assign rider | ✅ | ✅ | ✅ | — | — | — | — | — |
-| Delivery lifecycle (`/deliveries`) | — | — | — | — | — | own | — | — |
-| Tables & reservations | ✅ | ✅ | ✅ | ✅ | — | — | ✅ | — |
-| Menu create/update | ✅ | ✅ | ✅ | — | — | — | — | — |
-| Menu delete | ✅ | ✅ | — | — | — | — | — | — |
-| Inventory, reports, riders mgmt, coupons, reviews, loyalty admin | ✅ | ✅ | ✅ | — | — | — | — | — |
-| Staff accounts (`/users`) | ✅ | ✅ (below Admin tier) | — | — | — | — | — | — |
-| System Settings | edit | view | — | — | — | — | — | — |
-| Delete branch | ✅ | — | — | — | — | — | — | — |
+| Area | AD | BM | BS | KS | RD | WT | CU |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Browse menu / branches / coupons (public) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Place order | ✅ | ✅ | ✅ | — | — | ✅ | ✅ (own) |
+| View order | all | branch | branch | branch | assigned | branch | own |
+| Change order status (`PATCH /orders/:id/status`) | ✅ | branch | branch | branch | ❌ | branch | ❌ |
+| Kitchen queue & actions (`/kitchen`, KITCHEN_STAFF only) | — | — | — | branch | — | — | — |
+| Assign rider | ✅ | ✅ | — | — | — | — | — |
+| Delivery lifecycle (`/deliveries`) | — | — | — | — | own | — | — |
+| Tables & reservations | ✅ | ✅ | ✅ | — | — | ✅ | — |
+| Menu create/update | ✅ | ✅ | — | — | — | — | — |
+| Menu delete | ✅ | — | — | — | — | — | — |
+| Inventory, reports, riders mgmt, coupons, reviews, loyalty admin | ✅ | ✅ | — | — | — | — | — |
+| Staff accounts (`/users`), any role | ✅ | — | — | — | — | — | — |
+| System Settings (view + edit) | ✅ | — | — | — | — | — | — |
+| Create / delete branch | ✅ | — | — | — | — | — | — |
 
-*SA = Super Admin, AD = Admin, BM = Branch Manager, BS = Branch Staff, KS = Kitchen Staff, RD = Rider, WT = Waiter, CU = Customer. "branch" = only orders/data of the user's own branch.*
+*AD = Admin, BM = Branch Manager, BS = Branch Staff, KS = Kitchen Staff, RD = Rider, WT = Waiter, CU = Customer. "branch" = only orders/data of the user's own branch.*
 
 ### 5.4 Seeded demo accounts (`npm run prisma:seed`)
 
 | Role | Phone | Password | Name | Branch |
 |---|---|---|---|---|
-| SUPER_ADMIN | `+923000000001` | `Admin@123456` | Super Administrator | — |
+| ADMIN | `+923000000001` | `Admin@123456` | Administrator | — |
 | BRANCH_MANAGER | `+923000000002` | `Admin@123456` | Manager G11 | G-11 |
 | KITCHEN_STAFF | `+923000000003` | `Admin@123456` | Chef Tariq | G-11 |
 | RIDER | `+923000000004` | `Admin@123456` | Rider Kamran | G-11 |
@@ -350,7 +341,7 @@ tax          = subtotal × System Setting `default_tax_percent` / 100
 total        = subtotal − discount + deliveryFee + tax
 ```
 
-- Defaults are **5% tax** and a **PKR 50** delivery fee. A Super Admin can change both in **Settings → System** without redeploying.
+- Defaults are **5% tax** and a **PKR 50** delivery fee. An Admin can change both in **Settings → System** without redeploying.
 - A size's **price is an offset** ("PKR +" in the admin form) added to the product's base price: a 500 product with a Large size of +300 costs 800. All apps show it that way.
 - **Order lines carry the real choices.** Each line sends `productId`, `variantId` (size), `addonIds`, `quantity` and `notes` (flavour and the customer's note). A chosen drink is its own line, priced from the beverage product. The apps never send prices; the server prices everything.
 - The server rejects: an unknown, inactive or foreign `variantId`; an unknown or inactive add-on; a quantity that is not a whole number from 1 to 50; and an empty order (400).
@@ -399,7 +390,7 @@ Clients connect to the API origin (the base URL without `/api/v1`) with `auth: {
 | `kitchen.queue_updated` | kitchen room | Queue changed |
 | `order.<status>` (e.g. `order.confirmed`, `order.preparing`, `order.ready`, `order.assigned`, `order.picked_up`, `order.out_for_delivery`, `order.delivered`, `order.completed`, `order.cancelled`) | order room, admins | Any status change |
 | `rider.assignment_created` | the assigned rider (`user:` room) | Rider assigned |
-| `rider.location_updated` | order room, `role:ADMIN`, `role:SUPER_ADMIN` | Rider GPS update |
+| `rider.location_updated` | order room, `role:ADMIN` | Rider GPS update |
 | `inventory.low_stock` | — | Defined but not emitted yet |
 
 ---
@@ -454,15 +445,15 @@ Access legend: **Public** means no token needed, **Auth** means any signed-in us
 ### Users (staff accounts) — `/users`
 | Method | Path | Access | Notes |
 |---|---|---|---|
-| GET | `/` | SA, AD | Staff list |
-| POST | `/` | SA, AD | Only SA may create ADMIN / SUPER_ADMIN |
-| PUT | `/:id` | SA, AD | role / branch / active. Only SA may touch Admin-tier accounts |
+| GET | `/` | AD | Staff list |
+| POST | `/` | AD | Create any staff role |
+| PUT | `/:id` | AD | role / branch / active. Only SA may touch Admin-tier accounts |
 
 ### Branches — `/branches`
 | Method | Path | Access |
 |---|---|---|
 | GET | `/`, `/:id` | Public |
-| POST | `/` | SA, AD |
+| POST | `/` | AD |
 | PUT | `/:id` | SA, AD, BM |
 | DELETE | `/:id` | **SA only** |
 
@@ -470,10 +461,10 @@ Access legend: **Public** means no token needed, **Auth** means any signed-in us
 | Method | Path | Access |
 |---|---|---|
 | GET | `/categories`, `/categories/:id`, `/products`, `/products/:id`, `/products/addons/all` | Public |
-| POST/PUT | `/categories`, `/categories/:id` | SA, AD |
-| DELETE | `/categories/:id` | SA, AD |
+| POST/PUT | `/categories`, `/categories/:id` | AD |
+| DELETE | `/categories/:id` | AD |
 | POST/PUT | `/products`, `/products/:id`, `/products/:id/variants`, `/products/variants/:variantId`, `/products/addons` | SA, AD, BM |
-| DELETE | `/products/:id`, `/products/variants/:variantId`, `/products/addons/:id` | SA, AD |
+| DELETE | `/products/:id`, `/products/variants/:variantId`, `/products/addons/:id` | AD |
 
 ### Cart, Favorites, Customers
 | Method | Path | Access |
@@ -521,7 +512,7 @@ Access legend: **Public** means no token needed, **Auth** means any signed-in us
 |---|---|---|
 | GET | `/tables`, `/tables/floors`, `/tables/:id` | SA, AD, BM, BS, WT |
 | POST / PUT | `/tables`, `/tables/:id` | SA, AD, BM |
-| DELETE | `/tables/:id` | SA, AD |
+| DELETE | `/tables/:id` | AD |
 | GET / POST | `/reservations` | SA, AD, BM, BS, WT |
 | PATCH | `/reservations/:id/seat`, `/reservations/:id/cancel` | SA, AD, BM, BS, WT |
 
@@ -559,7 +550,7 @@ All accept `?branchId=&from=&to=` (ISO dates; invalid dates or `from > to` retur
 ### Settings — `/settings`
 | Method | Path | Access |
 |---|---|---|
-| GET | `/` | SA, AD |
+| GET | `/` | AD |
 | PUT | `/:key` | **SA only** (`{ value, group }`) |
 
 Default keys: `app_name`, `support_phone`, `support_email`, `currency`, `default_tax_percent` (5), `default_delivery_fee` (50).
@@ -599,7 +590,7 @@ MySQL database `hungerpointdb`, defined in `hpbackend/prisma/schema.prisma` (43 
 
 | Enum | Values |
 |---|---|
-| `UserRole` | SUPER_ADMIN, ADMIN, BRANCH_MANAGER, BRANCH_STAFF, KITCHEN_STAFF, RIDER, WAITER, CUSTOMER |
+| `UserRole` | ADMIN, BRANCH_MANAGER, BRANCH_STAFF, KITCHEN_STAFF, RIDER, WAITER, CUSTOMER |
 | `OrderStatus` | PENDING, CONFIRMED, ACCEPTED, PREPARING, READY, ASSIGNED, PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, COMPLETED, CANCELLED, REJECTED, PAYMENT_FAILED, REFUNDED |
 | `OrderType` | DELIVERY, PICKUP, DINE_IN |
 | `OrderSource` | MOBILE_APP, WEBSITE, POS, PHONE, WAITER_APP |
@@ -640,7 +631,7 @@ One Next.js app serves both the **public storefront** and the **staff console**.
 | `/reviews` | SA, AD, BM | Review moderation |
 | `/loyalty` | SA, AD, BM | Loyalty accounts & adjustments |
 | `/reports` | SA, AD, BM | **Reports & Analytics** (see below) |
-| `/settings` | SA, AD | Staff accounts + System Settings (edit = SA only) |
+| `/settings` | AD | Staff accounts + System Settings (edit = SA only) |
 
 **Reports page:**
 
@@ -791,7 +782,7 @@ The phone and the PC must be on the same network, and Windows Firewall must allo
 | `SOCKET_CORS_ORIGIN` | ✅ prod | same as above | |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | | 900000 / auto | Auto: 1000 (prod), 2000 (dev) per visitor IP per window. Leave unset in production |
 | `AUTH_RATE_LIMIT_MAX` / `REGISTER_RATE_LIMIT_MAX` | | 20 / 30 (prod) | Failed sign-ins per 15 min and sign-ups per hour, per visitor IP. Leave unset in production |
-| `BOOTSTRAP_ADMIN_PHONE`, `BOOTSTRAP_ADMIN_PASSWORD` (≥10 chars), `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` | first deploy | — | Creates the first Super Admin at startup when none exists; remove after first login |
+| `BOOTSTRAP_ADMIN_PHONE`, `BOOTSTRAP_ADMIN_PASSWORD` (≥10 chars), `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` | first deploy | — | Creates the first Admin at startup when none exists; remove after first login |
 
 ### Web (`hpweb/.env.local`)
 
@@ -826,8 +817,8 @@ The repo root contains a delegating `package.json`, so hosts that require `packa
    - `NODE_ENV=production`
    - fresh `JWT_SECRET` and `JWT_REFRESH_SECRET`
    - `CORS_ORIGIN` and `SOCKET_CORS_ORIGIN` set to the real web domain(s)
-   - `BOOTSTRAP_ADMIN_PHONE` / `BOOTSTRAP_ADMIN_PASSWORD` for the first Super Admin
-4. Deploy. **No terminal is needed on the host:** `npm start` runs `scripts/prepare-db.js` first. It creates or updates all tables (`prisma db push`, never with data loss) and creates the first Super Admin if none exists, then starts the server. Problems are logged but never block startup.
+   - `BOOTSTRAP_ADMIN_PHONE` / `BOOTSTRAP_ADMIN_PASSWORD` for the first Admin
+4. Deploy. **No terminal is needed on the host:** `npm start` runs `scripts/prepare-db.js` first. It creates or updates all tables (`prisma db push`, never with data loss) and creates the first Admin if none exists, then starts the server. Problems are logged but never block startup.
 5. Verify `https://<api-domain>/health`. Log in at `/admin` with the bootstrap admin, change the password, then delete the three `BOOTSTRAP_ADMIN_*` secrets.
 
 **Notes:**
@@ -862,7 +853,7 @@ From the repo root in PowerShell, this builds all three apps into `release\`:
 | Sessions | JWT access + refresh. Refresh tokens are stored hashed and rotated on use; revoked on logout and password change |
 | Account state | `authenticate` reloads the user on every request, so deactivated users are locked out immediately |
 | RBAC | `authorize(...roles)` per route, plus ownership / branch scoping in controllers (orders, kitchen, reports) |
-| Privilege ceiling | Only a Super Admin can create or modify Admin-tier accounts or edit System Settings |
+| Privilege model | A single `ADMIN` role has full control; only Admins can manage staff accounts and System Settings |
 | Sign-in | Email + password only (no SMS / OTP). Failed-attempt throttling per visitor IP; sign-ups limited per hour |
 | Input | `express-validator` on auth, whitelisted enums for order status/source, date and pagination parsing in reports |
 | Uploads | Authenticated, image MIME/extension whitelist, 10 MB limit, random filenames |
@@ -881,7 +872,7 @@ A full review of the order lifecycle, auth and supporting modules found the issu
 
 | # | Severity | Issue | Fix |
 |---|---|---|---|
-| 1 | **Critical** | `POST /auth/complete-profile` needed no OTP. Sending any existing phone number (including the Super Admin's) returned a valid login token for that account | Requires a phone that just passed OTP (single-use, 15 min). Never touches existing accounts (409) |
+| 1 | **Critical** | `POST /auth/complete-profile` needed no OTP. Sending any existing phone number (including the Admin's) returned a valid login token for that account | Requires a phone that just passed OTP (single-use, 15 min). Never touches existing accounts (409) |
 | 2 | **Critical** | Test OTP codes `123456` / `872305` were accepted for any number, in production too | Test codes only outside production. OTP login restricted to CUSTOMER accounts |
 | 3 | **Critical** | `send-otp` returned the real OTP in the API response in every environment | Only echoed when `NODE_ENV ≠ production`. Added a 5-attempt limit |
 | 4 | High | OTP-registered customers all got the known password `Customer@123456` | Random unguessable password when none is supplied |
@@ -943,7 +934,7 @@ Ordered by priority.
 5. **Payments:** the module is a stub. JazzCash / Easypaisa / card are recorded as the payment method only; there is no gateway, capture or refund flow.
 6. **Inventory is not deducted by orders.** The `Recipe` / `RecipeItem` models exist but aren't wired in, and `inventory.low_stock` is never emitted.
 7. **Coupons:** `usageCount` isn't decremented when an order is cancelled, and the global usage-limit check isn't atomic under concurrent orders.
-8. **Pricing preview drift:** the customer app mirrors the default 5% / PKR 50. If a Super Admin changes them in Settings, the app's estimate drifts, although the server total stays correct. Expose a public pricing endpoint for the app to read.
+8. **Pricing preview drift:** the customer app mirrors the default 5% / PKR 50. If an Admin changes them in Settings, the app's estimate drifts, although the server total stays correct. Expose a public pricing endpoint for the app to read.
 9. **Branch scoping gaps:** a Branch Manager can assign riders and orders across branches, and a manager with no branch assigned sees all-branch reports.
 10. **Broadcast notifications** share one `isRead` flag for everyone, so per-user read state for broadcasts would need a join table.
 11. **Uploads on local disk** are lost on ephemeral hosting. Move them to object storage (S3, Cloudinary, etc.).

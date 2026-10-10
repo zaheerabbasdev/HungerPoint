@@ -9,7 +9,7 @@ import { UserRole } from '@prisma/client';
 
 const router = Router();
 
-router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER));
+router.use(authenticate, authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER));
 
 router.get('/overview', ReportController.getOverview);
 router.get('/orders-by-status', ReportController.getOrdersByStatus);

@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { fetchApi } from '../lib/api';
 
-const REVIEWS_ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER'];
+const REVIEWS_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER'];
 
 function Stars({ rating }: { rating: number }) {
   return (

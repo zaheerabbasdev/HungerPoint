@@ -15,7 +15,7 @@ router.use(authenticate);
 // Staff-only: look up an existing customer by phone (POS / phone orders)
 router.get(
   '/search',
-  authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF),
+  authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER, UserRole.BRANCH_STAFF),
   CustomerController.searchByPhone
 );
 

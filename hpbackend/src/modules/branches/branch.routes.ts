@@ -14,8 +14,8 @@ router.get('/', BranchController.getAll);
 router.get('/:id', BranchController.getById);
 
 // Admin-only routes
-router.post('/', authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN), BranchController.create);
-router.put('/:id', authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BRANCH_MANAGER), BranchController.update);
-router.delete('/:id', authenticate, authorize(UserRole.SUPER_ADMIN), BranchController.remove);
+router.post('/', authenticate, authorize(UserRole.ADMIN), BranchController.create);
+router.put('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.BRANCH_MANAGER), BranchController.update);
+router.delete('/:id', authenticate, authorize(UserRole.ADMIN), BranchController.remove);
 
 export default router;

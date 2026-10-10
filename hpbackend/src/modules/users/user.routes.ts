@@ -9,7 +9,7 @@ import { UserRole } from '@prisma/client';
 
 const router = Router();
 
-router.use(authenticate, authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN));
+router.use(authenticate, authorize(UserRole.ADMIN));
 
 router.get('/', UserController.getAll);
 router.post('/', UserController.create);
