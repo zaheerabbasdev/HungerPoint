@@ -29,6 +29,7 @@ export class KitchenService {
           },
         },
         customer: { include: { user: { select: { name: true } } } },
+        table: { select: { number: true, floor: true } },
       },
     });
   }
