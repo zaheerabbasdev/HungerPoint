@@ -42,6 +42,7 @@ import { notFound } from './middleware/notFound.middleware';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
+import { prisma } from './config/database';
 
 const app: Application = express();
 
@@ -56,6 +57,22 @@ app.use(helmet({ crossOriginResourcePolicy: false }));
 
 // ─── Static Uploads ──────────────────────────────────────────
 app.use('/uploads', express.static(uploadDir));
+// Pictures uploaded after the move to database storage (older files above still come from disk).
+app.get('/uploads/:filename', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const file = await prisma.uploadedFile.findUnique({ where: { filename: String(req.params.filename) } });
+    if (!file) return next();
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Length': String(file.size),
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.send(Buffer.from(file.data));
+  } catch (err) {
+    next(err);
+  }
+});
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -187,17 +204,9 @@ app.use(`${API}/reports`,       reportRoutes);
 app.use(`${API}/tables`,        tableRoutes);
 app.use(`${API}/reservations`,  reservationRoutes);
 
-// ─── Local File Upload Route ──────────────────────────────────
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.jpg';
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, 'img-' + uniqueSuffix + ext);
-  },
-});
+// ─── File Upload Route ────────────────────────────────────────
+// Held in memory, then stored in the database (see UploadedFile) so pictures outlive redeploys.
+const storage = multer.memoryStorage();
 // Uploaded files are served back publicly from /uploads, so only accept
 // real image types — an HTML/SVG/script upload would become a hosted payload.
 const ALLOWED_IMAGE_TYPES: Record<string, string[]> = {
@@ -220,23 +229,38 @@ const upload = multer({
   },
 });
 
-app.post(`${API}/upload`, authenticate, upload.single('image'), (req: Request, res: Response) => {
-  if (!req.file) {
-    res.status(400).json({ success: false, message: 'No file uploaded' });
-    return;
+const EXTENSION_FOR_TYPE: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+};
+
+app.post(`${API}/upload`, authenticate, upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ success: false, message: 'No file uploaded' });
+      return;
+    }
+    const filename = `img-${Date.now()}-${Math.round(Math.random() * 1e9)}${EXTENSION_FOR_TYPE[req.file.mimetype] || '.jpg'}`;
+    await prisma.uploadedFile.create({
+      data: { filename, mimeType: req.file.mimetype, size: req.file.size, data: req.file.buffer },
+    });
+
+    const host = req.get('host') || 'localhost:5000';
+    const protocol = req.protocol || 'http';
+    res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      data: {
+        url: `${protocol}://${host}/uploads/${filename}`,
+        filename,
+        size: req.file.size,
+      },
+    });
+  } catch (err) {
+    next(err);
   }
-  const host = req.get('host') || 'localhost:5000';
-  const protocol = req.protocol || 'http';
-  const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
-  res.json({
-    success: true,
-    message: 'File uploaded successfully',
-    data: {
-      url: fileUrl,
-      filename: req.file.filename,
-      size: req.file.size,
-    },
-  });
 });
 
 // ─── Error Handlers ──────────────────────────────────────────

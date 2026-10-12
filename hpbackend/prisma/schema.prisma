@@ -751,6 +751,19 @@ model RiderLocation {
   @@map("rider_locations")
 }
 
+// Pictures uploaded from the admin console. Kept in the database (not on the server's disk) so
+// they survive redeploys of the Node.js host, which replaces the application folder.
+model UploadedFile {
+  id        String   @id @default(uuid())
+  filename  String   @unique
+  mimeType  String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  @@map("uploaded_files")
+}
+
 model Delivery {
   id           String         @id @default(uuid())
   orderId      String         @unique

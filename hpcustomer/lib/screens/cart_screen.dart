@@ -551,7 +551,16 @@ class _CartScreenState extends State<CartScreen> {
                 bottom: true,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 6, 14, 16),
-                  child: Container(
+                  // The whole yellow bar is the button, not just the "REVIEW PAYMENT" text.
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PaymentScreen()),
+                      );
+                    },
+                    child: Container(
                     height: 60,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
@@ -615,14 +624,7 @@ class _CartScreenState extends State<CartScreen> {
                         const SizedBox(width: 6),
 
                         // REVIEW PAYMENT >>
-                        InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const PaymentScreen()),
-                            );
-                          },
-                          child: Row(
+                        Row(
                             mainAxisSize: MainAxisSize.min,
                             children: const [
                               Text(
@@ -642,9 +644,9 @@ class _CartScreenState extends State<CartScreen> {
                               ),
                             ],
                           ),
-                        ),
                       ],
                     ),
+                  ),
                   ),
                 ),
               ),
