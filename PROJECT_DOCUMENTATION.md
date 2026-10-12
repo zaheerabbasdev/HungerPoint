@@ -220,6 +220,10 @@ Phone numbers must be entered exactly in `+92…` format.
 
 The countdown starts from the cook's prep minutes and the map's ride time, then corrects itself from each branch's own history (`modules/orders/calibration.service.ts`). For the last 30 days of finished orders at a branch it computes the median of *actual / estimated* for the ride (`pickedUpAt` to `deliveredAt` against `mapRideMinutes`) and for the kitchen (`acceptedAt` to `readyAt` against `prepMinutesEntered`). Rules: at least 10 orders (`ETA_CALIBRATION_MIN_SAMPLES`) before anything changes; single ratios outside 0.3x to 4x are ignored as bad data; a factor is limited to 0.8x to 2x; set `ETA_CALIBRATION=off` to disable. Corrections are cached for 10 minutes. `promisedPrepMinutes` and `estimatedDeliveryTime` hold the corrected figures shown to the customer; `estimatedPrepTime` stays the cook's own number for the kitchen screen.
 
+### Reviews
+
+A customer reviews a **delivered or completed order** once (1-5 stars plus an optional comment), from "Rate this order" on the order screen, the RATE button in Order History, or Ratings & Feedback in the menu (`POST /reviews` with `orderId`; the review is linked to a product of that order). `GET /reviews/mine` lists the customer's own reviews. Admins and Branch Managers moderate them in the admin console at `/reviews` (Hide / Approve): a Branch Manager sees only their own branch's reviews. Hidden reviews are not shown on product pages. Earlier app builds sent reviews without an order, so the server rejected every one of them and none were saved.
+
 ### Product pictures (uploads)
 
 Pictures uploaded in the admin console (`POST /upload`) are stored **in the database** (`uploaded_files`, a `Bytes` column) and served from `GET /uploads/:filename`. They used to be written to the server's `uploads/` folder, which the GoDaddy Node.js host replaces on every deploy, so product pictures disappeared and the apps showed placeholders. Files already on disk are still served as before. A product whose picture was lost this way must have its picture uploaded again once, after this version is deployed.

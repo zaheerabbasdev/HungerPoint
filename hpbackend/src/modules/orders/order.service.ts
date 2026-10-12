@@ -226,6 +226,7 @@ export class OrderService {
         waiter: { select: { id: true, name: true } },
         statusHistory: { orderBy: { createdAt: 'asc' } },
         payment: true,
+        review: { select: { id: true, rating: true } },
         delivery: { include: { rider: { include: { user: { select: { name: true, phone: true } } } } } },
       },
     });

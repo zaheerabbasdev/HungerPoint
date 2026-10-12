@@ -11,6 +11,7 @@ const router = Router();
 
 const STAFF = [UserRole.ADMIN, UserRole.BRANCH_MANAGER];
 
+router.get('/mine', authenticate, ReviewController.getMine);
 router.get('/product/:productId', ReviewController.getByProduct);
 router.post('/', authenticate, ReviewController.create);
 

@@ -673,13 +673,16 @@ class ApiService {
 
   // ─── REVIEWS / FEEDBACK ──────────────────────────────────────
 
-  static Future<bool> submitReview({
+  /// Reviews belong to a delivered order. Returns {success, message} with the server's own message.
+  static Future<Map<String, dynamic>> submitReview({
+    required String orderId,
     required int rating,
     required String comment,
     String? productId,
   }) async {
     try {
       final body = <String, dynamic>{
+        'orderId': orderId,
         'rating': rating,
         'comment': comment,
       };
@@ -689,12 +692,33 @@ class ApiService {
         Uri.parse('$baseUrl/reviews'),
         headers: _headers(needsAuth: true),
         body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 6));
+      ).timeout(const Duration(seconds: 10));
 
-      return res.statusCode == 200 || res.statusCode == 201;
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return {'success': true, 'message': data['message']};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Could not submit your review.'};
     } catch (e) {
       debugPrint('API Error (submitReview): $e');
-      return false;
+      return {'success': false, 'message': 'Network error. Please check your connection and try again.'};
     }
+  }
+
+  /// The signed-in customer's own reviews, newest first.
+  static Future<List<dynamic>> getMyReviews() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/reviews/mine'),
+        headers: _headers(needsAuth: true),
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['data'] as List<dynamic>? ?? [];
+      }
+    } catch (e) {
+      debugPrint('API Error (getMyReviews): $e');
+    }
+    return [];
   }
 }

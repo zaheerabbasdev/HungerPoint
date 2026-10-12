@@ -4,6 +4,7 @@ import '../services/cart_service.dart';
 import '../services/api_service.dart';
 import 'cart_screen.dart';
 import 'order_tracking_screen.dart';
+import 'ratings_feedback_screen.dart';
 
 class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});
@@ -266,6 +267,30 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                               ),
                             ],
                           ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                          if (order['rawStatus'] == 'DELIVERED' || order['rawStatus'] == 'COMPLETED') ...[
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RatingsFeedbackScreen(orderId: order['id']?.toString(), orderNumber: order['orderId']?.toString()),
+                                ),
+                              ),
+                              icon: const Icon(Icons.star_rounded, size: 16, color: Color(0xFFFFB800)),
+                              label: const Text(
+                                'RATE',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF1E1B4B)),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFFFFD54F)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           ElevatedButton.icon(
                             onPressed: () => _reorder(context, order),
                             icon: const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF1E1B4B)),
@@ -283,6 +308,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
+                          ),
+                            ],
                           ),
                         ],
                       ),

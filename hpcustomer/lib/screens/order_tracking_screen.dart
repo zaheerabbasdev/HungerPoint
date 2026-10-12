@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
+import 'ratings_feedback_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -158,6 +159,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           const SizedBox(height: 16),
 
           _buildEtaCard(order),
+          _buildRateCard(order),
 
           Container(
             padding: const EdgeInsets.all(16),
@@ -201,6 +203,55 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Once the order is delivered, invite the customer to review it.
+  Widget _buildRateCard(Map<String, dynamic> order) {
+    final status = order['status']?.toString();
+    if (status != 'DELIVERED' && status != 'COMPLETED') return const SizedBox.shrink();
+    if (order['review'] != null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RatingsFeedbackScreen(orderId: widget.orderId, orderNumber: order['orderNumber']?.toString()),
+            ),
+          );
+          if (mounted) _loadOrder();
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8E1),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFFFD54F)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.star_rounded, color: Color(0xFFFFB800), size: 30),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('How was your order?',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF1E1B4B))),
+                    SizedBox(height: 2),
+                    Text('Tap to rate it', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Color(0xFF1E1B4B)),
+            ],
+          ),
+        ),
       ),
     );
   }
