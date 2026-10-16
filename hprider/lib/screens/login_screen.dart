@@ -69,16 +69,18 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 90,
+                  height: 90,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [AppColors.amber, AppColors.orange]),
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
-                      BoxShadow(color: AppColors.orange.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 10)),
+                      BoxShadow(color: const Color(0xFFE6441D).withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8)),
                     ],
                   ),
-                  child: const Center(child: Icon(Icons.two_wheeler, size: 44, color: Colors.white)),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.asset('assets/images/app_icon.png', fit: BoxFit.cover),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const Text('HungerPoint Rider', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),

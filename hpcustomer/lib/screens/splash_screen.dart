@@ -93,87 +93,25 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Food Emblem Illustration (Pizza + Burger + Drink)
+                  // Official Brand Logo Icon
                   Container(
-                    width: 130,
-                    height: 130,
+                    width: 140,
+                    height: 140,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(32),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
+                          color: const Color(0xFFE6441D).withValues(alpha: 0.25),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-                    child: Center(
-                      child: SizedBox(
-                        width: 80,
-                        height: 80,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Positioned(
-                              top: 6,
-                              left: 8,
-                              child: Container(
-                                width: 44,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFB300),
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(24),
-                                    topRight: Radius.circular(24),
-                                    bottomLeft: Radius.circular(8),
-                                  ),
-                                  border: Border.all(color: const Color(0xFF4E2A1D), width: 2.2),
-                                ),
-                                child: const Center(
-                                  child: Text('🍕', style: TextStyle(fontSize: 16)),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 8,
-                              left: 10,
-                              child: Container(
-                                width: 40,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFC107),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: const Color(0xFF4E2A1D), width: 2.2),
-                                ),
-                                child: const Center(
-                                  child: Text('🍔', style: TextStyle(fontSize: 14)),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 10,
-                              right: 12,
-                              child: Container(
-                                width: 26,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFB300),
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(4),
-                                    topRight: Radius.circular(4),
-                                    bottomLeft: Radius.circular(8),
-                                    bottomRight: Radius.circular(8),
-                                  ),
-                                  border: Border.all(color: const Color(0xFF4E2A1D), width: 2.2),
-                                ),
-                                child: const Center(
-                                  child: Text('🥤', style: TextStyle(fontSize: 13)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(32),
+                      child: Image.asset(
+                        'assets/images/app_icon.png',
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),

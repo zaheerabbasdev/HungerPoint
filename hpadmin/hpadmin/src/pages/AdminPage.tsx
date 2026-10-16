@@ -927,9 +927,11 @@ export default function AdminPortalPage() {
       <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-stone-900 border border-stone-800 rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 mb-2">
-              <ShieldCheck className="w-8 h-8" />
-            </div>
+            <img
+              src="/icon.png"
+              alt="HungerPoint"
+              className="w-16 h-16 rounded-2xl object-cover mx-auto mb-2 shadow-lg shadow-orange-500/20"
+            />
             <h1 className="text-2xl font-black bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
               HungerPoint Admin Console
             </h1>
@@ -1037,9 +1039,11 @@ export default function AdminPortalPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link to="/" className="flex items-center gap-2 group">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center font-black text-stone-950 text-lg shadow-md shadow-orange-500/20">
-                HP
-              </div>
+              <img
+                src="/icon.png"
+                alt="HungerPoint"
+                className="w-9 h-9 rounded-xl object-cover shadow-md shadow-orange-500/20"
+              />
               <div className="hidden sm:block">
                 <span className="font-black text-base text-stone-100 group-hover:text-amber-400 transition-colors">
                   HungerPoint

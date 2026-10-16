@@ -21,9 +21,11 @@ export function Navbar({ onOpenAuth }: { onOpenAuth: () => void }) {
         
         {/* Brand Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-600 to-red-600 flex items-center justify-center shadow-lg shadow-orange-500/30">
-            <span className="text-2xl font-black text-white tracking-tighter">HP</span>
-          </div>
+          <img
+            src="/icon.png"
+            alt="HungerPoint"
+            className="w-11 h-11 rounded-2xl object-cover shadow-lg shadow-orange-500/30"
+          />
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-amber-400 via-orange-400 to-red-500 bg-clip-text text-transparent">
               HungerPoint

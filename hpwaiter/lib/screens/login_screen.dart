@@ -67,16 +67,18 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 90,
+                  height: 90,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [AppColors.primaryYellow, AppColors.primaryOrange]),
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
-                      BoxShadow(color: AppColors.primaryOrange.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10)),
+                      BoxShadow(color: const Color(0xFFE6441D).withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8)),
                     ],
                   ),
-                  child: const Center(child: Icon(Icons.room_service_outlined, size: 40, color: Colors.white)),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.asset('assets/images/app_icon.png', fit: BoxFit.cover),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const Text('HungerPoint Waiter', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.darkNavy)),

@@ -50,9 +50,11 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
         {/* Modal Header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 mx-auto flex items-center justify-center text-white font-black text-xl mb-3 shadow-lg shadow-orange-500/30">
-            HP
-          </div>
+          <img
+            src="/icon.png"
+            alt="HungerPoint"
+            className="w-14 h-14 rounded-2xl object-cover mx-auto mb-3 shadow-lg shadow-orange-500/30"
+          />
           <h3 className="text-xl font-black bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
             {mode === 'login' ? 'Welcome Back!' : 'Join HungerPoint'}
           </h3>

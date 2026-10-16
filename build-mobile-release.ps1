@@ -16,6 +16,12 @@ if ($ApiUrl -notmatch '^https://.+/api/v1/?$') {
     Write-Error "ApiUrl must start with https:// and end with /api/v1 (Android blocks plain http). Got: $ApiUrl"
 }
 
+if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
+    $env:PATH = "C:\src\flutter\bin;C:\Program Files\Java\jdk-22\bin;C:\Users\zabba\AppData\Local\Android\Sdk\platform-tools;C:\Program Files\nodejs;" + $env:PATH
+}
+if (-not $env:JAVA_HOME) { $env:JAVA_HOME = "C:\Program Files\Java\jdk-22" }
+if (-not $env:ANDROID_HOME) { $env:ANDROID_HOME = "C:\Users\zabba\AppData\Local\Android\Sdk" }
+
 $root = $PSScriptRoot
 $out = Join-Path $root 'release'
 New-Item -ItemType Directory -Force $out | Out-Null
