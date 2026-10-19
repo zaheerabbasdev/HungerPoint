@@ -159,7 +159,28 @@ export default function OrderTrackingPage() {
             </div>
           )}
 
-          {/* Stepper Bar */}
+          {/* Handover PIN Card — visible to customer when delivery is in progress */}
+          {order.type === 'DELIVERY' && (order as any).handoverPin && !isFinished && (
+            <div className="bg-gradient-to-br from-indigo-950 to-violet-950 border border-indigo-500/30 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-9 h-9 rounded-xl bg-amber-400/10 flex items-center justify-center text-amber-400 text-lg">🔐</div>
+                <div>
+                  <p className="text-sm font-black text-white">Delivery Handover PIN</p>
+                  <p className="text-[10px] text-indigo-300">Share this code with your rider when they arrive at your door</p>
+                </div>
+              </div>
+              <div className="flex justify-center gap-3 my-3">
+                {String((order as any).handoverPin).split('').map((digit: string, i: number) => (
+                  <div key={i} className="w-14 h-16 rounded-xl bg-white/10 border border-amber-400/40 flex items-center justify-center">
+                    <span className="text-3xl font-black text-amber-400 tracking-widest">{digit}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-center text-[10px] text-indigo-300 mt-3">🔒 Only share when the rider is physically at your door</p>
+            </div>
+          )}
+
+
           <div className="grid grid-cols-6 gap-2 pt-4 relative">
             {STATUS_STEPS.map((step, idx) => {
               const isCompleted = idx <= currentStepIndex;

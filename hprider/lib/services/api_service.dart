@@ -236,8 +236,12 @@ class ApiService {
   static Future<Map<String, dynamic>> acceptDelivery(String deliveryId) => _deliveryAction(deliveryId, 'accept');
   static Future<Map<String, dynamic>> markPickedUp(String deliveryId) => _deliveryAction(deliveryId, 'pickup');
   static Future<Map<String, dynamic>> markOutForDelivery(String deliveryId) => _deliveryAction(deliveryId, 'out-for-delivery');
-  static Future<Map<String, dynamic>> markDelivered(String deliveryId, {num? cashCollected}) =>
-      _deliveryAction(deliveryId, 'delivered', body: cashCollected == null ? null : {'cashCollected': cashCollected});
+  static Future<Map<String, dynamic>> markDelivered(String deliveryId, {num? cashCollected, String? handoverPin}) {
+    final body = <String, dynamic>{};
+    if (cashCollected != null) body['cashCollected'] = cashCollected;
+    if (handoverPin != null) body['handoverPin'] = handoverPin;
+    return _deliveryAction(deliveryId, 'delivered', body: body.isEmpty ? null : body);
+  }
   static Future<Map<String, dynamic>> releaseDelivery(String deliveryId) => _deliveryAction(deliveryId, 'release');
 
   /// "Upcoming orders": this branch's delivery orders that still need a rider.

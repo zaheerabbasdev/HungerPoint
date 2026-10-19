@@ -101,6 +101,7 @@ export class DeliveryController {
         req.params.id as string,
         riderId,
         req.body?.cashCollected === undefined ? undefined : Number(req.body.cashCollected),
+        req.body?.handoverPin === undefined ? undefined : String(req.body.handoverPin),
       );
       res.json({ success: true, message: 'Delivery completed', data: delivery });
     } catch (error) {

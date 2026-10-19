@@ -114,6 +114,11 @@ export class OrderService {
     }
 
     const total = subtotal - couponDiscount + deliveryFee + tax;
+    const orderType = data.type || OrderType.DELIVERY;
+    // 4-digit random handover PIN for delivery orders
+    const handoverPin = orderType === OrderType.DELIVERY
+      ? Math.floor(1000 + Math.random() * 9000).toString()
+      : undefined;
 
     const order = await prisma.order.create({
       data: {
@@ -123,14 +128,15 @@ export class OrderService {
         addressId: data.addressId,
         tableId: data.tableId,
         waiterId: data.waiterId,
-        type: data.type || OrderType.DELIVERY,
+        type: orderType,
         source: data.source || OrderSource.MOBILE_APP,
         paymentMethod: data.paymentMethod || PaymentMethod.CASH_ON_DELIVERY,
+        handoverPin,
         // A waiter standing at the table has already vetted a dine-in order,
         // so it skips the PENDING/needs-confirmation step and goes straight
         // to the kitchen queue (which only shows CONFIRMED+ orders).
-        status: data.type === OrderType.DINE_IN ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
-        confirmedAt: data.type === OrderType.DINE_IN ? new Date() : undefined,
+        status: orderType === OrderType.DINE_IN ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
+        confirmedAt: orderType === OrderType.DINE_IN ? new Date() : undefined,
         subtotal,
         discount: couponDiscount,
         couponId,

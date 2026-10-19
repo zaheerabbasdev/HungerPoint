@@ -22,7 +22,6 @@ import {
   TrendingUp,
   AlertCircle,
   MapPin,
-  ShieldCheck,
   Upload,
 } from 'lucide-react';
 
@@ -88,6 +87,7 @@ interface Order {
   promisedAt?: string | null;
   estimatedPrepTime?: number | null;
   estimatedDeliveryTime?: number | null;
+  handoverPin?: string | null;
   customer?: { user?: { name: string; phone: string } };
   branch?: { name: string };
   items?: any[];
@@ -1702,6 +1702,7 @@ export default function AdminPortalPage() {
                       <th className="py-3 px-4">Branch</th>
                       <th className="py-3 px-4">Total</th>
                       <th className="py-3 px-4">Payment</th>
+                      <th className="py-3 px-4">PIN</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Timing</th>
                       <th className="py-3 px-4">Rider</th>
@@ -1731,6 +1732,18 @@ export default function AdminPortalPage() {
                         </td>
                         <td className="py-3 px-4 text-[11px] text-stone-300">
                           {ord.paymentMethod?.replace('_', ' ')}
+                        </td>
+                        <td className="py-3 px-4">
+                          {ord.type === 'DELIVERY' && ord.handoverPin ? (
+                            <span
+                              title="Handover PIN (share with customer support if needed)"
+                              className="font-mono font-black text-sm tracking-[0.35em] px-2.5 py-1 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                            >
+                              {ord.handoverPin}
+                            </span>
+                          ) : (
+                            <span className="text-stone-600 text-[10px]">—</span>
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">

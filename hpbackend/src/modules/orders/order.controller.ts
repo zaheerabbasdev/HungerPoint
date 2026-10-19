@@ -22,6 +22,13 @@ const canViewOrder = (user: { userId: string; role: string; branchId?: string },
   return false;
 };
 
+// Riders must never see the handoverPin (they get it from the customer verbally)
+const stripPinForRider = (role: string, order: any) => {
+  if (role !== 'RIDER' || !order) return order;
+  const { handoverPin, ...rest } = order;
+  return rest;
+};
+
 export class OrderController {
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
@@ -85,6 +92,11 @@ export class OrderController {
         limit: Number(limit) || 20,
       });
 
+      // Strip the handover PIN from every order before returning to riders
+      if (user.role === 'RIDER' && result.orders) {
+        result.orders = result.orders.map((o: any) => stripPinForRider('RIDER', o));
+      }
+
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
@@ -93,12 +105,13 @@ export class OrderController {
 
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
+      const user = (req as any).user;
       const order = await OrderService.getOrderById(req.params.id as string);
       // 404 rather than 403 so order IDs belonging to others aren't confirmed to exist.
-      if (!canViewOrder((req as any).user, order)) {
+      if (!canViewOrder(user, order)) {
         throw new AppError('Order not found', 404);
       }
-      res.json({ success: true, data: order });
+      res.json({ success: true, data: stripPinForRider(user.role, order) });
     } catch (error) {
       next(error);
     }

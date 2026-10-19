@@ -296,43 +296,111 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     );
   }
 
-  // Handover = payment confirmation: cash orders need the collected amount before completing.
+  // Handover = payment confirmation + PIN verification.
+  // The rider must enter the 4-digit PIN shown on the customer's app before completing delivery.
   Future<Map<String, dynamic>> _deliverWithPayment() async {
     final total = num.tryParse(_order['total']?.toString() ?? '') ?? 0;
     final needsCash = _order['paymentMethod']?.toString() == 'CASH_ON_DELIVERY' && _order['paymentStatus']?.toString() != 'PAID';
-    if (!needsCash) return ApiService.markDelivered(_delivery['id']);
 
-    final controller = TextEditingController(text: total.toStringAsFixed(0));
-    final amount = await showDialog<num>(
+    final pinController = TextEditingController();
+    final cashController = TextEditingController(text: total.toStringAsFixed(0));
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Collect cash', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: AppColors.amber.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.lock_rounded, color: AppColors.amber, size: 18),
+            ),
+            const SizedBox(width: 10),
+            const Text('Confirm Handover', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Order total: PKR ${total.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.textMuted)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: const InputDecoration(labelText: 'Cash received (PKR)', labelStyle: TextStyle(color: AppColors.textMuted)),
+            // ── PIN section ───────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.amber.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.amber.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Step 1 — Ask customer for PIN', style: TextStyle(color: AppColors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: pinController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
+                    textAlign: TextAlign.center,
+                    decoration: const InputDecoration(
+                      counterText: '',
+                      hintText: '• • • •',
+                      hintStyle: TextStyle(color: AppColors.textMuted, letterSpacing: 8),
+                      labelText: '4-Digit Handover PIN',
+                      labelStyle: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            // ── Cash section (COD only) ───────────────────────────────────
+            if (needsCash) ...[
+              const Text('Step 2 — Confirm cash collected', style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('Order total: PKR ${total.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: cashController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(labelText: 'Cash received (PKR)', labelStyle: TextStyle(color: AppColors.textMuted)),
+              ),
+            ],
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted))),
           TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, num.tryParse(controller.text.trim())),
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () {
+              final pin = pinController.text.trim();
+              if (pin.length != 4) return; // stay open — basic client guard
+              final cash = needsCash ? num.tryParse(cashController.text.trim()) : null;
+              Navigator.pop(dialogCtx, {'pin': pin, 'cash': cash});
+            },
             child: const Text('Confirm & hand over', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
-    if (amount == null) return {'success': false, 'message': 'Cash collection not confirmed.'};
-    return ApiService.markDelivered(_delivery['id'], cashCollected: amount);
+
+    if (result == null) return {'success': false, 'message': 'Handover cancelled.'};
+
+    final pin = result['pin'] as String;
+    final cash = result['cash'] as num?;
+
+    if (needsCash && cash == null) return {'success': false, 'message': 'Cash collection not confirmed.'};
+
+    return ApiService.markDelivered(_delivery['id'], cashCollected: cash, handoverPin: pin);
   }
 
   Future<void> _releaseOrder() async {

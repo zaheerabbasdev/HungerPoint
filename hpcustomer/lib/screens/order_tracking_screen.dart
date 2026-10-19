@@ -159,6 +159,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           const SizedBox(height: 16),
 
           _buildEtaCard(order),
+          _buildHandoverPinCard(order),
           _buildRateCard(order),
 
           Container(
@@ -203,6 +204,106 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Shows the 4-digit handover PIN to the customer for delivery orders that are in-progress.
+  Widget _buildHandoverPinCard(Map<String, dynamic> order) {
+    final pin = order['handoverPin']?.toString();
+    final type = order['type']?.toString();
+    final status = order['status']?.toString();
+    // Only show for delivery orders with a PIN, while order is still active
+    if (pin == null || type != 'DELIVERY') return const SizedBox.shrink();
+    if (status == 'DELIVERED' || status == 'COMPLETED' || status == 'CANCELLED' || status == 'REJECTED') {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E1B4B), Color(0xFF312E81)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4F46E5).withOpacity(0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD600).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.lock_rounded, color: Color(0xFFFFD600), size: 22),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Delivery Handover PIN',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
+                      ),
+                      Text(
+                        'Share this code with your rider when they arrive',
+                        style: TextStyle(fontSize: 11, color: Color(0xFFBBBFE6)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: pin.split('').map((digit) => Container(
+                width: 58,
+                height: 68,
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFFD600).withOpacity(0.5), width: 1.5),
+                ),
+                child: Center(
+                  child: Text(
+                    digit,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFFFD600),
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+              )).toList(),
+            ),
+            const SizedBox(height: 14),
+            const Center(
+              child: Text(
+                '🔒  Do not share this PIN until the rider is at your door',
+                style: TextStyle(fontSize: 11, color: Color(0xFFBBBFE6)),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

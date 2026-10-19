@@ -22,6 +22,15 @@ const INCLUDE_FULL_DELIVERY = {
   },
 };
 
+function sanitizeDeliveryForRider(delivery: any) {
+  if (!delivery) return delivery;
+  if (delivery.order && typeof delivery.order === 'object' && 'handoverPin' in delivery.order) {
+    const { handoverPin, ...orderWithoutPin } = delivery.order;
+    return { ...delivery, order: orderWithoutPin };
+  }
+  return delivery;
+}
+
 // Orders that still need a rider: confirmed / being cooked / ready, with nobody on them yet.
 const POOL_STATUSES: OrderStatus[] = [OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY];
 
@@ -91,7 +100,7 @@ export class DeliveryService {
     await prisma.rider.update({ where: { id: riderId }, data: { status: RiderStatus.ON_DELIVERY } });
     await OrderService.updateOrderStatus(orderId, OrderStatus.ASSIGNED, 'Rider took the order');
     if (order.branchId) emitToBranchRiders(order.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId, status: OrderStatus.ASSIGNED, takenBy: riderId });
-    return delivery;
+    return sanitizeDeliveryForRider(delivery);
   }
 
   /** The rider gives the order back (before pickup) so another rider can take it. */
@@ -113,7 +122,7 @@ export class DeliveryService {
 
   /** The rider's current non-terminal delivery, if any. */
   static async getActiveForRider(riderId: string) {
-    return prisma.delivery.findFirst({
+    const delivery = await prisma.delivery.findFirst({
       where: {
         riderId,
         status: { in: [DeliveryStatus.ASSIGNED, DeliveryStatus.ACCEPTED, DeliveryStatus.PICKED_UP, DeliveryStatus.OUT_FOR_DELIVERY] },
@@ -121,6 +130,7 @@ export class DeliveryService {
       orderBy: { assignedAt: 'desc' },
       include: INCLUDE_FULL_DELIVERY,
     });
+    return sanitizeDeliveryForRider(delivery);
   }
 
   static async getHistoryForRider(riderId: string, page = 1, limit = 20) {
@@ -138,7 +148,7 @@ export class DeliveryService {
       }),
     ]);
 
-    return { total, page, limit, totalPages: Math.ceil(total / limit), deliveries };
+    return { total, page, limit, totalPages: Math.ceil(total / limit), deliveries: deliveries.map(sanitizeDeliveryForRider) };
   }
 
   private static async getOwnedDelivery(deliveryId: string, riderId: string) {
@@ -159,7 +169,7 @@ export class DeliveryService {
       data: { status: DeliveryStatus.ACCEPTED, acceptedAt: new Date() },
       include: INCLUDE_FULL_DELIVERY,
     });
-    return updated;
+    return sanitizeDeliveryForRider(updated);
   }
 
   static async markPickedUp(deliveryId: string, riderId: string) {
@@ -174,7 +184,7 @@ export class DeliveryService {
       include: INCLUDE_FULL_DELIVERY,
     });
     await OrderService.updateOrderStatus(delivery.orderId, OrderStatus.PICKED_UP);
-    return updated;
+    return sanitizeDeliveryForRider(updated);
   }
 
   static async markOutForDelivery(deliveryId: string, riderId: string) {
@@ -203,10 +213,10 @@ export class DeliveryService {
     });
     emitToOrder(delivery.orderId, SOCKET_EVENTS.ORDER_ETA_UPDATED, { orderId: delivery.orderId, promisedAt });
     void EtaService.refresh(delivery.orderId);
-    return updated;
+    return sanitizeDeliveryForRider(updated);
   }
 
-  static async markDelivered(deliveryId: string, riderId: string, cashCollected?: number) {
+  static async markDelivered(deliveryId: string, riderId: string, cashCollected?: number, handoverPin?: string) {
     const delivery = await this.getOwnedDelivery(deliveryId, riderId);
     if (delivery.status !== DeliveryStatus.OUT_FOR_DELIVERY) {
       throw new AppError(`Cannot mark delivered from ${delivery.status} status`, 400);
@@ -215,6 +225,18 @@ export class DeliveryService {
     // Handover = payment confirmation. Cash orders must record the money collected;
     // already-paid (online) orders need nothing.
     const order = await prisma.order.findUniqueOrThrow({ where: { id: delivery.orderId } });
+
+    // 4-digit handover PIN verification: the customer shares their PIN with the rider
+    // at the door. If the order has a PIN, it must match before we allow completion.
+    if (order.handoverPin) {
+      if (!handoverPin || handoverPin.trim() === '') {
+        throw new AppError('Please enter the 4-digit handover PIN provided by the customer to confirm delivery', 400);
+      }
+      if (handoverPin.trim() !== order.handoverPin) {
+        throw new AppError('Incorrect handover PIN. Ask the customer for the correct 4-digit PIN from their app.', 400);
+      }
+    }
+
     if (order.paymentStatus !== PaymentStatus.PAID) {
       const total = Number(order.total);
       if (order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY) {
