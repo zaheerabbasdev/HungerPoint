@@ -7,3 +7,12 @@ release/
 
 # Local-only deployment notes (not for GitHub)
 DEPLOYMENT.md
+
+# Secrets / env copies without the leading dot (not covered by .env* rules)
+hpbackend/env
+hpbackend/env.production
+hpbackend/env.godaddy
+
+# Database dumps (contain user accounts and password hashes)
+req/
+*.sql
