@@ -4,8 +4,31 @@
 
 import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/error.middleware';
+import { distanceKm } from '../../utils/eta';
 
 export class BranchService {
+  /**
+   * Active branches sorted by straight-line distance from a point, each with
+   * whether that point is inside its delivery radius. Used to send a delivery
+   * order to the branch that can actually reach the customer.
+   */
+  static async findNearest(latitude: number, longitude: number) {
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      throw new AppError('A valid latitude and longitude are required', 400);
+    }
+    const branches = await prisma.branch.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, code: true, address: true, area: true, city: true, latitude: true, longitude: true, deliveryRadius: true, isOpen: true },
+    });
+    return branches
+      .map((b) => {
+        const km = distanceKm(latitude, longitude, Number(b.latitude), Number(b.longitude));
+        const radius = Number(b.deliveryRadius);
+        return { ...b, distanceKm: Math.round(km * 10) / 10, delivers: radius <= 0 || km <= radius };
+      })
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
   static async getAllBranches(includeInactive = false) {
     return prisma.branch.findMany({
       where: includeInactive ? {} : { isActive: true },

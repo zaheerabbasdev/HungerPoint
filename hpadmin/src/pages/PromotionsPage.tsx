@@ -103,14 +103,16 @@ export default function PromotionsPage() {
     try {
       const payload = {
         code: form.code.trim(),
-        description: form.description.trim() || undefined,
+        // null (not undefined) for an emptied field, so editing can remove a
+        // limit or an expiry instead of silently keeping the old one.
+        description: form.description.trim() || null,
         type: form.type,
         value: Number(form.value),
         minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : 0,
-        maxDiscount: form.maxDiscount ? Number(form.maxDiscount) : undefined,
-        usageLimit: form.usageLimit ? Number(form.usageLimit) : undefined,
+        maxDiscount: form.maxDiscount ? Number(form.maxDiscount) : null,
+        usageLimit: form.usageLimit ? Number(form.usageLimit) : null,
         perUserLimit: Number(form.perUserLimit) || 1,
-        expiresAt: form.expiresAt || undefined,
+        expiresAt: form.expiresAt || null,
       };
 
       const res = editingId

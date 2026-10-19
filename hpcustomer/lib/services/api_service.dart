@@ -626,7 +626,9 @@ class ApiService {
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/coupons/validate'),
-        headers: _headers(),
+        // Signed in, the server also checks this customer's own voucher usage,
+        // so "applied" here means it will really apply at checkout.
+        headers: _headers(needsAuth: true),
         body: jsonEncode({'code': code, 'amount': orderAmount}),
       ).timeout(const Duration(seconds: 6));
 

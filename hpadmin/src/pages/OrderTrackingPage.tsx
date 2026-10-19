@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router';
 import { fetchApi } from '../lib/api';
-import { getSocket } from '../lib/socket';
+import { getSocket, resetSocket } from '../lib/socket';
 
 const ORDER_STATUS_EVENTS = [
   'order.pending', 'order.confirmed', 'order.accepted', 'order.preparing', 'order.ready',
@@ -55,9 +55,14 @@ export default function OrderTrackingPage() {
     }
     loadOrder();
 
-    // Real-time status updates via Socket.IO
+    // Real-time status updates via Socket.IO. A fresh socket carries this
+    // login's token (the server only lets an order's owner follow it), and the
+    // room is re-joined on every reconnect.
+    resetSocket();
     const socket = getSocket();
-    socket.emit('order:track', { orderId: id });
+    const track = () => socket.emit('order:track', { orderId: id });
+    track();
+    socket.on('connect', track);
 
     // Status events carry a partial order, so refetch the full, current one.
     const handleStatusEvent = (payload: any) => {
@@ -70,6 +75,7 @@ export default function OrderTrackingPage() {
 
     return () => {
       ORDER_STATUS_EVENTS.forEach((evt) => socket.off(evt, handleStatusEvent));
+      socket.off('connect', track);
       clearInterval(interval);
     };
   }, [id]);

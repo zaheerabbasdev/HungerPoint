@@ -16,6 +16,15 @@ export class BranchController {
     }
   }
 
+  static async nearest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const branches = await BranchService.findNearest(Number(req.query.latitude), Number(req.query.longitude));
+      res.json({ success: true, count: branches.length, data: branches });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const branch = await BranchService.getBranchById(req.params.id as string);

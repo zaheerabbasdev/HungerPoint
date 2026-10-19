@@ -3,8 +3,8 @@
 // ============================================================
 
 import { prisma } from '../../config/database';
-import { OrderStatus } from '@prisma/client';
-import { emitToOrder, emitToKitchen, emitToAdmins, emitToBranchRiders, SOCKET_EVENTS } from '../../sockets';
+import { NotificationType, OrderStatus, OrderType } from '@prisma/client';
+import { emitToOrder, emitToKitchen, emitToAdmins, emitToBranch, emitToBranchRiders, emitToUser, SOCKET_EVENTS } from '../../sockets';
 import { RoutingService } from '../../utils/routing';
 import { EtaService } from '../orders/eta.service';
 import { CalibrationService } from '../orders/calibration.service';
@@ -129,9 +129,48 @@ export class KitchenService {
     emitToOrder(orderId, SOCKET_EVENTS.ORDER_READY, order);
     if (order.branchId) emitToKitchen(order.branchId, 'kitchen.queue_updated', order);
     emitToAdmins(SOCKET_EVENTS.ORDER_READY, order);
-    if (order.branchId) emitToBranchRiders(order.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId, status: order.status, ready: true });
+    if (order.type === OrderType.DINE_IN) {
+      await this.notifyWaiterReady(order.id).catch((err) => console.error('Waiter ready alert failed:', err));
+    } else if (order.branchId) {
+      emitToBranchRiders(order.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId, status: order.status, ready: true });
+    }
 
     return order;
+  }
+
+  /**
+   * Dine-in food is ready: tell the waiter who took the order (live alert in the
+   * waiter app + a saved notification). Orders without a waiter go to the branch.
+   */
+  private static async notifyWaiterReady(orderId: string) {
+    const o = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, orderNumber: true, branchId: true, waiterId: true, table: { select: { id: true, number: true, floor: true } } },
+    });
+    if (!o) return;
+    const tableLabel = o.table ? `Table ${o.table.number}` : 'Dine-in order';
+    const alert = {
+      orderId: o.id,
+      orderNumber: o.orderNumber,
+      tableId: o.table?.id ?? null,
+      tableNumber: o.table?.number ?? null,
+      floor: o.table?.floor ?? null,
+      message: `${tableLabel}: food is ready to serve`,
+    };
+    if (o.waiterId) {
+      await prisma.notification.create({
+        data: {
+          userId: o.waiterId,
+          type: NotificationType.ORDER_STATUS,
+          title: `${tableLabel} — order ready`,
+          body: `Order ${o.orderNumber} is ready. Please serve it${o.table?.floor ? ` (${o.table.floor})` : ''}.`,
+          data: JSON.stringify({ orderId: o.id, tableId: o.table?.id ?? null }),
+        },
+      });
+      emitToUser(o.waiterId, SOCKET_EVENTS.WAITER_ORDER_READY, alert);
+    } else if (o.branchId) {
+      emitToBranch(o.branchId, SOCKET_EVENTS.WAITER_ORDER_READY, alert);
+    }
   }
 
   // promisedAt = now + prep + ride. Both parts are corrected by how this branch has really performed

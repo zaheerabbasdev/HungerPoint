@@ -5,6 +5,8 @@
 
 import { PrismaClient, UserRole, OrderType, PaymentMethod, RiderStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { CouponService } from '../modules/coupons/coupon.service';
+import { NotificationService } from '../modules/notifications/notification.service';
 
 const prisma = new PrismaClient();
 
@@ -398,6 +400,12 @@ async function main() {
       },
     },
   });
+
+  // Demo vouchers & notifications — development data only (the live server no
+  // longer creates these by itself; the Admin adds real vouchers).
+  console.log('🎟️  Seeding Demo Vouchers & Notifications...');
+  await CouponService.ensureDefaultCoupons();
+  await NotificationService.seedSampleNotifications();
 
   console.log('✅ HungerPoint Database Seeding Completed Successfully!');
 }

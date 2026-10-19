@@ -6,7 +6,13 @@ import { prisma } from '../../config/database';
 import { DeliveryStatus, OrderStatus, OrderType, PaymentMethod, PaymentStatus, RiderStatus, Prisma } from '@prisma/client';
 import { AppError } from '../../middleware/error.middleware';
 import { OrderService } from '../orders/order.service';
-import { emitToBranchRiders, emitToOrder, SOCKET_EVENTS } from '../../sockets';
+import { emitToAdmins, emitToBranch, emitToBranchRiders, emitToOrder, SOCKET_EVENTS } from '../../sockets';
+
+// A 4-digit PIN has only 10,000 values, so wrong guesses are limited: after
+// MAX_PIN_ATTEMPTS the handover is locked for PIN_LOCK_MINUTES and the branch
+// is alerted.
+const MAX_PIN_ATTEMPTS = 5;
+const PIN_LOCK_MINUTES = 10;
 import { RoutingService } from '../../utils/routing';
 import { EtaService } from '../orders/eta.service';
 import { CalibrationService } from '../orders/calibration.service';
@@ -229,11 +235,28 @@ export class DeliveryService {
     // 4-digit handover PIN verification: the customer shares their PIN with the rider
     // at the door. If the order has a PIN, it must match before we allow completion.
     if (order.handoverPin) {
+      if (order.handoverPinLockedUntil && order.handoverPinLockedUntil > new Date()) {
+        const mins = Math.ceil((order.handoverPinLockedUntil.getTime() - Date.now()) / 60_000);
+        throw new AppError(`Too many wrong PINs. Try again in ${mins} min, or call the branch for help.`, 429);
+      }
       if (!handoverPin || handoverPin.trim() === '') {
         throw new AppError('Please enter the 4-digit handover PIN provided by the customer to confirm delivery', 400);
       }
       if (handoverPin.trim() !== order.handoverPin) {
-        throw new AppError('Incorrect handover PIN. Ask the customer for the correct 4-digit PIN from their app.', 400);
+        const attempts = order.handoverPinAttempts + 1;
+        if (attempts >= MAX_PIN_ATTEMPTS) {
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { handoverPinAttempts: 0, handoverPinLockedUntil: new Date(Date.now() + PIN_LOCK_MINUTES * 60_000) },
+          });
+          const alert = { orderId: order.id, orderNumber: order.orderNumber, riderId, lockedMinutes: PIN_LOCK_MINUTES };
+          emitToAdmins(SOCKET_EVENTS.DELIVERY_PIN_LOCKED, alert);
+          if (order.branchId) emitToBranch(order.branchId, SOCKET_EVENTS.DELIVERY_PIN_LOCKED, alert);
+          throw new AppError(`Incorrect PIN entered ${MAX_PIN_ATTEMPTS} times. Handover is locked for ${PIN_LOCK_MINUTES} min — the branch has been alerted.`, 429);
+        }
+        await prisma.order.update({ where: { id: order.id }, data: { handoverPinAttempts: attempts } });
+        const left = MAX_PIN_ATTEMPTS - attempts;
+        throw new AppError(`Incorrect handover PIN. Ask the customer for the 4-digit PIN in their app (${left} ${left === 1 ? 'try' : 'tries'} left).`, 400);
       }
     }
 
@@ -263,7 +286,7 @@ export class DeliveryService {
     });
     await OrderService.updateOrderStatus(delivery.orderId, OrderStatus.DELIVERED);
     await prisma.rider.update({ where: { id: riderId }, data: { status: RiderStatus.ONLINE } });
-    return updated;
+    return sanitizeDeliveryForRider(updated);
   }
 
   static async markFailed(deliveryId: string, riderId: string, reason?: string) {
@@ -280,6 +303,6 @@ export class DeliveryService {
     });
     await OrderService.updateOrderStatus(delivery.orderId, OrderStatus.CANCELLED, reason);
     await prisma.rider.update({ where: { id: riderId }, data: { status: RiderStatus.ONLINE } });
-    return updated;
+    return sanitizeDeliveryForRider(updated);
   }
 }

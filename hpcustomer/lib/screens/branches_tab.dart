@@ -25,12 +25,12 @@ class _BranchesScreenState extends State<BranchesScreen> {
     _currentNearestBranch = BranchService().allBranches.isNotEmpty
         ? BranchService().allBranches.first
         : null;
+    // fetchBranchesFromBackend also measures each branch's real distance and
+    // sorts nearest-first, so the first branch is the nearest one.
     BranchService().fetchBranchesFromBackend().then((_) {
       if (mounted) {
         setState(() {
-          _currentNearestBranch = BranchService().allBranches.isNotEmpty
-              ? BranchService().allBranches.first
-              : null;
+          _currentNearestBranch = BranchService().nearestBranch;
         });
       }
     });

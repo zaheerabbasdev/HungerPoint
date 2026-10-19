@@ -25,7 +25,12 @@ const parsePositiveInt = (value: unknown, fallback: number): number => {
 export class ReportController {
   static resolveBranchId(req: Request): string | undefined {
     const user = (req as any).user;
-    if (user.role === 'BRANCH_MANAGER') return user.branchId || undefined;
+    // A manager sees only their branch; one with no branch assigned sees nothing
+    // (it used to fall through to every branch's figures).
+    if (user.role === 'BRANCH_MANAGER') {
+      if (!user.branchId) throw new AppError('Your account has no branch assigned — ask an Admin to set it.', 403);
+      return user.branchId;
+    }
     return (req.query.branchId as string | undefined) || undefined;
   }
 
@@ -41,6 +46,18 @@ export class ReportController {
   static async getOverview(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await ReportService.getDashboardOverview(
+        ReportController.resolveBranchId(req),
+        ReportController.resolveDateRange(req),
+      );
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getRevenueByPayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await ReportService.getRevenueByPayment(
         ReportController.resolveBranchId(req),
         ReportController.resolveDateRange(req),
       );

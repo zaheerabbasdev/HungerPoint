@@ -8,7 +8,6 @@ import { NotificationService } from './notification.service';
 export class NotificationController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      await NotificationService.seedSampleNotifications();
       const notifications = await NotificationService.getUserNotifications(req.user?.userId);
       res.json({ success: true, count: notifications.length, data: notifications });
     } catch (error) {

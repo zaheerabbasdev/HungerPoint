@@ -54,7 +54,19 @@ export class OrderController {
       // JWT, never a client-supplied waiterId.
       const waiterId = role === 'WAITER' ? userId : undefined;
 
-      const order = await OrderService.createOrder({ ...req.body, customerId, source, waiterId });
+      // Branch staff (waiters, POS, managers) order only for their own branch.
+      const branchUser = (req as any).user;
+      if (BRANCH_SCOPED_ROLES.includes(role) && req.body.branchId !== branchUser?.branchId) {
+        throw new AppError('You can only place orders for your own branch', 403);
+      }
+
+      const order = await OrderService.createOrder({
+        ...req.body,
+        customerId,
+        source,
+        waiterId,
+        requireAddress: role === 'CUSTOMER',
+      });
       res.status(201).json({ success: true, message: 'Order placed successfully', data: order });
     } catch (error) {
       next(error);

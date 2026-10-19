@@ -538,6 +538,9 @@ model Order {
   promisedPrepMinutes Int?      // prep minutes included in the customer's promise (cook's number corrected by the kitchen's history)
   cashCollected   Decimal?      @db.Decimal(10, 2) // cash the rider collected at handover
   handoverPin     String?       @map("handover_pin") @db.VarChar(6) // 4-digit verification PIN for delivery handover
+  // Wrong PINs entered by the rider; after too many the handover is locked for a while (guessing guard).
+  handoverPinAttempts    Int       @default(0) @map("handover_pin_attempts")
+  handoverPinLockedUntil DateTime? @map("handover_pin_locked_until")
   // Timestamps
   confirmedAt     DateTime?
   acceptedAt      DateTime?

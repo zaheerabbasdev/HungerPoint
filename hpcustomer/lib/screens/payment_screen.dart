@@ -296,11 +296,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _handlePlaceOrder(int total) async {
     // An order needs a branch to go to. Check before showing the spinner:
     // with no branches there is nothing to wait for.
-    final branch = BranchService().selectedBranch ??
+    var branch = BranchService().selectedBranch ??
         (BranchService().allBranches.isNotEmpty ? BranchService().allBranches.first : null);
     if (branch == null) {
       _showOrderFailed('No branch is available to take orders right now. Please try again later.');
       return;
+    }
+    // A delivery goes to the nearest branch that reaches the address (the first
+    // branch in the list used to get every order). The server checks the same
+    // delivery radius, so this only saves the customer a refused order.
+    if (!BranchService().isPickupMode) {
+      final lat = _selectedAddress?.latitude ?? AddressService().temporaryLatitude;
+      final lng = _selectedAddress?.longitude ?? AddressService().temporaryLongitude;
+      if (lat != null && lng != null) {
+        final best = BranchService().bestBranchFor(lat, lng);
+        if (best == null) {
+          _showOrderFailed('Sorry, none of our branches delivers to this address yet. Choose another address, or switch to Pick-up.');
+          return;
+        }
+        if (best.id != branch.id) {
+          branch = best;
+          BranchService().selectedBranchNotifier.value = best;
+        }
+      }
     }
     if (CartService().items.isEmpty) {
       _showOrderFailed('Your cart is empty.');

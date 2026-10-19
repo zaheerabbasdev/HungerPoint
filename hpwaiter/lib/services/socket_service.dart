@@ -1,5 +1,6 @@
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 import 'api_service.dart';
+import 'ready_alert_service.dart';
 
 /// Thin singleton wrapper around a Socket.IO client connected to the
 /// HungerPoint backend, used to receive real-time order status updates
@@ -23,6 +24,8 @@ class SocketService {
           .enableAutoConnect()
           .build(),
     );
+    // Registered on every new socket (one per login), so it never doubles up.
+    _socket!.on('waiter.order_ready', ReadyAlertService.handle);
     return _socket!;
   }
 

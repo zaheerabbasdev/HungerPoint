@@ -89,7 +89,10 @@ export class RiderController {
   static async assignOrder(req: Request, res: Response, next: NextFunction) {
     try {
       const { orderId, riderId } = req.body;
-      const delivery = await RiderService.assignRiderToOrder(orderId, riderId);
+      // A Branch Manager may only dispatch their own branch's orders to their own riders.
+      const user = (req as any).user;
+      const restrictToBranchId = user?.role === 'BRANCH_MANAGER' ? (user.branchId || '__none__') : undefined;
+      const delivery = await RiderService.assignRiderToOrder(orderId, riderId, restrictToBranchId);
       res.json({ success: true, message: 'Rider assigned to order', data: delivery });
     } catch (error) {
       next(error);

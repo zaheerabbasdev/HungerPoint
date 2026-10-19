@@ -1,4 +1,7 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
+import 'address_service.dart';
 import 'api_service.dart';
 
 class Branch {
@@ -13,6 +16,10 @@ class Branch {
   final List<String> services;
   final Map<String, String> openingHours;
   final List<Map<String, dynamic>> menuCategories;
+  /// How far this branch delivers (km, straight line) — set by the admin.
+  final double deliveryRadiusKm;
+  /// Distance from the customer's address / phone, when known.
+  final double? distanceKm;
 
   const Branch({
     required this.id,
@@ -30,7 +37,38 @@ class Branch {
       'Saturday - Sunday': '11:00AM - 03:00AM',
     },
     this.menuCategories = const [],
+    this.deliveryRadiusKm = 5,
+    this.distanceKm,
   });
+
+  bool deliversTo(double km) => deliveryRadiusKm <= 0 || km <= deliveryRadiusKm;
+
+  Branch withDistance(double? km) => Branch(
+        id: id,
+        name: name,
+        address: address,
+        distance: km == null ? 'Near you' : '${km.toStringAsFixed(1)} km away',
+        isOpen: isOpen,
+        statusText: statusText,
+        lat: lat,
+        lng: lng,
+        services: services,
+        openingHours: openingHours,
+        menuCategories: menuCategories,
+        deliveryRadiusKm: deliveryRadiusKm,
+        distanceKm: km,
+      );
+}
+
+/// Great-circle distance in km — the same formula the backend uses for the
+/// delivery-radius check, so the app and server agree on who delivers where.
+double distanceKmBetween(double lat1, double lng1, double lat2, double lng2) {
+  double rad(double d) => d * math.pi / 180;
+  final dLat = rad(lat2 - lat1);
+  final dLng = rad(lng2 - lng1);
+  final a = math.pow(math.sin(dLat / 2), 2) +
+      math.cos(rad(lat1)) * math.cos(rad(lat2)) * math.pow(math.sin(dLng / 2), 2);
+  return 6371 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
 }
 
 class BranchService {
@@ -115,10 +153,12 @@ class BranchService {
             lat: lat,
             lng: lng,
             menuCategories: dynamicMenu,
+            deliveryRadiusKm: double.tryParse(b['deliveryRadius']?.toString() ?? '') ?? 5,
           );
         }).toList();
 
         branchesNotifier.value = serverBranches;
+        await refreshDistances();
         if (selectedBranchNotifier.value == null && serverBranches.isNotEmpty) {
           selectedBranchNotifier.value = serverBranches.first;
         } else if (selectedBranchNotifier.value != null) {
@@ -131,6 +171,59 @@ class BranchService {
     } catch (e) {
       debugPrint('Error fetching branches from backend: $e');
     }
+  }
+
+  /// Where the customer is: the chosen delivery address, else the phone's
+  /// location (only if permission was already given — never prompts here).
+  Future<({double lat, double lng})?> _referencePoint() async {
+    final saved = AddressService().selectedAddress;
+    final lat = saved?.latitude ?? AddressService().temporaryLatitude;
+    final lng = saved?.longitude ?? AddressService().temporaryLongitude;
+    if (lat != null && lng != null) return (lat: lat, lng: lng);
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) return null;
+      final pos = await Geolocator.getLastKnownPosition() ??
+          await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 5)),
+          );
+      return (lat: pos.latitude, lng: pos.longitude);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Fills in each branch's real distance and sorts the list nearest-first.
+  Future<void> refreshDistances() async {
+    final here = await _referencePoint();
+    if (here == null || branchesNotifier.value.isEmpty) return;
+    final updated = branchesNotifier.value
+        .map((b) => b.withDistance(distanceKmBetween(here.lat, here.lng, b.lat, b.lng)))
+        .toList()
+      ..sort((a, b) => a.distanceKm!.compareTo(b.distanceKm!));
+    branchesNotifier.value = updated;
+    final selectedId = selectedBranchNotifier.value?.id;
+    final match = updated.where((b) => b.id == selectedId).firstOrNull;
+    if (match != null) selectedBranchNotifier.value = match;
+  }
+
+  /// Nearest branch (after [refreshDistances]); the first one otherwise.
+  Branch? get nearestBranch => allBranches.isNotEmpty ? allBranches.first : null;
+
+  /// The closest open branch whose delivery radius covers this point, or null
+  /// when no branch delivers there.
+  Branch? bestBranchFor(double lat, double lng) {
+    Branch? best;
+    double bestKm = double.infinity;
+    for (final b in allBranches) {
+      if (!b.isOpen) continue;
+      final km = distanceKmBetween(lat, lng, b.lat, b.lng);
+      if (b.deliversTo(km) && km < bestKm) {
+        best = b.withDistance(km);
+        bestKm = km;
+      }
+    }
+    return best;
   }
 
   void selectBranch(Branch branch) {

@@ -15,6 +15,7 @@ router.get('/overview', ReportController.getOverview);
 router.get('/orders-by-status', ReportController.getOrdersByStatus);
 router.get('/top-products', ReportController.getTopProducts);
 router.get('/orders-by-source', ReportController.getOrdersBySource);
+router.get('/revenue-by-payment', ReportController.getRevenueByPayment);
 router.get('/orders', ReportController.getOrders);
 
 export default router;

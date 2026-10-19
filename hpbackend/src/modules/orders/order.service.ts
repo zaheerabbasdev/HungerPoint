@@ -10,8 +10,51 @@ import { AppError } from '../../middleware/error.middleware';
 import { SettingService } from '../settings/setting.service';
 import { CouponService } from '../coupons/coupon.service';
 import { assertBranchAvailable } from '../branches/branch-guard';
+import { BranchService } from '../branches/branch.service';
+import { distanceKm } from '../../utils/eta';
+
+const NO_COUPON_USE: OrderStatus[] = [OrderStatus.CANCELLED, OrderStatus.REJECTED];
 
 export class OrderService {
+  /**
+   * A delivery address must belong to the ordering customer, and lie inside the
+   * branch's delivery radius (straight-line distance; the ride time itself is
+   * calculated by road later).
+   */
+  private static async checkDeliveryAddress(branchId: string, addressId: string | undefined, customerId: string | null | undefined, required: boolean) {
+    if (!addressId) {
+      if (required) throw new AppError('Choose a delivery address for this order', 400);
+      return;
+    }
+    const address = await prisma.address.findUnique({ where: { id: addressId } });
+    if (!address || !address.isActive || !customerId || address.customerId !== customerId) {
+      throw new AppError('Delivery address not found', 404);
+    }
+    if (address.latitude == null || address.longitude == null) return;
+
+    const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+    if (!branch) return;
+    const km = distanceKm(Number(branch.latitude), Number(branch.longitude), Number(address.latitude), Number(address.longitude));
+    const radius = Number(branch.deliveryRadius);
+    if (radius > 0 && km > radius) {
+      const options = await BranchService.findNearest(Number(address.latitude), Number(address.longitude));
+      const alternative = options.find((b) => b.delivers && b.id !== branchId);
+      throw new AppError(
+        `This address is ${km.toFixed(1)} km from ${branch.name}, which delivers within ${radius} km.` +
+          (alternative ? ` ${alternative.name} (${alternative.distanceKm} km away) can deliver there.` : ' No branch delivers to this address yet — choose pickup instead.'),
+        400,
+      );
+    }
+  }
+
+  /** A dine-in order needs a free-or-occupied table of the same branch. */
+  private static async checkTable(branchId: string, tableId: string | undefined) {
+    if (!tableId) throw new AppError('Choose a table for this dine-in order', 400);
+    const table = await prisma.restaurantTable.findUnique({ where: { id: tableId } });
+    if (!table || table.branchId !== branchId) throw new AppError('Table not found in this branch', 404);
+    if (table.isActive === false) throw new AppError(`Table ${table.number} is not in use`, 400);
+  }
+
   static async createOrder(data: {
     customerId?: string | null;
     branchId: string;
@@ -23,6 +66,8 @@ export class OrderService {
     paymentMethod?: PaymentMethod;
     notes?: string;
     couponCode?: string;
+    /** Customer self-orders must name a delivery address (staff phone orders may not have one). */
+    requireAddress?: boolean;
     items: {
       productId: string;
       variantId?: string;
@@ -39,7 +84,22 @@ export class OrderService {
     if (!Array.isArray(data.items) || data.items.length === 0) {
       throw new AppError('An order needs at least one item', 400);
     }
+    if (data.type && !Object.values(OrderType).includes(data.type)) {
+      throw new AppError(`Unknown order type: ${data.type}`, 400);
+    }
     await assertBranchAvailable(data.branchId);
+
+    const requestedType = data.type || OrderType.DELIVERY;
+    if (requestedType === OrderType.DELIVERY) {
+      await this.checkDeliveryAddress(data.branchId, data.addressId, data.customerId, !!data.requireAddress);
+    } else {
+      data.addressId = undefined; // pickup / dine-in never carry a delivery address
+    }
+    if (requestedType === OrderType.DINE_IN) {
+      await this.checkTable(data.branchId, data.tableId);
+    } else {
+      data.tableId = undefined;
+    }
 
     for (const item of data.items) {
       if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 50) {
@@ -111,6 +171,8 @@ export class OrderService {
       const applied = await CouponService.resolveForOrder(data.couponCode, subtotal, data.customerId);
       couponId = applied.coupon.id;
       couponDiscount = applied.discount;
+      // Take the use now (atomically); given back below if the order can't be saved.
+      await CouponService.claimUse(couponId);
     }
 
     const total = subtotal - couponDiscount + deliveryFee + tax;
@@ -162,11 +224,11 @@ export class OrderService {
         table: true,
         waiter: { select: { id: true, name: true } },
       },
+    }).catch(async (err) => {
+      // The voucher use was taken above; give it back when the order can't be saved.
+      await CouponService.releaseForOrder(couponId);
+      throw err;
     });
-
-    if (couponId) {
-      await prisma.coupon.update({ where: { id: couponId }, data: { usageCount: { increment: 1 } } });
-    }
 
     // A dine-in order occupies its table until it's completed/cancelled.
     if (order.tableId) {
@@ -316,7 +378,7 @@ export class OrderService {
   }
 
   static async updateOrderStatus(id: string, status: OrderStatus, notes?: string, changedById?: string) {
-    await this.getOrderById(id);
+    const before = await this.getOrderById(id);
 
     const updateData: any = { status };
     const now = new Date();
@@ -351,6 +413,11 @@ export class OrderService {
     // Confirm / cancel changes what the branch's riders see in "Upcoming orders".
     if (updated.branchId && updated.type === OrderType.DELIVERY) {
       emitToBranchRiders(updated.branchId, SOCKET_EVENTS.RIDER_POOL_UPDATED, { orderId: id, status });
+    }
+
+    // A cancelled/rejected order didn't really use its voucher — give the use back.
+    if (NO_COUPON_USE.includes(status) && !NO_COUPON_USE.includes(before.status) && before.couponId) {
+      await CouponService.releaseForOrder(before.couponId).catch((err) => console.error('Failed to release voucher:', err));
     }
 
     // A dine-in table frees up once its order is done — served & paid

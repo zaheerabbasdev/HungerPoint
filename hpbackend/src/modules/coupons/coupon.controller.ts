@@ -4,6 +4,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { CouponService } from './coupon.service';
+import { CustomerService } from '../customers/customer.service';
 
 export class CouponController {
   static async getActive(req: Request, res: Response, next: NextFunction) {
@@ -23,7 +24,13 @@ export class CouponController {
         return;
       }
 
-      const result = await CouponService.validateCoupon(code, Number(amount) || 0);
+      // A signed-in customer gets the same per-customer limit check as checkout.
+      let customerId: string | null = null;
+      const user = (req as any).user;
+      if (user?.role === 'CUSTOMER') {
+        customerId = (await CustomerService.getOrCreateCustomer(user.userId)).id;
+      }
+      const result = await CouponService.validateCoupon(code, Number(amount) || 0, customerId);
       res.json({ success: result.valid, ...result });
     } catch (error) {
       next(error);

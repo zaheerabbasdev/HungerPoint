@@ -11,6 +11,7 @@ const router = Router();
 
 // Public routes
 router.get('/', BranchController.getAll);
+router.get('/nearest', BranchController.nearest); // ?latitude=&longitude= — must stay above /:id
 router.get('/:id', BranchController.getById);
 
 // Admin-only routes

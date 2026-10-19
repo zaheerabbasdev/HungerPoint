@@ -13,12 +13,12 @@ HungerPoint is a multi-branch fast-food ordering, delivery, dine-in and restaura
 | Folder | Tech | Users | Purpose |
 |---|---|---|---|
 | `hpbackend/` | Node 22, TypeScript 5.9, Express 5, Prisma 6.4, MySQL 8, Socket.IO 4.8 | — | REST API `/api/v1`, all business rules, real-time push |
-| `hpadmin/hpadmin/` | React 19 + **Vite 8** + react-router 7 + Tailwind 4 + lucide-react | Customers (storefront) + all web staff | Storefront, admin console, Kitchen Display (KDU), POS, reports, settings |
+| `hpadmin/` | React 19 + **Vite 8** + react-router 7 + Tailwind 4 + lucide-react | Customers (storefront) + all web staff | Storefront, admin console, Kitchen Display (KDU), POS, reports, settings |
 | `hpcustomer/` | Flutter (Dart ^3.10) | Customers | Browse menu, order (delivery/pickup), vouchers, tracking, loyalty, reviews |
 | `hprider/` | Flutter | Riders | Claim orders, delivery lifecycle, GPS streaming, handover PIN |
 | `hpwaiter/` | Flutter | Waiters | Floor/table view, dine-in orders, reservations, payment & close table |
 
-The web app is **`hpadmin/hpadmin`** (Vite SPA). There is **no `hpweb` / Next.js folder** in the repo,
+The web app is **`hpadmin`** (Vite SPA). There is **no `hpweb` / Next.js folder** in the repo,
 even though the docs and requirements mention one.
 
 ## 2. Repository layout
@@ -36,9 +36,7 @@ HungerPoint/
 ├── req/hungerpointdb.sql      # MySQL dump (untracked)
 ├── .agents/rules/             # Agent rules (see §11)
 ├── hpbackend/
-├── hpadmin/
-│   ├── env.production         # (untracked copy)
-│   └── hpadmin/               # the actual Vite app (+ hpadmin-dist.zip = built bundle for upload)
+├── hpadmin/                   # the Vite web app (+ hpadmin-dist.zip = built bundle for upload)
 ├── hpcustomer/  hprider/  hpwaiter/   # Flutter apps (android/ ios/ web/ lib/ test/; waiter also windows/)
 ```
 
@@ -83,7 +81,7 @@ settings, loyalty, notifications, reports, tables, reservations` + `POST /upload
 |---|---|
 | Auth | `POST /auth/register`, `/login`, `/refresh`, `/logout`; `GET /auth/me`; `PUT /auth/change-password` |
 | Users (staff) | `GET/POST /users`, `PUT /users/:id` — ADMIN |
-| Branches | `GET /branches[/:id]` public; `POST`/`DELETE` ADMIN; `PUT` ADMIN, BM |
+| Branches | `GET /branches[/:id]` public; `GET /branches/nearest?latitude&longitude` public (sorted, with `distanceKm` + `delivers`); `POST`/`DELETE` ADMIN; `PUT` ADMIN, BM |
 | Menu | `GET /categories`, `/products`, `/products/addons/all` public; writes ADMIN (+BM for products/variants/addons); deletes ADMIN |
 | Orders | `POST/GET /orders`, `GET /orders/:id`, `PATCH /orders/:id/status` (AD,BM,BS,KS,WT — **not riders**), `PATCH /:id/served`, `PATCH /:id/payment` (dine-in finish) |
 | Kitchen | `GET /kitchen/queue`, `PATCH /kitchen/orders/:id/prepare` · `/extend` · `/ready` |
@@ -92,11 +90,12 @@ settings, loyalty, notifications, reports, tables, reservations` + `POST /upload
 | Tables / Reservations | `GET /tables`, `/tables/floors`, `/tables/:id`; `POST/PUT` AD,BM; `DELETE` AD; `GET/POST /reservations`, `PATCH /:id/seat`, `/:id/cancel` |
 | Customer | `/customers/profile`, `/customers/account`, `/customers/addresses[/:id]`, `GET /customers/search?phone=` (staff) |
 | Cart / Favorites | `/cart`, `/cart/items[/:itemId]`; `/favorites[/:productId]` |
-| Coupons | `GET /coupons`, `POST /coupons/validate` public; `/coupons/admin` + CRUD staff |
+| Coupons | `GET /coupons` public (only currently usable ones), `POST /coupons/validate` (optionalAuth — signed-in customer's per-user limit is checked too); `/coupons/admin` + CRUD (AD, BM) |
 | Reviews | `GET /reviews/mine`, `GET /reviews/product/:productId`, `POST /reviews` (needs delivered/completed `orderId`), `GET /reviews` + `PATCH /:id/approval` staff |
 | Loyalty | `GET /loyalty/me`; staff: `GET /loyalty`, `/loyalty/:customerId`, `POST /loyalty/adjust` |
 | Inventory | `GET /inventory/items`, `/inventory/branch/:branchId`; `POST /inventory/items`, `/inventory/stock` |
-| Reports | `GET /reports/overview`, `/orders-by-status`, `/orders-by-source`, `/top-products`, `/orders` (`?branchId&from&to&page&pageSize`) |
+| Reports | `GET /reports/overview`, `/orders-by-status`, `/orders-by-source`, `/revenue-by-payment`, `/top-products`, `/orders` (`?branchId&from&to&page&pageSize`). Revenue = DELIVERED + COMPLETED orders |
+| Upload | `POST /upload` (auth, multipart `image`, stored in DB in 256 KB chunks); `GET /upload/status` (ADMIN: table + MySQL `max_allowed_packet`) |
 | Settings | `GET /settings`, `PUT /settings/:key` — ADMIN |
 | Notifications | `GET /notifications` (optionalAuth), `PATCH /read-all`, `PATCH /:id/read` |
 | Misc | `GET /` and `GET /health` (outside `/api/v1`); `GET /uploads/:filename` (disk first, then DB) |
@@ -118,10 +117,14 @@ SUPER_ADMIN was removed (commit 30c79ef); `prepare-db.js` converts old rows. Doc
 - `OrderStatus`: PENDING, CONFIRMED, ACCEPTED, PREPARING, READY, ASSIGNED, PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, COMPLETED, CANCELLED, REJECTED, PAYMENT_FAILED, REFUNDED.
 - Final/locked: DELIVERED, COMPLETED, CANCELLED, REJECTED, REFUNDED (further changes → 400).
 - **Delivery:** customer orders (PENDING) → staff confirms (CONFIRMED) → kitchen Start with prep minutes (PREPARING, sets `promisedAt`) → Ready (READY; riders notified `rider.pool_updated`) → a rider **claims** (`/deliveries/claim/:orderId`, first wins via unique `deliveries.orderId`) or admin assigns → accept → pickup → out-for-delivery → delivered (rider enters `cashCollected` and the customer's **4-digit `handoverPin`**). Failed → CANCELLED.
-  - `Order.handoverPin` is generated for DELIVERY orders in `order.service.ts`; shown to the customer, **stripped from rider responses** (`sanitizeDeliveryForRider` in `delivery.service.ts`).
+  - `Order.handoverPin` is generated for DELIVERY orders in `order.service.ts`; returned only by `GET /orders/:id` to the customer/admin, **stripped from every rider response** (`sanitizeDeliveryForRider`, `stripPinForRider`) and from **every socket payload** (`stripSecrets` in `sockets/index.ts`).
+  - PIN guessing guard: 5 wrong PINs → handover locked 10 min (`handoverPinAttempts`, `handoverPinLockedUntil`), 429, socket `delivery.pin_locked` to admins + branch.
   - Once a delivery exists, `PATCH /orders/:id/status` is blocked; status moves only via `/deliveries`.
+  - **Location rules** (`checkDeliveryAddress` in `order.service.ts`): customer DELIVERY orders need an `addressId` owned by that customer; if the address has coordinates it must be within the branch's `deliveryRadius` (haversine km), otherwise 400 naming a branch that does deliver. The customer app picks the nearest delivering branch itself (`BranchService.bestBranchFor`).
+  - Admin/BM assignment refuses a rider already ON_DELIVERY; a BM can only assign own-branch orders/riders.
 - **Pickup:** same until READY, no fee, no rider; staff mark COMPLETED.
-- **Dine-in (waiter):** created CONFIRMED (straight to kitchen), table → OCCUPIED → READY → `PATCH /:id/served` (sets `servedAt`) → `PATCH /:id/payment` (PAID, COMPLETED, frees table, loyalty).
+- **Dine-in (waiter):** created CONFIRMED (straight to kitchen; table must belong to the order's branch, branch staff can only order for their own branch), table → OCCUPIED → READY (kitchen sends `waiter.order_ready` to the waiter's `user:` room + saves a Notification; hpwaiter shows a banner on any screen via `ReadyAlertService`) → `PATCH /:id/served` (sets `servedAt`) → `PATCH /:id/payment` (PAID, COMPLETED, frees table, loyalty).
+- **Vouchers:** created only by Admin/BM (no runtime demo vouchers — those are in `seed.ts` only). Use is claimed atomically at order time (`CouponService.claimUse`) and given back when the order is CANCELLED/REJECTED.
 - **ETA:** `orders/eta.service.ts` + `utils/routing.ts` (OSRM default, TPL optional, straight-line fallback); `orders/calibration.service.ts` self-corrects per branch from last 30 days (median ratios, ≥10 samples, factor 0.8–2x, `ETA_CALIBRATION=off`).
 - **Pricing (server only — clients never send prices):** `subtotal = Σ(basePrice + variant.price offset + addons) × qty`; coupon discount; `deliveryFee` = setting `default_delivery_fee` (50, DELIVERY only); `tax = subtotal × default_tax_percent` (5%); `total = subtotal − discount + fee + tax`.
 - **Loyalty:** `floor(total/100)` points on DELIVERED/COMPLETED.
@@ -135,9 +138,10 @@ SUPER_ADMIN was removed (commit 30c79ef); `prepare-db.js` converts old rows. Doc
 
 ### Real-time (Socket.IO, `src/sockets/index.ts`)
 - Connect to API origin (base URL minus `/api/v1`) with `auth: { token }`.
-- Auto rooms: `user:{id}`, `branch:{branchId}`, `kitchen:{branchId}`, `riders:{branchId}` (riders), `role:{ROLE}`; `order:{id}` joined via client event `order:track`.
+- Auto rooms: `user:{id}`, `role:{ROLE}`; non-riders with a branch also `branch:{branchId}` + `kitchen:{branchId}`; riders only `riders:{branchId}`. `order:{id}` joined via `order:track` **only if allowed** (own order / assigned rider / same-branch staff / admin) — clients must re-emit it on reconnect.
 - Client → server: `order:track {orderId}`, `rider:location {latitude, longitude, orderId?}`.
-- Server → client: `order.created`, `kitchen.queue_updated`, `order.<status>`, `rider.assignment_created`, `rider.pool_updated`, `rider.location_updated`, unclaimed-order alerts.
+- Server → client: `order.created`, `kitchen.queue_updated`, `order.<status>`, `order.served`, `order.eta_updated`, `order.unclaimed`, `rider.assignment_created`, `rider.pool_updated`, `rider.location_updated` (admins only), `waiter.order_ready`, `delivery.pin_locked`.
+- All emit helpers strip `handoverPin`/`password` from payloads; clients re-fetch the order on events.
 - Helpers: `emitToUser`, `emitToOrder`, `emitToKitchen`, `emitToBranch`, `emitToAdmins`, `emitToBranchRiders`, `emitToRiders`.
 
 ### Commands
@@ -160,7 +164,7 @@ Seed accounts: `+923000000001`…`07` / `Admin@123456` (staff), `+923009999999` 
 - `dotenv` only loads a file named **`.env`**. The untracked `hpbackend/env`, `env.example`, `env.godaddy`, `env.production` (no leading dot) are **not** read by the app. Never print or commit their secrets.
 - Production origins always allowed (cors.ts): `https://hungerpoint.eaglesoft.org`, `https://eaglesoft.org`. API: `https://api.eaglesoft.org/api/v1`.
 
-## 4. Web app — `hpadmin/hpadmin/`
+## 4. Web app — `hpadmin/`
 
 - Vite SPA: `src/main.tsx`, `src/App.tsx` (routes, staff pages lazy-loaded), `src/pages/*Page.tsx`,
   `src/components/` (Navbar, CartDrawer, ProductModal, AuthModal, HeroBanner), `src/context/` (AuthContext, CartContext, BranchContext),
@@ -195,16 +199,15 @@ Seed accounts: `+923000000001`…`07` / `Admin@123456` (staff), `+923009999999` 
 - `prisma generate` downloads engines from `binaries.prisma.sh`; a transient failure shows as many `TS2305 @prisma/client` errors → just retry.
 - TypeScript is pinned to 5.x in backend on purpose. On Windows, a running dev server locks the Prisma engine DLL (EPERM) — stop it before regenerating.
 
-## 7. Known issues / gaps (still open as of 2026-10-19)
+## 7. Known issues / gaps (still open as of 2026-10-20)
 1. Expired-token fallback in `auth.middleware.ts`; hpcustomer/hpwaiter lack refresh-on-401.
-2. Socket `order:track` doesn't verify ownership (anyone with an order UUID can join).
-3. Payments module is a stub (no gateway); `/promotions` empty (coupons used instead).
-4. Inventory not deducted by orders (Recipe models unused; `inventory.low_stock` never emitted).
-5. Coupon `usageCount` not decremented on cancel; global limit check not atomic.
-6. Customer app pricing estimate mirrors defaults (5% / PKR 50) and drifts if settings change.
-7. Branch scoping gaps for Branch Manager (rider assignment across branches; manager without branch sees all reports).
-8. Broadcast notifications share one `isRead` flag.
-9. Seed is not idempotent. No automated test suite in any app.
+2. Payments module is a stub (no gateway); `/promotions` empty (coupons used instead).
+3. Inventory not deducted by orders (Recipe models unused; `inventory.low_stock` never emitted).
+4. Customer app pricing estimate mirrors defaults (5% / PKR 50) and drifts if settings change. Delivery fee is flat (not distance-based).
+5. Broadcast notifications share one `isRead` flag. No push notifications (alerts only while an app is open).
+6. Seed is not idempotent. No automated test suite in the repo (an end-to-end API script was run manually on 2026-10-20: 86/86 flows passed).
+
+Fixed 2026-10-20: socket `order:track` ownership, PIN leaks over sockets, PIN brute force, voucher cancel/atomic limit/preview mismatch, delivery-radius check, nearest-branch routing, waiter "food ready" alert, revenue missing dine-in/pickup, BM cross-branch rider assignment, manager-without-branch reports.
 
 ## 8. Where to look for common tasks
 | Task | Start here |
@@ -218,9 +221,9 @@ Seed accounts: `+923000000001`…`07` / `Admin@123456` (staff), `+923009999999` 
 | Branch access checks | `modules/branches/branch-guard.ts` |
 | System settings (tax, fee, alert minutes) | `modules/settings/setting.service.ts` (`SettingService.getNumber`) |
 | Add a DB field | `prisma/schema.prisma` → `npx prisma db push` → `npx prisma generate` |
-| Web admin UI | `hpadmin/hpadmin/src/pages/AdminPage.tsx` |
+| Web admin UI | `hpadmin/src/pages/AdminPage.tsx` |
 | Customer ordering UI | `hpcustomer/lib/screens/payment_screen.dart`, `services/order_payload.dart` |
-| Brand colours | `*/lib/constants/app_colors.dart`, `hpadmin/hpadmin/src/index.css` |
+| Brand colours | `*/lib/constants/app_colors.dart`, `hpadmin/src/index.css` |
 
 ## 9. Conventions
 - TypeScript backend: file banner comments `// ====… // HungerPoint — <Name>`, section comments `// ─── Title ───`, static-class services, `AppError` for 4xx.
@@ -241,7 +244,7 @@ Seed accounts: `+923000000001`…`07` / `Admin@123456` (staff), `+923009999999` 
 - Platform is Windows (PowerShell primary; Git Bash available).
 
 ## 12. Doc caveats (PROJECT_DOCUMENTATION.md is partly stale)
-- Says `hpweb/` Next.js 16 → actual web app is `hpadmin/hpadmin/` Vite + React Router; `NEXT_PUBLIC_API_URL` → `VITE_API_URL`; kitchen route is `/kitchen`, not `/admin/kitchen`.
+- Says `hpweb/` Next.js 16 → actual web app is `hpadmin/` Vite + React Router; `NEXT_PUBLIC_API_URL` → `VITE_API_URL`; kitchen route is `/kitchen`, not `/admin/kitchen`.
 - "SA" / Super Admin in its tables → now just `ADMIN`.
 - Says uploads are on local disk (§14/§17) → now stored in DB (`UploadedFile`), disk only for legacy files.
 - Rider tracking: docs mention a rider map for customers in one place; current flow shows countdown + PIN, rider position is not sent to customers.

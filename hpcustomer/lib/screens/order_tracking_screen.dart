@@ -54,9 +54,16 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     for (final evt in _statusEvents) {
       socket.on(evt, _handleStatusEvent);
     }
-    // Re-draw regularly so the countdown keeps shrinking.
+    // Re-draw regularly so the countdown keeps shrinking, and re-fetch as a
+    // safety net in case a live update was missed while the socket was down.
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      const finished = ['DELIVERED', 'COMPLETED', 'CANCELLED', 'REJECTED', 'REFUNDED', 'PAYMENT_FAILED'];
+      if (_order != null && !finished.contains(_order!['status'])) {
+        _loadOrder();
+      } else {
+        setState(() {});
+      }
     });
   }
 
@@ -66,6 +73,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     for (final evt in _statusEvents) {
       socket.off(evt, _handleStatusEvent);
     }
+    SocketService().untrackOrder(widget.orderId);
     _ticker?.cancel();
     super.dispose();
   }

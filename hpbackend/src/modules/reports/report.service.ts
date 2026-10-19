@@ -2,6 +2,7 @@
 // HungerPoint — Report & Analytics Service
 // ============================================================
 
+import { OrderStatus, RiderStatus } from '@prisma/client';
 import { prisma } from '../../config/database';
 
 export interface DateRange {
@@ -25,6 +26,15 @@ const orderWhere = (branchId: string | undefined, range: DateRange) => {
   return where;
 };
 
+// A sale counts once the customer has it: delivered (delivery) or completed
+// (pickup collected / dine-in paid). Counting DELIVERED alone left out every
+// dine-in and pickup sale.
+const SOLD_STATUSES: OrderStatus[] = [OrderStatus.DELIVERED, OrderStatus.COMPLETED];
+const IN_PROGRESS_STATUSES: OrderStatus[] = [
+  OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY,
+  OrderStatus.ASSIGNED, OrderStatus.PICKED_UP, OrderStatus.OUT_FOR_DELIVERY,
+];
+
 export class ReportService {
   static async getDashboardOverview(branchId: string | undefined, range: DateRange = {}) {
     const where = orderWhere(branchId, range);
@@ -32,12 +42,12 @@ export class ReportService {
     const [totalOrders, totalRevenueResult, pendingOrders, activeRiders, totalProducts, totalCustomers] = await Promise.all([
       prisma.order.count({ where }),
       prisma.order.aggregate({
-        where: { ...where, status: 'DELIVERED' },
-        _sum: { total: true },
+        where: { ...where, status: { in: SOLD_STATUSES } },
+        _sum: { total: true, couponDiscount: true, tax: true, deliveryFee: true },
         _count: { _all: true },
       }),
-      prisma.order.count({ where: { ...where, status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'] } } }),
-      prisma.rider.count({ where: { status: 'ONLINE' } }),
+      prisma.order.count({ where: { ...where, status: { in: IN_PROGRESS_STATUSES } } }),
+      prisma.rider.count({ where: { status: { in: [RiderStatus.ONLINE, RiderStatus.ON_DELIVERY] }, isActive: true, ...(branchId ? { branchId } : {}) } }),
       prisma.product.count({ where: { isActive: true } }),
       prisma.customer.count(),
     ]);
@@ -57,8 +67,13 @@ export class ReportService {
     return {
       totalOrders,
       totalRevenue,
+      // Kept as "deliveredOrders" for the existing page: every finished sale.
       deliveredOrders: deliveredCount,
+      completedSales: deliveredCount,
       averageOrderValue: deliveredCount > 0 ? totalRevenue / deliveredCount : 0,
+      totalDiscounts: Number(totalRevenueResult._sum.couponDiscount || 0),
+      totalTax: Number(totalRevenueResult._sum.tax || 0),
+      totalDeliveryFees: Number(totalRevenueResult._sum.deliveryFee || 0),
       pendingOrders,
       activeRiders,
       totalProducts,
@@ -100,6 +115,25 @@ export class ReportService {
       quantitySold: g._sum.quantity || 0,
       revenue: Number(g._sum.totalPrice || 0),
     }));
+  }
+
+  /** Finished sales per payment method: orders, revenue, cash actually collected, voucher discounts. */
+  static async getRevenueByPayment(branchId: string | undefined, range: DateRange = {}) {
+    const grouped = await prisma.order.groupBy({
+      by: ['paymentMethod'],
+      where: { ...orderWhere(branchId, range), status: { in: SOLD_STATUSES } },
+      _count: { _all: true },
+      _sum: { total: true, cashCollected: true, couponDiscount: true },
+    });
+    return grouped
+      .map((g) => ({
+        method: g.paymentMethod,
+        orders: g._count._all,
+        revenue: Math.round(Number(g._sum.total || 0) * 100) / 100,
+        cashCollected: Math.round(Number(g._sum.cashCollected || 0) * 100) / 100,
+        discounts: Math.round(Number(g._sum.couponDiscount || 0) * 100) / 100,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
   }
 
   static async getOrdersBySource(branchId: string | undefined, range: DateRange = {}) {

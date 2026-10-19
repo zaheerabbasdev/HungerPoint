@@ -49,6 +49,16 @@ const fromInputDate = (s: string) => {
 };
 
 const formatPKR = (n: number) => `PKR ${Math.round(n).toLocaleString('en-PK')}`;
+
+const PAYMENT_LABELS: Record<string, string> = {
+  CASH_ON_DELIVERY: 'Cash on delivery',
+  POS_CASH: 'Cash (counter / table)',
+  DEBIT_CARD: 'Debit card',
+  CREDIT_CARD: 'Credit card',
+  JAZZCASH: 'JazzCash',
+  EASYPAISA: 'EasyPaisa',
+  ONLINE: 'Online',
+};
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString('en-PK', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 const formatRangeLabel = (from?: Date, to?: Date) => {
@@ -90,6 +100,7 @@ export default function ReportsPage() {
   const [statusBreakdown, setStatusBreakdown] = useState<any[]>([]);
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [sourceBreakdown, setSourceBreakdown] = useState<any[]>([]);
+  const [paymentBreakdown, setPaymentBreakdown] = useState<{ method: string; orders: number; revenue: number; cashCollected: number; discounts: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [orders, setOrders] = useState<any[]>([]);
@@ -152,16 +163,18 @@ export default function ReportsPage() {
     setLoading(true);
     try {
       const qs = filterQuery ? `?${filterQuery}` : '';
-      const [overviewRes, statusRes, productsRes, sourceRes] = await Promise.all([
+      const [overviewRes, statusRes, productsRes, sourceRes, paymentRes] = await Promise.all([
         fetchApi(`/reports/overview${qs}`),
         fetchApi(`/reports/orders-by-status${qs}`),
         fetchApi(`/reports/top-products${qs}`),
         fetchApi(`/reports/orders-by-source${qs}`),
+        fetchApi(`/reports/revenue-by-payment${qs}`),
       ]);
       if (overviewRes.success) setOverview(overviewRes.data);
       if (statusRes.success) setStatusBreakdown(statusRes.data);
       if (productsRes.success) setTopProducts(productsRes.data);
       if (sourceRes.success) setSourceBreakdown(sourceRes.data);
+      if (paymentRes.success) setPaymentBreakdown(paymentRes.data);
     } catch (err) {
       console.error('Failed to load reports:', err);
     } finally {
@@ -241,7 +254,7 @@ export default function ReportsPage() {
 
   const statCards = [
     { label: 'Total Orders', value: overview?.totalOrders?.toLocaleString(), icon: '📦', accent: 'from-amber-500/20 to-orange-600/5', ring: 'border-amber-500/20' },
-    { label: 'Revenue (Delivered)', value: overview ? formatPKR(overview.totalRevenue) : undefined, icon: '💰', accent: 'from-emerald-500/20 to-teal-600/5', ring: 'border-emerald-500/20' },
+    { label: 'Revenue (Completed Sales)', value: overview ? formatPKR(overview.totalRevenue) : undefined, icon: '💰', accent: 'from-emerald-500/20 to-teal-600/5', ring: 'border-emerald-500/20' },
     { label: 'Avg. Order Value', value: overview ? formatPKR(overview.averageOrderValue ?? 0) : undefined, icon: '🧾', accent: 'from-sky-500/20 to-indigo-600/5', ring: 'border-sky-500/20' },
     { label: 'In Progress', value: overview?.pendingOrders?.toLocaleString(), icon: '⏳', accent: 'from-violet-500/20 to-fuchsia-600/5', ring: 'border-violet-500/20' },
     { label: 'Active Riders', value: overview?.activeRiders?.toLocaleString(), icon: '🛵', accent: 'from-orange-500/20 to-red-600/5', ring: 'border-orange-500/20', live: true },
@@ -411,6 +424,53 @@ export default function ReportsPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Payments: completed sales per payment method */}
+        <div className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden">
+          <div className="p-4 border-b border-stone-800 flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-sm font-extrabold text-stone-100">Payments</h2>
+            {overview && (
+              <div className="flex gap-4 text-[11px] text-stone-400">
+                <span>Vouchers <b className="text-rose-300">−{formatPKR(overview.totalDiscounts ?? 0)}</b></span>
+                <span>Tax <b className="text-stone-200">{formatPKR(overview.totalTax ?? 0)}</b></span>
+                <span>Delivery fees <b className="text-stone-200">{formatPKR(overview.totalDeliveryFees ?? 0)}</b></span>
+              </div>
+            )}
+          </div>
+          {statsLoading ? (
+            <div className="p-4 space-y-2">{[0, 1, 2].map((i) => <div key={i} className="h-8 bg-stone-800 rounded animate-pulse" />)}</div>
+          ) : paymentBreakdown.length === 0 ? (
+            <p className="text-xs text-stone-500 text-center py-8">No completed sales in this period.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-stone-500 text-left">
+                  <tr>
+                    <th className="px-4 py-2.5 font-bold">Method</th>
+                    <th className="px-4 py-2.5 font-bold text-right">Orders</th>
+                    <th className="px-4 py-2.5 font-bold text-right">Revenue</th>
+                    <th className="px-4 py-2.5 font-bold text-right">Cash received</th>
+                    <th className="px-4 py-2.5 font-bold text-right">Share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentBreakdown.map((p) => {
+                    const share = overview?.totalRevenue ? (p.revenue / overview.totalRevenue) * 100 : 0;
+                    return (
+                      <tr key={p.method} className="border-t border-stone-800">
+                        <td className="px-4 py-2.5 font-bold text-stone-200">{PAYMENT_LABELS[p.method] ?? p.method.replace(/_/g, ' ')}</td>
+                        <td className="px-4 py-2.5 text-right text-stone-300">{p.orders}</td>
+                        <td className="px-4 py-2.5 text-right text-emerald-300 font-bold">{formatPKR(p.revenue)}</td>
+                        <td className="px-4 py-2.5 text-right text-stone-400">{p.cashCollected ? formatPKR(p.cashCollected) : '—'}</td>
+                        <td className="px-4 py-2.5 text-right text-stone-400">{share.toFixed(0)}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Top products */}

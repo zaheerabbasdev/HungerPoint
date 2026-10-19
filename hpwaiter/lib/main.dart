@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'constants/app_colors.dart';
 import 'screens/splash_screen.dart';
+import 'services/ready_alert_service.dart';
 
 void main() {
   runApp(const HungerPointWaiterApp());
@@ -14,6 +15,9 @@ class HungerPointWaiterApp extends StatelessWidget {
     return MaterialApp(
       title: 'HungerPoint Waiter',
       debugShowCheckedModeBanner: false,
+      // Lets the "food is ready" alert appear (and open a table) from any screen.
+      navigatorKey: ReadyAlertService.navigatorKey,
+      scaffoldMessengerKey: ReadyAlertService.messengerKey,
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Roboto',

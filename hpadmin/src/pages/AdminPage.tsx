@@ -343,7 +343,8 @@ export default function AdminPortalPage() {
     };
     const orderEvents = [
       'order.created', 'order.confirmed', 'order.preparing', 'order.ready', 'order.assigned',
-      'order.picked_up', 'order.out_for_delivery', 'order.delivered', 'order.cancelled', 'order.eta_updated',
+      'order.picked_up', 'order.out_for_delivery', 'order.delivered', 'order.completed', 'order.served',
+      'order.cancelled', 'order.eta_updated',
     ];
     orderEvents.forEach((evt) => socket.on(evt, refreshOrders));
     const onUnclaimed = (data: any) => {
@@ -351,11 +352,17 @@ export default function AdminPortalPage() {
       refreshOrders();
     };
     socket.on('order.unclaimed', onUnclaimed);
+    // The rider entered a wrong handover PIN too many times at the door.
+    const onPinLocked = (data: { orderNumber: string; lockedMinutes: number }) => {
+      showToast(`Order ${data.orderNumber}: rider entered a wrong PIN 5 times — handover locked for ${data.lockedMinutes} min. Call the customer to confirm.`, 'error');
+    };
+    socket.on('delivery.pin_locked', onPinLocked);
 
     return () => {
       clearInterval(tick);
       orderEvents.forEach((evt) => socket.off(evt, refreshOrders));
       socket.off('order.unclaimed', onUnclaimed);
+      socket.off('delivery.pin_locked', onPinLocked);
     };
   }, [authToken]);
 
