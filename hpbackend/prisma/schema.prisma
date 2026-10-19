@@ -759,10 +759,25 @@ model UploadedFile {
   filename  String   @unique
   mimeType  String
   size      Int
-  data      Bytes
+  // Whole picture in one row — only pictures saved before chunked storage.
+  // New pictures are split into UploadedFileChunk rows instead.
+  data      Bytes?
   createdAt DateTime @default(now())
 
   @@map("uploaded_files")
+}
+
+// A picture split into pieces small enough for MySQL's max_allowed_packet
+// (1 MB on some hosts). No relation/foreign key on purpose: older databases
+// created uploaded_files as MyISAM, which can't hold foreign keys.
+model UploadedFileChunk {
+  id     String @id @default(uuid())
+  fileId String
+  index  Int
+  data   Bytes
+
+  @@unique([fileId, index])
+  @@map("uploaded_file_chunks")
 }
 
 model Delivery {

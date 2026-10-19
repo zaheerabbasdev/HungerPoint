@@ -69,6 +69,53 @@ const syncSchema = () => {
   return true;
 };
 
+// Product/category pictures are stored in the database (`uploaded_files` +
+// `uploaded_file_chunks`) so they survive redeploys (the host wipes the app
+// folder). If the full schema sync above failed for any reason, uploads would
+// break, so make sure these tables exist on their own. Same definitions
+// `prisma db push` creates.
+const ensureUploadTable = async () => {
+  if (!process.env.DATABASE_URL) return;
+  const { PrismaClient } = require('@prisma/client');
+  const prisma = new PrismaClient();
+  try {
+    await prisma.$executeRawUnsafe(
+      'CREATE TABLE IF NOT EXISTS `uploaded_files` (' +
+        '`id` VARCHAR(191) NOT NULL, ' +
+        '`filename` VARCHAR(191) NOT NULL, ' +
+        '`mimeType` VARCHAR(191) NOT NULL, ' +
+        '`size` INTEGER NOT NULL, ' +
+        '`data` LONGBLOB NULL, ' +
+        '`createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), ' +
+        'UNIQUE INDEX `uploaded_files_filename_key`(`filename`), ' +
+        'PRIMARY KEY (`id`)' +
+        ') DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+    );
+    // Older tables have `data` NOT NULL; new pictures keep it empty and use chunks.
+    await prisma.$executeRawUnsafe('ALTER TABLE `uploaded_files` MODIFY `data` LONGBLOB NULL');
+    await prisma.$executeRawUnsafe(
+      'CREATE TABLE IF NOT EXISTS `uploaded_file_chunks` (' +
+        '`id` VARCHAR(191) NOT NULL, ' +
+        '`fileId` VARCHAR(191) NOT NULL, ' +
+        '`index` INTEGER NOT NULL, ' +
+        '`data` LONGBLOB NOT NULL, ' +
+        'UNIQUE INDEX `uploaded_file_chunks_fileId_index_key`(`fileId`, `index`), ' +
+        'PRIMARY KEY (`id`)' +
+        ') DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+    );
+    const packet = await prisma.$queryRawUnsafe("SHOW VARIABLES LIKE 'max_allowed_packet'");
+    const bytes = Number(packet[0] && packet[0].Value);
+    if (bytes) {
+      const mb = Math.round((bytes / 1048576) * 10) / 10;
+      console.log(`[prepare-db] Picture storage ready (MySQL max_allowed_packet = ${mb} MB; pictures are stored in 256 KB pieces).`);
+    }
+  } catch (err) {
+    console.error('[prepare-db] Could not prepare the uploaded_files table:', err.message || err);
+  } finally {
+    await prisma.$disconnect();
+  }
+};
+
 const bootstrapAdmin = async () => {
   const phone = (process.env.BOOTSTRAP_ADMIN_PHONE || '').trim();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD || '';
@@ -117,5 +164,7 @@ const bootstrapAdmin = async () => {
 
 (async () => {
   await migrateSuperAdmins();
-  if (syncSchema()) await bootstrapAdmin();
+  const synced = syncSchema();
+  await ensureUploadTable();
+  if (synced) await bootstrapAdmin();
 })().finally(() => process.exit(0));

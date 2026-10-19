@@ -78,6 +78,82 @@ async function tryRefreshToken(session: SessionKeys): Promise<string | null> {
   return null;
 }
 
+// Pictures are shrunk in the browser before upload: a phone photo of 4–8 MB
+// becomes ~200–500 KB. Large uploads were refused on the live server (host
+// request limits and MySQL's max_allowed_packet) while working locally.
+const MAX_IMAGE_SIDE = 1600;
+const IMAGE_QUALITY = 0.85;
+
+async function shrinkImage(file: File): Promise<File> {
+  // GIFs may be animated; tiny files aren't worth re-encoding.
+  if (file.type === 'image/gif' || file.size < 300 * 1024) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    // PNGs can be transparent: keep that with WebP; photos go to JPEG.
+    const type = file.type === 'image/png' ? 'image/webp' : 'image/jpeg';
+    if (type === 'image/jpeg') {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, IMAGE_QUALITY));
+    if (!blob || blob.size >= file.size) return file;
+    const ext = type === 'image/webp' ? '.webp' : '.jpg';
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + ext, { type });
+  } catch {
+    return file; // Browser can't decode it here — let the server decide.
+  }
+}
+
+/**
+ * Uploads a picture to the backend (stored in the database, so it survives
+ * redeploys) and returns its public URL. Throws an Error with a readable
+ * message when the upload fails — never falls back to embedding the picture.
+ */
+export async function uploadImage(file: File, session: SessionKeys = ADMIN_SESSION): Promise<string> {
+  const image = await shrinkImage(file);
+
+  const send = (token: string | null) => {
+    const formData = new FormData();
+    formData.append('image', image);
+    return fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+  };
+
+  let res: Response;
+  try {
+    res = await send(localStorage.getItem(session.access));
+    if (res.status === 401) {
+      const fresh = await tryRefreshToken(session);
+      if (!fresh) {
+        window.dispatchEvent(new Event(session.expiredEvent));
+        throw new Error('Your session has expired. Please sign in again.');
+      }
+      res = await send(fresh);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('Your session')) throw err;
+    // A proxy refusing the request (e.g. too large) sends no CORS headers, so
+    // the browser reports it only as a network failure.
+    throw new Error('Could not reach the server to upload the picture. Check your connection, or try a smaller picture.', { cause: err });
+  }
+
+  const data = await res.json().catch(() => null);
+  if (res.ok && data?.success && data.data?.url) return data.data.url as string;
+  if (res.status === 413) throw new Error(data?.message || 'This picture is too large for the server. Please use a smaller picture.');
+  throw new Error(data?.message || `Picture upload failed (error ${res.status}).`);
+}
+
 export async function fetchApi(
   endpoint: string,
   options: RequestInit = {},

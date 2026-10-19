@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
-import { fetchApi, resolveImageUrl, APP_ICON_URL } from '../lib/api';
+import { fetchApi, uploadImage, resolveImageUrl, APP_ICON_URL } from '../lib/api';
 import { getSocket, resetSocket } from '../lib/socket';
 import {
   Utensils,
@@ -737,41 +737,13 @@ export default function AdminPortalPage() {
     if (!file) return;
     setUploadingImage(true);
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('hp_access_token') : null;
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-
-      let uploadedUrl = '';
-      try {
-        const res = await fetch(`${apiUrl}/upload`, {
-          method: 'POST',
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-        const data = await res.json();
-        if (res.ok && data.success && data.data?.url) {
-          uploadedUrl = data.data.url;
-        }
-      } catch (uploadErr) {
-        console.warn('Backend upload failed, converting to local DataURL', uploadErr);
-      }
-
-      if (!uploadedUrl) {
-        const reader = new FileReader();
-        uploadedUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      }
-
+      // No embedded-picture fallback: a failed upload used to be saved as a huge
+      // base64 string, hiding the real error and bloating the product record.
+      const uploadedUrl = await uploadImage(file);
       onSuccess(uploadedUrl);
       showToast('Image uploaded successfully!');
     } catch (err: any) {
-      showToast(err.message || 'Failed to process local image', 'error');
+      showToast(err.message || 'Picture upload failed', 'error');
     } finally {
       setUploadingImage(false);
     }

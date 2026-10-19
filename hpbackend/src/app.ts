@@ -36,7 +36,8 @@ import reservationRoutes from './modules/reservations/reservation.routes';
 
 // Middleware imports
 import { errorHandler, AppError } from './middleware/error.middleware';
-import { authenticate } from './middleware/auth.middleware';
+import { authenticate, authorize } from './middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 import { apiOrigins } from './config/cors';
 import { notFound } from './middleware/notFound.middleware';
 import path from 'path';
@@ -46,10 +47,13 @@ import { prisma } from './config/database';
 
 const app: Application = express();
 
-// Ensure uploads directory exists
+// Legacy on-disk uploads (new pictures live in the database). A host with a
+// read-only or wiped app folder must not stop the server from starting.
 const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+} catch (err) {
+  console.warn('[uploads] Could not create the uploads folder (only legacy files use it):', (err as Error).message);
 }
 
 // ─── Security ────────────────────────────────────────────────
@@ -62,13 +66,21 @@ app.get('/uploads/:filename', async (req: Request, res: Response, next: NextFunc
   try {
     const file = await prisma.uploadedFile.findUnique({ where: { filename: String(req.params.filename) } });
     if (!file) return next();
+    let body: Buffer;
+    if (file.data) {
+      body = Buffer.from(file.data);
+    } else {
+      const chunks = await prisma.uploadedFileChunk.findMany({ where: { fileId: file.id }, orderBy: { index: 'asc' } });
+      if (chunks.length === 0) return next();
+      body = Buffer.concat(chunks.map((c) => Buffer.from(c.data)));
+    }
     res.set({
       'Content-Type': file.mimeType,
-      'Content-Length': String(file.size),
+      'Content-Length': String(body.length),
       'Cache-Control': 'public, max-age=31536000, immutable',
       'X-Content-Type-Options': 'nosniff',
     });
-    res.send(Buffer.from(file.data));
+    res.send(body);
   } catch (err) {
     next(err);
   }
@@ -229,12 +241,43 @@ const upload = multer({
   },
 });
 
+// Well under the smallest common max_allowed_packet (1 MB), with room for query overhead.
+const UPLOAD_CHUNK_BYTES = 256 * 1024;
+
 const EXTENSION_FOR_TYPE: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
   'image/webp': '.webp',
   'image/gif': '.gif',
 };
+
+// Admin-only check of the picture storage on a deployed server: is the table
+// there, and how big a picture will MySQL accept in one go?
+app.get(`${API}/upload/status`, authenticate, authorize(UserRole.ADMIN), async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    let tableReady = true;
+    let storedPictures = 0;
+    try {
+      storedPictures = await prisma.uploadedFile.count();
+    } catch {
+      tableReady = false;
+    }
+    const packet = await prisma.$queryRawUnsafe<{ Value: string }[]>("SHOW VARIABLES LIKE 'max_allowed_packet'");
+    const maxPacketBytes = Number(packet[0]?.Value) || null;
+    res.json({
+      success: true,
+      data: {
+        tableReady,
+        storedPictures,
+        maxPacketBytes,
+        maxPacketMB: maxPacketBytes ? Math.round((maxPacketBytes / 1048576) * 10) / 10 : null,
+        uploadLimitMB: 10,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 app.post(`${API}/upload`, authenticate, upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -243,9 +286,22 @@ app.post(`${API}/upload`, authenticate, upload.single('image'), async (req: Requ
       return;
     }
     const filename = `img-${Date.now()}-${Math.round(Math.random() * 1e9)}${EXTENSION_FOR_TYPE[req.file.mimetype] || '.jpg'}`;
-    await prisma.uploadedFile.create({
-      data: { filename, mimeType: req.file.mimetype, size: req.file.size, data: req.file.buffer },
-    });
+    // Saved in pieces: one big row is refused when the picture is larger than
+    // MySQL's max_allowed_packet (1 MB on some hosts), which is why uploads
+    // failed on the live server but worked with small test pictures locally.
+    const buffer = req.file.buffer;
+    const chunks: { index: number; data: Buffer }[] = [];
+    for (let offset = 0, index = 0; offset < buffer.length; offset += UPLOAD_CHUNK_BYTES, index++) {
+      chunks.push({ index, data: buffer.subarray(offset, offset + UPLOAD_CHUNK_BYTES) });
+    }
+    await prisma.$transaction(async (tx) => {
+      const file = await tx.uploadedFile.create({
+        data: { filename, mimeType: req.file!.mimetype, size: buffer.length },
+      });
+      for (const chunk of chunks) {
+        await tx.uploadedFileChunk.create({ data: { fileId: file.id, index: chunk.index, data: chunk.data } });
+      }
+    }, { timeout: 30_000 });
 
     const host = req.get('host') || 'localhost:5000';
     const protocol = req.protocol || 'http';

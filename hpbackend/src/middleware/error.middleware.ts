@@ -19,17 +19,44 @@ export class AppError extends Error {
 
 export const errorHandler = (
   err: AppError | Error,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction
 ): void => {
+  // Unexpected errors are logged in every environment — production failures
+  // (e.g. image uploads on the host) were invisible when only dev logged them.
   if (process.env.NODE_ENV === 'development') {
     console.error('❌ Error:', err);
+  } else if (!(err instanceof AppError)) {
+    console.error(`❌ ${req.method} ${req.originalUrl}:`, err);
+  }
+
+  // Upload errors (multer)
+  if (err.name === 'MulterError') {
+    const code = (err as { code?: string }).code;
+    if (code === 'LIMIT_FILE_SIZE') {
+      sendError(res, 'This picture is too large. Please choose one under 10 MB.', 413);
+    } else {
+      sendError(res, `Upload failed: ${err.message}`, 400);
+    }
+    return;
+  }
+
+  // MySQL refused a packet bigger than its max_allowed_packet setting (big images).
+  if (/max_allowed_packet|packet.*(too large|bigger)/i.test(err.message || '')) {
+    sendError(res, 'This picture is too large for the database server. Please use a smaller picture.', 413);
+    return;
   }
 
   // Prisma errors
   if ('code' in err) {
     const prismaError = err as { code: string; meta?: { target?: string[] | string } };
+
+    // Table missing: the schema sync at startup did not run or failed on the host.
+    if (prismaError.code === 'P2021') {
+      sendError(res, 'The database is missing a table. Restart the backend so it can update the database, then try again.', 500);
+      return;
+    }
 
     if (prismaError.code === 'P2002') {
       const target = prismaError.meta?.target;
