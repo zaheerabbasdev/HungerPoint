@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { resolveImageUrl } from '../lib/api';
 
 export interface ProductDetail {
   id: string;
@@ -74,7 +75,7 @@ function ProductModalContent({
         {/* Product Image */}
         {product.image && (
           <div className="relative h-56 w-full bg-stone-800">
-            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+            <img src={resolveImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-black/20" />
           </div>
         )}

@@ -2,7 +2,30 @@
 // HungerPoint Web App — API Client
 // ============================================================
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+export const SERVER_ORIGIN = API_BASE.replace(/\/api\/v1\/?$/, '');
+
+/**
+ * Resolves local upload paths, dev machine URLs, and relative image paths
+ * to the live backend server origin so images always load in production.
+ */
+export function resolveImageUrl(url?: string | null): string {
+  if (!url || !url.trim()) return '';
+  const cleaned = url.trim().replace(/\\/g, '/');
+  if (cleaned.startsWith('/uploads/') || cleaned.startsWith('uploads/')) {
+    const p = cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+    return `${SERVER_ORIGIN}${p}`;
+  }
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(cleaned)) {
+    return cleaned.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, SERVER_ORIGIN);
+  }
+  return cleaned;
+}
+
+/**
+ * Brand app icon path that works whether hosted at root (/) or in a subfolder (/hungerpoint/).
+ */
+export const APP_ICON_URL = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/icon.png`;
 
 // Each console keeps its own browser session so the kitchen login is fully
 // independent of the admin login (signing into one never signs into the other).

@@ -1,0 +1,26 @@
+# HungerPoint web (single-page app) — Apache / GoDaddy cPanel.
+# Works both at a domain root and inside a subfolder: all rules are relative.
+
+RewriteEngine On
+
+# Always use HTTPS
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Real files and folders are served as-is; every other path (/admin, /pos,
+# /orders/123 …) loads index.html and the app's router shows the right page.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
+
+# Built JS/CSS/fonts have content hashes in their names — cache for a year.
+# index.html must never be cached, or visitors keep loading an old build.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|woff2?)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

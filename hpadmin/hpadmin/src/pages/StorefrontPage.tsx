@@ -8,7 +8,7 @@ import { HeroBanner } from '../components/HeroBanner';
 import { CartDrawer } from '../components/CartDrawer';
 import { AuthModal } from '../components/AuthModal';
 import { ProductModal, type ProductDetail } from '../components/ProductModal';
-import { fetchApi } from '../lib/api';
+import { fetchApi, resolveImageUrl } from '../lib/api';
 
 export default function HomePage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -121,7 +121,7 @@ export default function HomePage() {
                   <div className="relative h-48 w-full bg-stone-800 overflow-hidden">
                     {product.image ? (
                       <img
-                        src={product.image}
+                        src={resolveImageUrl(product.image)}
                         alt={product.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />

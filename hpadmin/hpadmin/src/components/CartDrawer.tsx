@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useBranch } from '../context/BranchContext';
-import { fetchApi } from '../lib/api';
+import { fetchApi, resolveImageUrl } from '../lib/api';
 
 export function CartDrawer() {
   const { items, isCartOpen, setIsCartOpen, updateQuantity, clearCart, subtotal, deliveryFee, tax, total } = useCart();
@@ -133,7 +133,7 @@ export function CartDrawer() {
                     className="p-3 bg-stone-800/60 rounded-xl border border-stone-800 flex items-center justify-between gap-3"
                   >
                     {item.image && (
-                      <img src={item.image} alt={item.name} className="w-14 h-14 object-cover rounded-lg" />
+                      <img src={resolveImageUrl(item.image)} alt={item.name} className="w-14 h-14 object-cover rounded-lg" />
                     )}
                     <div className="flex-1 min-w-0">
                       <h4 className="text-xs font-bold text-stone-200 truncate">{item.name}</h4>

@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { APP_ICON_URL } from '../lib/api';
 
 export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { login, register } = useAuth();
@@ -51,7 +52,7 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         {/* Modal Header */}
         <div className="text-center mb-6">
           <img
-            src="/icon.png"
+            src={APP_ICON_URL}
             alt="HungerPoint"
             className="w-14 h-14 rounded-2xl object-cover mx-auto mb-3 shadow-lg shadow-orange-500/30"
           />

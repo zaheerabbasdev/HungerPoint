@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useBranch } from '../context/BranchContext';
+import { APP_ICON_URL } from '../lib/api';
 
 export function Navbar({ onOpenAuth }: { onOpenAuth: () => void }) {
   const { user, logout } = useAuth();
@@ -22,7 +23,7 @@ export function Navbar({ onOpenAuth }: { onOpenAuth: () => void }) {
         {/* Brand Logo */}
         <div className="flex items-center gap-3">
           <img
-            src="/icon.png"
+            src={APP_ICON_URL}
             alt="HungerPoint"
             className="w-11 h-11 rounded-2xl object-cover shadow-lg shadow-orange-500/30"
           />

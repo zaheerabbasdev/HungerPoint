@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
-import { fetchApi } from '../lib/api';
+import { fetchApi, resolveImageUrl, APP_ICON_URL } from '../lib/api';
 import { getSocket, resetSocket } from '../lib/socket';
 import {
   Utensils,
@@ -928,7 +928,7 @@ export default function AdminPortalPage() {
         <div className="max-w-md w-full bg-stone-900 border border-stone-800 rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="text-center space-y-2">
             <img
-              src="/icon.png"
+              src={APP_ICON_URL}
               alt="HungerPoint"
               className="w-16 h-16 rounded-2xl object-cover mx-auto mb-2 shadow-lg shadow-orange-500/20"
             />
@@ -1040,7 +1040,7 @@ export default function AdminPortalPage() {
           <div className="flex items-center gap-4">
             <Link to="/" className="flex items-center gap-2 group">
               <img
-                src="/icon.png"
+                src={APP_ICON_URL}
                 alt="HungerPoint"
                 className="w-9 h-9 rounded-xl object-cover shadow-md shadow-orange-500/20"
               />
@@ -1329,7 +1329,7 @@ export default function AdminPortalPage() {
                             <td className="py-3 px-4">
                               <div className="w-12 h-12 rounded-xl bg-stone-950 border border-stone-800 overflow-hidden shrink-0">
                                 {cat.image ? (
-                                  <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                                  <img src={resolveImageUrl(cat.image)} alt={cat.name} className="w-full h-full object-cover" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-xl">🍕</div>
                                 )}
@@ -1452,7 +1452,7 @@ export default function AdminPortalPage() {
                               <td className="py-3 px-4">
                                 <div className="w-12 h-12 rounded-xl bg-stone-950 border border-stone-800 overflow-hidden shrink-0">
                                   {prod.image ? (
-                                    <img src={prod.image} alt={prod.name} className="w-full h-full object-cover" />
+                                    <img src={resolveImageUrl(prod.image)} alt={prod.name} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center text-xl">🍔</div>
                                   )}
@@ -2028,7 +2028,7 @@ export default function AdminPortalPage() {
                 </label>
                 {categoryForm.image ? (
                   <div className="relative rounded-2xl overflow-hidden border border-stone-800 bg-stone-950 group">
-                    <img src={categoryForm.image} alt="Preview" className="w-full h-36 object-cover" />
+                    <img src={resolveImageUrl(categoryForm.image)} alt="Preview" className="w-full h-36 object-cover" />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                       <label className="cursor-pointer px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs rounded-xl shadow transition-colors">
                         Change Photo
@@ -2240,7 +2240,7 @@ export default function AdminPortalPage() {
                 </label>
                 {productForm.image ? (
                   <div className="relative rounded-2xl overflow-hidden border border-stone-800 bg-stone-950 group">
-                    <img src={productForm.image} alt="Preview" className="w-full h-40 object-cover" />
+                    <img src={resolveImageUrl(productForm.image)} alt="Preview" className="w-full h-40 object-cover" />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                       <label className="cursor-pointer px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs rounded-xl shadow transition-colors">
                         Change Photo

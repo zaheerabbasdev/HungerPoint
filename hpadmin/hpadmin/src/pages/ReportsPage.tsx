@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { fetchApi } from '../lib/api';
+import { fetchApi, resolveImageUrl } from '../lib/api';
 import { useBranch } from '../context/BranchContext';
 
 const REPORTS_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER'];
@@ -441,7 +441,7 @@ export default function ReportsPage() {
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2.5">
                           {p.product?.image
-                            ? <img src={p.product.image} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                            ? <img src={resolveImageUrl(p.product.image)} alt="" className="w-8 h-8 rounded-lg object-cover" />
                             : <div className="w-8 h-8 rounded-lg bg-stone-800" />}
                           <span className="font-bold text-stone-100">{p.product?.name || 'Unknown product'}</span>
                         </div>

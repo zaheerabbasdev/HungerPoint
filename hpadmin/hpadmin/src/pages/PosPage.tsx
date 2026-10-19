@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { fetchApi } from '../lib/api';
+import { fetchApi, resolveImageUrl } from '../lib/api';
 import { useBranch } from '../context/BranchContext';
 
 const POS_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF'];
@@ -296,7 +296,7 @@ export default function PosPage() {
                   className="text-left bg-stone-900 border border-stone-800 hover:border-amber-500/50 rounded-2xl overflow-hidden transition-all active:scale-95"
                 >
                   <div className="h-24 bg-stone-800">
-                    {p.image && <img src={p.image} alt={p.name} className="w-full h-full object-cover" />}
+                    {p.image && <img src={resolveImageUrl(p.image)} alt={p.name} className="w-full h-full object-cover" />}
                   </div>
                   <div className="p-2.5">
                     <p className="text-xs font-bold text-stone-100 line-clamp-1">{p.name}</p>
