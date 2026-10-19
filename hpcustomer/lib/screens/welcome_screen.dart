@@ -88,11 +88,11 @@ class WelcomeScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => const EmailAuthScreen()),
                     );
                   },
-                  icon: const Icon(Icons.mail_outline, color: AppColors.darkNavy, size: 20),
+                  icon: const Icon(Icons.mail_outline, color: Colors.white, size: 20),
                   label: const Text(
                     'SIGN IN WITH EMAIL',
                     style: TextStyle(
-                      color: AppColors.darkNavy,
+                      color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                     ),

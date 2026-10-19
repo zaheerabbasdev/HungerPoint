@@ -68,7 +68,7 @@ class _SplashScreenState extends State<SplashScreen> {
             const SizedBox(height: 6),
             const Text(
               'Table Service & Floor Portal',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFFF5722)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryOrange),
             ),
             const SizedBox(height: 32),
             const CircularProgressIndicator(color: AppColors.primaryYellow),

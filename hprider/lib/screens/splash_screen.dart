@@ -66,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
-                color: Color(0xFF1E1B4B),
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
@@ -75,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFFF5722),
+                color: AppColors.orange,
               ),
             ),
             const SizedBox(height: 32),

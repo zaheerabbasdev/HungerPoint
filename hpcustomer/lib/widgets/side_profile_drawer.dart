@@ -296,11 +296,11 @@ class SideProfileDrawer extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [AppColors.primaryYellow, Colors.orange]),
+                    gradient: const LinearGradient(colors: [AppColors.primaryYellow, AppColors.accentOrange]),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.orange.withValues(alpha: 0.25),
+                        color: AppColors.accentOrange.withValues(alpha: 0.25),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),

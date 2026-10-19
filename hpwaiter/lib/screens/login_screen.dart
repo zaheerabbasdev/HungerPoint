@@ -149,8 +149,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       elevation: 0,
                     ),
                     child: _isLoading
-                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: AppColors.darkNavy, strokeWidth: 2.5))
-                        : const Text('Login to Floor', style: TextStyle(color: AppColors.darkNavy, fontSize: 15, fontWeight: FontWeight.bold)),
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                        : const Text('Login to Floor', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 16),

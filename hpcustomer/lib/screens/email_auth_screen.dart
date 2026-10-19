@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import '../constants/app_colors.dart';
 import '../services/api_service.dart';
 import '../services/profile_service.dart';
 import '../services/favorites_service.dart';
 import 'main_navigation_screen.dart';
 
-const _navy = Color(0xFF1E1B4B);
-const _muted = Color(0xFF6B7280);
+const _navy = AppColors.darkNavy;
+const _muted = AppColors.textMuted;
 const _fieldBorder = Color(0xFFE5E7EB);
 
 class EmailAuthScreen extends StatefulWidget {
@@ -321,12 +322,12 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                   height: 52,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFFFE054), Color(0xFFFFC727)],
+                      colors: [AppColors.primaryYellow, AppColors.accentOrange],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: const Color(0xFFFFC107).withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))],
+                    boxShadow: [BoxShadow(color: AppColors.accentOrange.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))],
                   ),
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _submit,
@@ -339,11 +340,11 @@ class _EmailAuthScreenState extends State<EmailAuthScreen> {
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(_navy)),
+                            child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                           )
                         : Text(
                             _isRegister ? 'CREATE ACCOUNT' : 'SIGN IN',
-                            style: const TextStyle(color: _navy, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.8),
+                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.8),
                           ),
                   ),
                 ),

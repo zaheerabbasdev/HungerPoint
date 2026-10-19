@@ -10,6 +10,10 @@
   --color-foreground: var(--foreground);
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, monospace;
+
+  --color-amber-400: #ff6030;
+  --color-amber-500: #e84a1f;
+  --color-amber-600: #c73d18;
 }
 
 @media (prefers-color-scheme: dark) {
