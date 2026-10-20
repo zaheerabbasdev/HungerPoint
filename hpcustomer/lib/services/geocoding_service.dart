@@ -20,6 +20,9 @@ class GeocodingService {
   static const String _baseUrl = 'https://nominatim.openstreetmap.org';
   static const Map<String, String> _headers = {
     'User-Agent': 'HungerPointApp/1.0 (contact: support@hungerpoint.pk)',
+    // Without this Nominatim answers in the local language, so addresses in
+    // Pakistan came back in Urdu script. English first, Urdu only as fallback.
+    'Accept-Language': 'en,ur;q=0.1',
   };
   static const Duration _requestTimeout = Duration(seconds: 12);
 
@@ -51,6 +54,7 @@ class GeocodingService {
         'countrycodes': 'pk',
         'limit': '8',
         'addressdetails': '0',
+        'accept-language': 'en',
       });
       final res = await http.get(uri, headers: _headers).timeout(_requestTimeout);
       if (res.statusCode != 200) return <GeoResult>[];
@@ -75,6 +79,7 @@ class GeocodingService {
         'lat': lat.toString(),
         'lon': lng.toString(),
         'format': 'jsonv2',
+        'accept-language': 'en',
       });
       final res = await http.get(uri, headers: _headers).timeout(_requestTimeout);
       if (res.statusCode != 200) return null;

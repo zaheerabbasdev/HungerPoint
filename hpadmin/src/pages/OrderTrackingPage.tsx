@@ -14,13 +14,22 @@ const ORDER_STATUS_EVENTS = [
   'order.eta_updated',
 ];
 
-const STATUS_STEPS = [
+const DELIVERY_STEPS = [
   { key: 'PENDING', label: 'Order Received', icon: '📝' },
   { key: 'CONFIRMED', label: 'Confirmed', icon: '✓' },
   { key: 'PREPARING', label: 'Preparing', icon: '🍳' },
   { key: 'READY', label: 'Ready', icon: '📦' },
   { key: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', icon: '🛵' },
   { key: 'DELIVERED', label: 'Delivered', icon: '🎉' },
+];
+
+// Pickup has no rider: the order is done when the customer collects it.
+const PICKUP_STEPS = [
+  { key: 'PENDING', label: 'Order Received', icon: '📝' },
+  { key: 'CONFIRMED', label: 'Confirmed', icon: '✓' },
+  { key: 'PREPARING', label: 'Preparing', icon: '🍳' },
+  { key: 'READY', label: 'Ready for Pickup', icon: '🛍️' },
+  { key: 'DELIVERED', label: 'Collected', icon: '🎉' },
 ];
 
 // Statuses between "Ready" and "Out for Delivery" show under the Ready step.
@@ -109,6 +118,7 @@ export default function OrderTrackingPage() {
     );
   }
 
+  const STATUS_STEPS = order.type === 'DELIVERY' ? DELIVERY_STEPS : PICKUP_STEPS;
   const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === (STEP_ALIAS[order.status] ?? order.status));
 
   // One combined time: kitchen preparation + the rider's trip, counting down to the promised time.
@@ -126,9 +136,14 @@ export default function OrderTrackingPage() {
         {/* Header */}
         <div className="flex justify-between items-center pb-4 border-b border-stone-800">
           <div>
-            <Link to="/" className="text-xs text-amber-400 font-bold hover:underline">
-              ← Back to Storefront
-            </Link>
+            <div className="flex gap-4">
+              <Link to="/" className="text-xs text-amber-400 font-bold hover:underline">
+                ← Back to Storefront
+              </Link>
+              <Link to="/account?tab=orders" className="text-xs text-amber-400 font-bold hover:underline">
+                My Orders
+              </Link>
+            </div>
             <h1 className="text-2xl font-black text-stone-100 mt-1">Live Order Tracker</h1>
           </div>
           <div className="text-right">
@@ -140,7 +155,7 @@ export default function OrderTrackingPage() {
         {/* Live Stepper */}
         <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
           <div className="flex justify-between items-center">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-stone-400">Delivery Status</h3>
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-stone-400">{order.type === 'DELIVERY' ? 'Delivery Status' : 'Pickup Status'}</h3>
             <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black rounded-full uppercase">
               {order.status}
             </span>
@@ -156,6 +171,13 @@ export default function OrderTrackingPage() {
                   {order.promisedPrepMinutes ?? order.estimatedPrepTime} min preparing + {order.estimatedDeliveryTime} min delivery
                 </p>
               )}
+            </div>
+          )}
+          {order.type === 'PICKUP' && order.branch && !isFinished && (
+            <div className="text-xs text-stone-400 bg-stone-950 border border-stone-800 rounded-xl px-4 py-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">Pick up from</span>
+              <span className="text-stone-200 font-bold">{order.branch.name}</span>
+              <span className="block">{order.branch.address}</span>
             </div>
           )}
           {order.address && order.type === 'DELIVERY' && !isFinished && (
@@ -187,7 +209,7 @@ export default function OrderTrackingPage() {
           )}
 
 
-          <div className="grid grid-cols-6 gap-2 pt-4 relative">
+          <div className="grid gap-2 pt-4 relative" style={{ gridTemplateColumns: `repeat(${STATUS_STEPS.length}, minmax(0, 1fr))` }}>
             {STATUS_STEPS.map((step, idx) => {
               const isCompleted = idx <= currentStepIndex;
               const isCurrent = idx === currentStepIndex;
@@ -234,6 +256,10 @@ export default function OrderTrackingPage() {
                   {item.variant?.name && (
                     <span className="text-[10px] text-amber-400 block font-medium">Size: {item.variant.name}</span>
                   )}
+                  {item.addons?.length > 0 && (
+                    <span className="text-[10px] text-stone-400 block">+ {item.addons.map((a: any) => a.addonName).join(', ')}</span>
+                  )}
+                  {item.notes && <span className="text-[10px] text-stone-500 block italic">{item.notes}</span>}
                 </div>
                 <span className="font-mono font-bold text-stone-300">
                   PKR {Number(item.totalPrice).toFixed(2)}

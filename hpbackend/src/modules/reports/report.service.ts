@@ -56,6 +56,7 @@ export class ReportService {
       where,
       take: 5,
       orderBy: { createdAt: 'desc' },
+      omit: { handoverPin: true },
       include: {
         customer: { include: { user: { select: { name: true, phone: true } } } },
       },

@@ -47,7 +47,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadUpcoming() async {
-    final orders = await ApiService.getAvailableOrders();
+    final orders = List<dynamic>.from(await ApiService.getAvailableOrders());
+    // Newest orders on top (also sorted here so an older backend build still shows them right).
+    DateTime created(dynamic o) => DateTime.tryParse((o is Map ? o['createdAt'] : null)?.toString() ?? '') ?? DateTime(2000);
+    orders.sort((a, b) => created(b).compareTo(created(a)));
     if (mounted) setState(() => _upcoming = orders);
   }
 

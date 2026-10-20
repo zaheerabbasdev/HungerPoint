@@ -52,7 +52,8 @@ export class DeliveryService {
 
     const orders = await prisma.order.findMany({
       where: { branchId: rider.branchId, type: OrderType.DELIVERY, status: { in: POOL_STATUSES }, delivery: null },
-      orderBy: { createdAt: 'asc' },
+      // Newest first: riders asked to see fresh orders at the top of the list.
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true, orderNumber: true, status: true, total: true, paymentMethod: true, paymentStatus: true,
         estimatedPrepTime: true, estimatedDeliveryTime: true, acceptedAt: true, promisedAt: true, readyAt: true, createdAt: true,

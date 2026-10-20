@@ -3,7 +3,7 @@
 // Route: /admin
 // ============================================================
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router';
 import { fetchApi, uploadImage, resolveImageUrl, APP_ICON_URL } from '../lib/api';
 import { getSocket, resetSocket } from '../lib/socket';
@@ -127,7 +127,7 @@ export default function AdminPortalPage() {
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
   // Active Top Navigation Tab
-  const [activeTab, setActiveTab] = useState<'menu' | 'dashboard' | 'orders' | 'branches'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'dashboard' | 'orders' | 'branches'>('orders');
   // Active Menu Subtab
   const [menuSubTab, setMenuSubTab] = useState<'categories' | 'products' | 'addons'>('categories');
 
@@ -148,6 +148,24 @@ export default function AdminPortalPage() {
   const [productSearch, setProductSearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
   const [orderSourceFilter, setOrderSourceFilter] = useState('ALL');
+
+  // Orders are paged on the server (the table can be thousands of rows long).
+  const ORDER_PAGE_SIZE = 20;
+  const [orderPage, setOrderPage] = useState(1);
+  const [orderTotal, setOrderTotal] = useState(0);
+  const [orderTotalPages, setOrderTotalPages] = useState(1);
+  // Read by the socket handler, which outlives the render it was created in.
+  const orderQueryRef = useRef({ page: 1, source: 'ALL' });
+  orderQueryRef.current = { page: orderPage, source: orderSourceFilter };
+  const ordersUrl = () => {
+    const { page, source } = orderQueryRef.current;
+    return `/orders?page=${page}&limit=${ORDER_PAGE_SIZE}${source !== 'ALL' ? `&source=${source}` : ''}`;
+  };
+  const applyOrdersResponse = (res: any) => {
+    setOrders(res.orders || res.data || []);
+    setOrderTotal(res.total ?? 0);
+    setOrderTotalPages(Math.max(1, res.totalPages ?? 1));
+  };
 
   // Modals States
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -284,7 +302,7 @@ export default function AdminPortalPage() {
         fetchApi('/categories?includeInactive=true'),
         fetchApi('/products?includeInactive=true'),
         fetchApi('/products/addons/all'),
-        fetchApi('/orders'),
+        fetchApi(ordersUrl()),
         fetchApi('/branches'),
         fetchApi('/reports/overview'),
         fetchApi('/riders'),
@@ -300,7 +318,7 @@ export default function AdminPortalPage() {
         setAddons(addsRes.value.data || []);
       }
       if (ordsRes.status === 'fulfilled' && ordsRes.value.success) {
-        setOrders(ordsRes.value.orders || ordsRes.value.data || []);
+        applyOrdersResponse(ordsRes.value);
       }
       if (bransRes.status === 'fulfilled' && bransRes.value.success) {
         setBranches(bransRes.value.data || []);
@@ -325,6 +343,17 @@ export default function AdminPortalPage() {
     }
   }, [authToken]);
 
+  // Page or channel changed: fetch just the orders.
+  useEffect(() => {
+    if (!authToken) return;
+    fetchApi(ordersUrl())
+      .then((res) => {
+        if (res.success) applyOrdersResponse(res);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderPage, orderSourceFilter]);
+
   // ─── 2b. Live order updates + "no rider took it" alerts ───────
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
@@ -335,9 +364,9 @@ export default function AdminPortalPage() {
     resetSocket();
     const socket = getSocket();
     const refreshOrders = () => {
-      fetchApi('/orders')
+      fetchApi(ordersUrl())
         .then((res) => {
-          if (res.success) setOrders(res.orders || res.data || []);
+          if (res.success) applyOrdersResponse(res);
         })
         .catch(() => {});
     };
@@ -884,13 +913,8 @@ export default function AdminPortalPage() {
     });
   }, [products, productSearch, selectedCategoryFilter]);
 
-  // Filtered Orders
-  const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
-      if (orderSourceFilter === 'ALL') return true;
-      return (o.source || 'MOBILE_APP').toUpperCase() === orderSourceFilter;
-    });
-  }, [orders, orderSourceFilter]);
+  // The server already filters by channel and pages the list.
+  const filteredOrders = orders;
 
   // ─── Render Authentication Modal / Wall ──────────────────────
   if (authLoading) {
@@ -1145,15 +1169,18 @@ export default function AdminPortalPage() {
       <div className="border-b border-stone-800 bg-stone-900/40">
         <div className="max-w-7xl mx-auto px-6 flex space-x-1 sm:space-x-4 overflow-x-auto py-2">
           <button
-            onClick={() => setActiveTab('menu')}
+            onClick={() => setActiveTab('orders')}
             className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 shrink-0 ${
-              activeTab === 'menu'
+              activeTab === 'orders'
                 ? 'bg-amber-500 text-stone-950 shadow-md shadow-orange-500/20'
                 : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/60'
             }`}
           >
-            <Utensils className="w-4 h-4" />
-            <span>Menu & Product Management</span>
+            <ShoppingBag className="w-4 h-4" />
+            <span>Orders Management</span>
+            <span className="px-1.5 py-0.2 bg-stone-800 rounded-full text-[10px] font-mono font-bold text-amber-400">
+              {orderTotal}
+            </span>
           </button>
 
           <button
@@ -1169,18 +1196,15 @@ export default function AdminPortalPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab('orders')}
+            onClick={() => setActiveTab('menu')}
             className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 shrink-0 ${
-              activeTab === 'orders'
+              activeTab === 'menu'
                 ? 'bg-amber-500 text-stone-950 shadow-md shadow-orange-500/20'
                 : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/60'
             }`}
           >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Orders Management</span>
-            <span className="px-1.5 py-0.2 bg-stone-800 rounded-full text-[10px] font-mono font-bold text-amber-400">
-              {orders.length}
-            </span>
+            <Utensils className="w-4 h-4" />
+            <span>Menu & Product Management</span>
           </button>
 
           <button
@@ -1658,7 +1682,10 @@ export default function AdminPortalPage() {
                 <span className="text-xs text-stone-400 font-bold">Source:</span>
                 <select
                   value={orderSourceFilter}
-                  onChange={(e) => setOrderSourceFilter(e.target.value)}
+                  onChange={(e) => {
+                    setOrderSourceFilter(e.target.value);
+                    setOrderPage(1);
+                  }}
                   className="bg-stone-900 border border-stone-800 text-stone-200 text-xs rounded-xl px-3 py-2 outline-none font-bold"
                 >
                   <option value="ALL">All Channels</option>
@@ -1681,7 +1708,6 @@ export default function AdminPortalPage() {
                       <th className="py-3 px-4">Branch</th>
                       <th className="py-3 px-4">Total</th>
                       <th className="py-3 px-4">Payment</th>
-                      <th className="py-3 px-4">PIN</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Timing</th>
                       <th className="py-3 px-4">Rider</th>
@@ -1711,18 +1737,6 @@ export default function AdminPortalPage() {
                         </td>
                         <td className="py-3 px-4 text-[11px] text-stone-300">
                           {ord.paymentMethod?.replace('_', ' ')}
-                        </td>
-                        <td className="py-3 px-4">
-                          {ord.type === 'DELIVERY' && ord.handoverPin ? (
-                            <span
-                              title="Handover PIN (share with customer support if needed)"
-                              className="font-mono font-black text-sm tracking-[0.35em] px-2.5 py-1 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                            >
-                              {ord.handoverPin}
-                            </span>
-                          ) : (
-                            <span className="text-stone-600 text-[10px]">—</span>
-                          )}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
@@ -1856,6 +1870,48 @@ export default function AdminPortalPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-stone-800 text-xs">
+                <span className="text-stone-500 font-semibold">
+                  {orderTotal === 0
+                    ? 'No orders'
+                    : `Showing ${(orderPage - 1) * ORDER_PAGE_SIZE + 1}–${Math.min(orderPage * ORDER_PAGE_SIZE, orderTotal)} of ${orderTotal}`}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setOrderPage(1)}
+                    disabled={orderPage <= 1}
+                    className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-lg disabled:opacity-40"
+                  >
+                    «
+                  </button>
+                  <button
+                    onClick={() => setOrderPage((p) => Math.max(1, p - 1))}
+                    disabled={orderPage <= 1}
+                    className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-lg disabled:opacity-40"
+                  >
+                    ← Prev
+                  </button>
+                  <span className="px-2 font-bold text-stone-300">
+                    Page {orderPage} of {orderTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setOrderPage((p) => Math.min(orderTotalPages, p + 1))}
+                    disabled={orderPage >= orderTotalPages}
+                    className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-lg disabled:opacity-40"
+                  >
+                    Next →
+                  </button>
+                  <button
+                    onClick={() => setOrderPage(orderTotalPages)}
+                    disabled={orderPage >= orderTotalPages}
+                    className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-lg disabled:opacity-40"
+                  >
+                    »
+                  </button>
+                </div>
               </div>
             </div>
           </div>

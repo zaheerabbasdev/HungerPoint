@@ -83,7 +83,7 @@ settings, loyalty, notifications, reports, tables, reservations` + `POST /upload
 | Users (staff) | `GET/POST /users`, `PUT /users/:id` — ADMIN |
 | Branches | `GET /branches[/:id]` public; `GET /branches/nearest?latitude&longitude` public (sorted, with `distanceKm` + `delivers`); `POST`/`DELETE` ADMIN; `PUT` ADMIN, BM |
 | Menu | `GET /categories`, `/products`, `/products/addons/all` public; writes ADMIN (+BM for products/variants/addons); deletes ADMIN |
-| Orders | `POST/GET /orders`, `GET /orders/:id`, `PATCH /orders/:id/status` (AD,BM,BS,KS,WT — **not riders**), `PATCH /:id/served`, `PATCH /:id/payment` (dine-in finish) |
+| Orders | `POST/GET /orders` (`?page&limit≤100&status&type&source`), `GET /orders/:id`, `PATCH /orders/:id/status` (AD,BM,BS,KS,WT — **not riders**), `PATCH /:id/served`, `PATCH /:id/payment` (dine-in finish) |
 | Kitchen | `GET /kitchen/queue`, `PATCH /kitchen/orders/:id/prepare` · `/extend` · `/ready` |
 | Riders | `GET /riders/me`, `PATCH /riders/status`, `POST /riders/location` (RIDER); `GET/POST/PUT /riders`, `POST /riders/assign` (AD,BM) |
 | Deliveries (RIDER) | `GET /deliveries/me/active`, `/me/history`, `/available`; `POST /deliveries/claim/:orderId`; `PATCH /deliveries/:id/release` · `/accept` · `/pickup` · `/out-for-delivery` · `/delivered` · `/failed` |
@@ -117,7 +117,7 @@ SUPER_ADMIN was removed (commit 30c79ef); `prepare-db.js` converts old rows. Doc
 - `OrderStatus`: PENDING, CONFIRMED, ACCEPTED, PREPARING, READY, ASSIGNED, PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, COMPLETED, CANCELLED, REJECTED, PAYMENT_FAILED, REFUNDED.
 - Final/locked: DELIVERED, COMPLETED, CANCELLED, REJECTED, REFUNDED (further changes → 400).
 - **Delivery:** customer orders (PENDING) → staff confirms (CONFIRMED) → kitchen Start with prep minutes (PREPARING, sets `promisedAt`) → Ready (READY; riders notified `rider.pool_updated`) → a rider **claims** (`/deliveries/claim/:orderId`, first wins via unique `deliveries.orderId`) or admin assigns → accept → pickup → out-for-delivery → delivered (rider enters `cashCollected` and the customer's **4-digit `handoverPin`**). Failed → CANCELLED.
-  - `Order.handoverPin` is generated for DELIVERY orders in `order.service.ts`; returned only by `GET /orders/:id` to the customer/admin, **stripped from every rider response** (`sanitizeDeliveryForRider`, `stripPinForRider`) and from **every socket payload** (`stripSecrets` in `sockets/index.ts`).
+  - `Order.handoverPin` is generated for DELIVERY orders in `order.service.ts`; returned only to the **customer** who owns the order (`stripPin` in `order.controller.ts`; admin/staff list+detail, kitchen queue and report responses omit it), **stripped from every rider response** (`sanitizeDeliveryForRider`, `stripPinForRider`) and from **every socket payload** (`stripSecrets` in `sockets/index.ts`).
   - PIN guessing guard: 5 wrong PINs → handover locked 10 min (`handoverPinAttempts`, `handoverPinLockedUntil`), 429, socket `delivery.pin_locked` to admins + branch.
   - Once a delivery exists, `PATCH /orders/:id/status` is blocked; status moves only via `/deliveries`.
   - **Location rules** (`checkDeliveryAddress` in `order.service.ts`): customer DELIVERY orders need an `addressId` owned by that customer; if the address has coordinates it must be within the branch's `deliveryRadius` (haversine km), otherwise 400 naming a branch that does deliver. The customer app picks the nearest delivering branch itself (`BranchService.bestBranchFor`).
@@ -169,7 +169,7 @@ Seed accounts: `+923000000001`…`07` / `Admin@123456` (staff), `+923009999999` 
 - Vite SPA: `src/main.tsx`, `src/App.tsx` (routes, staff pages lazy-loaded), `src/pages/*Page.tsx`,
   `src/components/` (Navbar, CartDrawer, ProductModal, AuthModal, HeroBanner), `src/context/` (AuthContext, CartContext, BranchContext),
   `src/lib/api.ts` (fetch wrapper, token refresh on 401, `resolveImageUrl`, separate `SessionKeys` for admin vs kitchen sessions), `src/lib/socket.ts`.
-- Routes: `/` storefront, `/orders/:id` tracking, `/admin` (big: `AdminPage.tsx` ~2800 lines — menu, orders, rider assign, branches), `/kitchen` (KDU, own login), `/pos`, `/branch`, `/inventory`, `/loyalty`, `/promotions` (coupons), `/reports`, `/reviews`, `/riders`, `/tables`, `/settings`.
+- Routes: `/` storefront, `/orders/:id` tracking, `/account` (customer: orders+review, favourites, addresses, vouchers, loyalty, notifications, branches, profile), `/admin` (big: `AdminPage.tsx` ~2800 lines — orders [server-paged, first tab], overview, menu, branches), `/kitchen` (KDU, own login), `/pos`, `/branch`, `/inventory`, `/loyalty`, `/promotions` (coupons), `/reports`, `/reviews`, `/riders`, `/tables`, `/settings`.
 - Page-level role checks are UX only; backend enforces everything.
 - Env: `VITE_API_URL` (default `http://localhost:5000/api/v1`), `VITE_BASE` (`/` or `/hungerpoint/`). Production values in `.env.production`.
 - Commands: `npm run dev` (http://localhost:5173), `npm run build` (`tsc -b && vite build` → `dist/`), `npm run lint`.

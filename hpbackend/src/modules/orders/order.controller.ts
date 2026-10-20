@@ -22,9 +22,10 @@ const canViewOrder = (user: { userId: string; role: string; branchId?: string },
   return false;
 };
 
-// Riders must never see the handoverPin (they get it from the customer verbally)
-const stripPinForRider = (role: string, order: any) => {
-  if (role !== 'RIDER' || !order) return order;
+// Only the customer who placed the order sees the handoverPin. Riders get it from the
+// customer verbally, and staff (admin console) no longer see it either.
+const stripPin = (role: string, order: any) => {
+  if (role === 'CUSTOMER' || !order) return order;
   const { handoverPin, ...rest } = order;
   return rest;
 };
@@ -100,13 +101,15 @@ export class OrderController {
         tableId: tableId as string,
         status: status as OrderStatus,
         type: type as any,
+        source: Object.values(OrderSource).includes(req.query.source as any) ? (req.query.source as OrderSource) : undefined,
         page: Number(page) || 1,
-        limit: Number(limit) || 20,
+        // Capped so one request can't pull the whole orders table.
+        limit: Math.min(Number(limit) || 20, 100),
       });
 
-      // Strip the handover PIN from every order before returning to riders
-      if (user.role === 'RIDER' && result.orders) {
-        result.orders = result.orders.map((o: any) => stripPinForRider('RIDER', o));
+      // Strip the handover PIN from every order unless the caller is the customer
+      if (result.orders) {
+        result.orders = result.orders.map((o: any) => stripPin(user.role, o));
       }
 
       res.json({ success: true, ...result });
@@ -123,7 +126,7 @@ export class OrderController {
       if (!canViewOrder(user, order)) {
         throw new AppError('Order not found', 404);
       }
-      res.json({ success: true, data: stripPinForRider(user.role, order) });
+      res.json({ success: true, data: stripPin(user.role, order) });
     } catch (error) {
       next(error);
     }

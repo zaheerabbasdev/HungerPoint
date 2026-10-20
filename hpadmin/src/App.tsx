@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Link } from 'react-router';
 import StorefrontPage from './pages/StorefrontPage';
 const OrderTrackingPage = lazy(() => import('./pages/OrderTrackingPage'));
+const AccountPage = lazy(() => import('./pages/AccountPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const KitchenPage = lazy(() => import('./pages/KitchenPage'));
 const PosPage = lazy(() => import('./pages/PosPage'));
@@ -43,6 +44,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<StorefrontPage />} />
         <Route path="/orders/:id" element={<OrderTrackingPage />} />
+        <Route path="/account" element={<AccountPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/kitchen" element={<KitchenPage />} />
         <Route path="/pos" element={<PosPage />} />

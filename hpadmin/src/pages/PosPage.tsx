@@ -6,36 +6,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { fetchApi, resolveImageUrl } from '../lib/api';
 import { useBranch } from '../context/BranchContext';
+import { ItemCustomizer } from '../components/ItemCustomizer';
+import { buildOrderItems, estimateTotals, lineKey, type MenuProduct, type OrderLine } from '../lib/menu';
 
 const POS_ALLOWED_ROLES = ['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF'];
 
-interface Variant {
-  id: string;
-  name: string;
-  price: number | string;
-  isDefault?: boolean;
-}
-
-interface Product {
-  id: string;
-  categoryId: string;
-  name: string;
-  description?: string;
-  image?: string;
-  basePrice: number | string;
-  variants?: Variant[];
-}
-
-interface OrderLine {
-  key: string;
-  productId: string;
-  name: string;
-  image?: string;
-  unitPrice: number;
-  variantId?: string;
-  variantName?: string;
-  quantity: number;
-}
+type Product = MenuProduct;
 
 export default function PosPage() {
   const navigate = useNavigate();
@@ -49,7 +25,8 @@ export default function PosPage() {
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
 
-  const [variantPickerProduct, setVariantPickerProduct] = useState<Product | null>(null);
+  // The item being customised (size, flavour, drink, add-ons, notes) before it joins the ticket.
+  const [customizing, setCustomizing] = useState<Product | null>(null);
 
   const [lines, setLines] = useState<OrderLine[]>([]);
   const [orderType, setOrderType] = useState<'PICKUP' | 'DELIVERY'>('PICKUP');
@@ -106,49 +83,28 @@ export default function PosPage() {
     [products, activeCategoryId]
   );
 
-  const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
-  const deliveryFee = orderType === 'DELIVERY' ? 50 : 0;
-  const tax = subtotal * 0.05;
-  const total = subtotal + deliveryFee + tax;
+  const { subtotal, deliveryFee, tax, total } = estimateTotals(lines, orderType);
 
-  // ─── Cart line helpers ────────────────────────────────────
-  const addLine = (product: Product, variant?: Variant) => {
-    const unitPrice = Number(product.basePrice) + (variant ? Number(variant.price) : 0);
-    const key = `${product.id}-${variant?.id || 'base'}`;
-
+  // ─── Ticket line helpers ──────────────────────────────────
+  const addLine = (line: Omit<OrderLine, 'id'>) => {
     setLines((prev) => {
-      const idx = prev.findIndex((l) => l.key === key);
+      const key = lineKey(line);
+      const idx = prev.findIndex((l) => lineKey(l) === key);
       if (idx > -1) {
         const updated = [...prev];
-        updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + 1 };
+        updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + line.quantity };
         return updated;
       }
-      return [
-        ...prev,
-        {
-          key,
-          productId: product.id,
-          name: product.name,
-          image: product.image,
-          unitPrice,
-          variantId: variant?.id,
-          variantName: variant?.name,
-          quantity: 1,
-        },
-      ];
+      return [...prev, { ...line, id: `${line.productId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }];
     });
   };
 
-  const handleProductTap = (product: Product) => {
-    if (product.variants && product.variants.length > 0) {
-      setVariantPickerProduct(product);
-    } else {
-      addLine(product);
-    }
-  };
+  const removeLine = (id: string) => setLines((prev) => prev.filter((l) => l.id !== id));
 
-  const updateQty = (key: string, qty: number) => {
-    setLines((prev) => (qty <= 0 ? prev.filter((l) => l.key !== key) : prev.map((l) => (l.key === key ? { ...l, quantity: qty } : l))));
+  const handleProductTap = (product: Product) => setCustomizing(product);
+
+  const updateQty = (id: string, qty: number) => {
+    setLines((prev) => (qty <= 0 ? prev.filter((l) => l.id !== id) : prev.map((l) => (l.id === id ? { ...l, quantity: qty } : l))));
   };
 
   const resetOrder = () => {
@@ -201,11 +157,7 @@ export default function PosPage() {
           paymentMethod: 'CASH_ON_DELIVERY',
           customerId: foundCustomer?.customerId,
           notes: notes.trim() || undefined,
-          items: lines.map((l) => ({
-            productId: l.productId,
-            variantId: l.variantId,
-            quantity: l.quantity,
-          })),
+          items: buildOrderItems(lines),
         }),
       });
 
@@ -386,20 +338,39 @@ export default function PosPage() {
                 {lines.length === 0 ? (
                   <p className="text-center text-xs text-stone-600 py-10">Tap products to add them to the order.</p>
                 ) : (
-                  lines.map((l) => (
-                    <div key={l.key} className="p-2.5 bg-stone-800/60 rounded-xl flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-stone-200 truncate">{l.name}</p>
-                        {l.variantName && <p className="text-[10px] text-amber-400">{l.variantName}</p>}
-                        <p className="text-[10px] text-stone-400">PKR {l.unitPrice} each</p>
-                      </div>
-                      <div className="flex items-center gap-2 bg-stone-900 px-2 py-1 rounded-lg border border-stone-700/60 shrink-0">
-                        <button onClick={() => updateQty(l.key, l.quantity - 1)} className="text-stone-400 hover:text-stone-100 text-xs font-bold px-1">-</button>
-                        <span className="text-xs font-bold text-amber-400 w-4 text-center">{l.quantity}</span>
-                        <button onClick={() => updateQty(l.key, l.quantity + 1)} className="text-stone-400 hover:text-stone-100 text-xs font-bold px-1">+</button>
-                      </div>
+                  <>
+                    <div className="flex justify-between items-center text-[11px] text-stone-500 font-bold">
+                      <span>{lines.reduce((n, l) => n + l.quantity, 0)} item(s)</span>
+                      <button onClick={() => setLines([])} className="text-red-400 hover:underline">Clear all</button>
                     </div>
-                  ))
+                    {lines.map((l) => (
+                      <div key={l.id} className="p-2.5 bg-stone-800/60 rounded-xl flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-stone-200 truncate">{l.name}</p>
+                          {l.variantName && <p className="text-[10px] text-amber-400">{l.variantName}</p>}
+                          {l.flavour && <p className="text-[10px] text-stone-400">Flavour: {l.flavour}</p>}
+                          {l.addons.length > 0 && <p className="text-[10px] text-stone-400">+ {l.addons.map((a) => a.name).join(', ')}</p>}
+                          {l.drinkName && <p className="text-[10px] text-stone-400">🥤 {l.drinkName}</p>}
+                          {l.notes && <p className="text-[10px] text-stone-500 italic">“{l.notes}”</p>}
+                          <p className="text-[10px] text-stone-400">PKR {l.unitPrice} each · <span className="text-stone-200 font-bold">PKR {l.unitPrice * l.quantity}</span></p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <div className="flex items-center gap-2 bg-stone-900 px-2 py-1 rounded-lg border border-stone-700/60">
+                            <button onClick={() => updateQty(l.id, l.quantity - 1)} className="text-stone-400 hover:text-stone-100 text-xs font-bold px-1">-</button>
+                            <span className="text-xs font-bold text-amber-400 w-4 text-center">{l.quantity}</span>
+                            <button onClick={() => updateQty(l.id, l.quantity + 1)} className="text-stone-400 hover:text-stone-100 text-xs font-bold px-1">+</button>
+                          </div>
+                          <button
+                            onClick={() => removeLine(l.id)}
+                            title="Remove this item"
+                            className="text-[11px] font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2 py-0.5 rounded-md"
+                          >
+                            🗑 Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
 
@@ -434,34 +405,19 @@ export default function PosPage() {
         </div>
       </div>
 
-      {/* Variant Picker */}
-      {variantPickerProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-stone-900 border border-stone-800 rounded-3xl p-5 space-y-4">
-            <h3 className="text-base font-black text-stone-100">{variantPickerProduct.name}</h3>
-            <div className="space-y-2">
-              {variantPickerProduct.variants!.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => {
-                    addLine(variantPickerProduct, v);
-                    setVariantPickerProduct(null);
-                  }}
-                  className="w-full p-3 rounded-xl text-xs font-bold border border-stone-800 hover:border-amber-500/60 bg-stone-800/40 text-stone-200 flex justify-between items-center"
-                >
-                  <span>{v.name}</span>
-                  <span className="text-amber-400 font-mono">PKR {Number(variantPickerProduct.basePrice) + Number(v.price)}</span>
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setVariantPickerProduct(null)}
-              className="w-full py-2 text-xs font-bold text-stone-400 hover:text-stone-200"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+      {/* Customiser: size, flavour, drink, add-ons, notes */}
+      {customizing && (
+        <ItemCustomizer
+          key={customizing.id}
+          product={customizing}
+          confirmLabel="Add to Ticket"
+          resolveImage={resolveImageUrl}
+          onClose={() => setCustomizing(null)}
+          onConfirm={(line) => {
+            addLine(line);
+            setCustomizing(null);
+          }}
+        />
       )}
     </div>
   );

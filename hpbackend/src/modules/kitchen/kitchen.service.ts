@@ -20,6 +20,8 @@ export class KitchenService {
     return prisma.order.findMany({
       where,
       orderBy: { createdAt: 'asc' },
+      // The handover PIN is for the customer only - never on staff screens.
+      omit: { handoverPin: true },
       include: {
         items: {
           include: {

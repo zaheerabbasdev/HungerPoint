@@ -1,22 +1,14 @@
 // ============================================================
 // HungerPoint Web App — Cart Context
 // ============================================================
+// The cart lives in this browser (like the mobile app's CartService). Each line
+// carries its size, flavour, add-ons and drink, so what the customer picked is
+// exactly what is sent when the order is placed.
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useAuth } from './AuthContext';
-import { fetchApi } from '../lib/api';
+import { lineKey, toNumber, type OrderLine } from '../lib/menu';
 
-export interface CartItem {
-  id: string;
-  productId: string;
-  name: string;
-  image?: string;
-  price: number;
-  quantity: number;
-  variantId?: string;
-  variantName?: string;
-  notes?: string;
-}
+export type CartItem = OrderLine;
 
 interface CartContextType {
   items: CartItem[];
@@ -25,171 +17,83 @@ interface CartContextType {
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   subtotal: number;
-  deliveryFee: number;
-  tax: number;
-  total: number;
+  itemCount: number;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+const STORAGE_KEY = 'hp_cart';
 
-function mapBackendCart(cart: any): CartItem[] {
-  return (cart?.items || []).map((it: any) => ({
-    id: it.id,
-    productId: it.productId,
-    name: it.product?.name || 'Item',
-    image: it.product?.image || undefined,
-    // A size's price is an offset on top of the product's base price.
-    price: Number(it.product?.basePrice ?? 0) + Number(it.variant?.price ?? 0),
-    quantity: it.quantity,
-    variantId: it.variantId || undefined,
-    variantName: it.variant?.name || undefined,
-    notes: it.notes || undefined,
-  }));
+// Older versions stored lines without add-ons/flavour/drink: fill the gaps so they still load.
+function normalise(raw: any[]): CartItem[] {
+  return raw
+    .filter((r) => r && r.productId)
+    .map((r) => ({
+      id: String(r.id ?? `${r.productId}-${Date.now()}`),
+      productId: r.productId,
+      name: r.name ?? 'Item',
+      image: r.image,
+      variantId: r.variantId,
+      variantName: r.variantName,
+      flavour: r.flavour,
+      addons: Array.isArray(r.addons) ? r.addons : [],
+      drinkId: r.drinkId,
+      drinkName: r.drinkName,
+      drinkPrice: r.drinkPrice,
+      notes: r.notes,
+      unitPrice: toNumber(r.unitPrice ?? r.price),
+      quantity: Math.max(1, toNumber(r.quantity) || 1),
+    }));
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => {
+    try {
+      return normalise(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
+    } catch {
+      return [];
+    }
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Guest cart: load from localStorage
   useEffect(() => {
-    if (user) return;
-    const savedCart = localStorage.getItem('hp_cart');
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, [user]);
-
-  // Logged-in cart: the backend is the source of truth
-  const loadBackendCart = useCallback(async () => {
     try {
-      const res = await fetchApi('/cart');
-      if (res.success) setItems(mapBackendCart(res.data));
-    } catch (e) {
-      console.error('Failed to load cart:', e);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch {
+      /* storage full / private mode: the cart still works for this visit */
     }
+  }, [items]);
+
+  const addItem = useCallback((newItem: Omit<CartItem, 'id'>) => {
+    setItems((prev) => {
+      const key = lineKey(newItem);
+      const idx = prev.findIndex((l) => lineKey(l) === key);
+      if (idx > -1) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantity: Math.min(50, next[idx].quantity + newItem.quantity) };
+        return next;
+      }
+      return [...prev, { ...newItem, id: `${newItem.productId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }];
+    });
+    setIsCartOpen(true);
   }, []);
 
-  useEffect(() => {
-    if (user) loadBackendCart();
-  }, [user, loadBackendCart]);
+  const removeItem = useCallback((id: string) => setItems((prev) => prev.filter((l) => l.id !== id)), []);
 
-  const saveGuestCart = (newItems: CartItem[]) => {
-    setItems(newItems);
-    localStorage.setItem('hp_cart', JSON.stringify(newItems));
-  };
-
-  const addItem = async (newItem: Omit<CartItem, 'id'>) => {
-    if (user) {
-      try {
-        await fetchApi('/cart/items', {
-          method: 'POST',
-          body: JSON.stringify({
-            productId: newItem.productId,
-            variantId: newItem.variantId,
-            quantity: newItem.quantity,
-            notes: newItem.notes,
-          }),
-        });
-        await loadBackendCart();
-      } catch (e) {
-        console.error('Failed to add item to cart:', e);
-      }
-      setIsCartOpen(true);
-      return;
-    }
-
-    const existingIndex = items.findIndex(
-      (item) => item.productId === newItem.productId && item.variantId === newItem.variantId
+  const updateQuantity = useCallback((id: string, quantity: number) => {
+    setItems((prev) =>
+      quantity <= 0 ? prev.filter((l) => l.id !== id) : prev.map((l) => (l.id === id ? { ...l, quantity: Math.min(50, quantity) } : l)),
     );
+  }, []);
 
-    if (existingIndex > -1) {
-      const updated = [...items];
-      updated[existingIndex].quantity += newItem.quantity;
-      saveGuestCart(updated);
-    } else {
-      const id = `${newItem.productId}-${newItem.variantId || 'base'}-${Date.now()}`;
-      saveGuestCart([...items, { ...newItem, id }]);
-    }
-    setIsCartOpen(true);
-  };
+  const clearCart = useCallback(() => setItems([]), []);
 
-  const removeItem = async (id: string) => {
-    if (user) {
-      try {
-        await fetchApi(`/cart/items/${id}`, { method: 'DELETE' });
-        await loadBackendCart();
-      } catch (e) {
-        console.error('Failed to remove cart item:', e);
-      }
-      return;
-    }
-    saveGuestCart(items.filter((item) => item.id !== id));
-  };
-
-  const updateQuantity = async (id: string, quantity: number) => {
-    if (quantity <= 0) {
-      await removeItem(id);
-      return;
-    }
-
-    if (user) {
-      try {
-        await fetchApi(`/cart/items/${id}`, {
-          method: 'PUT',
-          body: JSON.stringify({ quantity }),
-        });
-        await loadBackendCart();
-      } catch (e) {
-        console.error('Failed to update cart item:', e);
-      }
-      return;
-    }
-
-    saveGuestCart(items.map((item) => (item.id === id ? { ...item, quantity } : item)));
-  };
-
-  const clearCart = async () => {
-    if (user) {
-      try {
-        await fetchApi('/cart', { method: 'DELETE' });
-      } catch (e) {
-        console.error('Failed to clear cart:', e);
-      }
-      setItems([]);
-      return;
-    }
-    saveGuestCart([]);
-  };
-
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryFee = items.length > 0 ? 50 : 0;
-  const tax = subtotal * 0.05;
-  const total = subtotal + deliveryFee + tax;
+  const subtotal = items.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
+  const itemCount = items.reduce((sum, l) => sum + l.quantity, 0);
 
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        addItem,
-        removeItem,
-        updateQuantity,
-        clearCart,
-        subtotal,
-        deliveryFee,
-        tax,
-        total,
-        isCartOpen,
-        setIsCartOpen,
-      }}
-    >
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, subtotal, itemCount, isCartOpen, setIsCartOpen }}>
       {children}
     </CartContext.Provider>
   );

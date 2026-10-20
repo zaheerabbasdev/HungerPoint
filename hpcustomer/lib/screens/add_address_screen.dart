@@ -203,7 +203,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         ),
                       ),
                     ] else ...[
-                      // Location icon row (Default Add)
+                      // Location icon + the address picked on the map
                       Row(
                         children: [
                           Container(
@@ -217,6 +217,20 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                               Icons.location_on_outlined,
                               color: AppColors.primaryOrange,
                               size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Text(
+                              _selectedMapAddress.isEmpty ? 'Move the map to choose your location' : _selectedMapAddress,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1E1B4B),
+                                height: 1.35,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],

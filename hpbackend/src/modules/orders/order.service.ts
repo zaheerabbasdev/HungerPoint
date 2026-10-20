@@ -248,7 +248,7 @@ export class OrderService {
     return order;
   }
 
-  static async getOrders(query: { customerId?: string; branchId?: string; waiterId?: string; tableId?: string; status?: OrderStatus; type?: OrderType; page?: number; limit?: number }) {
+  static async getOrders(query: { customerId?: string; branchId?: string; waiterId?: string; tableId?: string; status?: OrderStatus; type?: OrderType; source?: OrderSource; page?: number; limit?: number }) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
@@ -260,6 +260,7 @@ export class OrderService {
     if (query.tableId) where.tableId = query.tableId;
     if (query.status) where.status = query.status;
     if (query.type) where.type = query.type;
+    if (query.source) where.source = query.source;
 
     const [total, orders] = await Promise.all([
       prisma.order.count({ where }),

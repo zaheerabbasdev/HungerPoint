@@ -11,22 +11,47 @@ export interface Branch {
   code: string;
   address: string;
   city?: string;
+  phone?: string | null;
+  latitude?: number | string;
+  longitude?: number | string;
+  deliveryRadius?: number | string;
   isOpen: boolean;
 }
+
+export type OrderMode = 'DELIVERY' | 'PICKUP';
 
 interface BranchContextType {
   branches: Branch[];
   selectedBranchId: string | null;
   selectedBranch: Branch | null;
   setSelectedBranchId: (id: string) => void;
+  /** Delivery to an address, or pickup from the selected branch (same switch as the app's Pickup button). */
+  orderType: OrderMode;
+  setOrderType: (t: OrderMode) => void;
   loading: boolean;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
 
+const read = (key: string) => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+const write = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* non-fatal */
+  }
+};
+
 export function BranchProvider({ children }: { children: React.ReactNode }) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchIdState] = useState<string | null>(null);
+  const [orderType, setOrderTypeState] = useState<OrderMode>(() => (read('hp_order_type') === 'PICKUP' ? 'PICKUP' : 'DELIVERY'));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,7 +60,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
         const res = await fetchApi('/branches');
         if (res.success) {
           setBranches(res.data);
-          const savedId = localStorage.getItem('hp_selected_branch_id');
+          const savedId = read('hp_selected_branch_id');
           const savedIsValid = savedId && res.data.some((b: Branch) => b.id === savedId);
           const defaultBranch = res.data.find((b: Branch) => b.isOpen) || res.data[0];
           setSelectedBranchIdState(savedIsValid ? savedId : defaultBranch?.id ?? null);
@@ -51,13 +76,18 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
 
   const setSelectedBranchId = (id: string) => {
     setSelectedBranchIdState(id);
-    localStorage.setItem('hp_selected_branch_id', id);
+    write('hp_selected_branch_id', id);
+  };
+
+  const setOrderType = (t: OrderMode) => {
+    setOrderTypeState(t);
+    write('hp_order_type', t);
   };
 
   const selectedBranch = branches.find((b) => b.id === selectedBranchId) || null;
 
   return (
-    <BranchContext.Provider value={{ branches, selectedBranchId, selectedBranch, setSelectedBranchId, loading }}>
+    <BranchContext.Provider value={{ branches, selectedBranchId, selectedBranch, setSelectedBranchId, orderType, setOrderType, loading }}>
       {children}
     </BranchContext.Provider>
   );

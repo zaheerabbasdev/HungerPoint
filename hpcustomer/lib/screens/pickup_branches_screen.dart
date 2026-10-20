@@ -482,12 +482,23 @@ class _BranchesOverviewMap extends StatelessWidget {
     final points = branches.map((b) => LatLng(b.lat, b.lng)).toList();
     final bounds = LatLngBounds.fromPoints(points);
 
+    // A single branch (or branches at the same spot) gives zero-size bounds, so a
+    // bounds fit has nothing to zoom to and the map stays grey with no pin. Centre
+    // on the point at a fixed zoom instead.
+    final isSinglePoint = (bounds.north - bounds.south).abs() < 0.0001 && (bounds.east - bounds.west).abs() < 0.0001;
+
     return FlutterMap(
+      key: ValueKey('branches-map-${branches.length}'),
       options: MapOptions(
-        initialCameraFit: CameraFit.bounds(
-          bounds: bounds,
-          padding: const EdgeInsets.all(50),
-        ),
+        initialCenter: isSinglePoint ? bounds.center : const LatLng(33.6844, 73.0479),
+        initialZoom: 15,
+        initialCameraFit: isSinglePoint
+            ? null
+            : CameraFit.bounds(
+                bounds: bounds,
+                padding: const EdgeInsets.all(50),
+                maxZoom: 16,
+              ),
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
