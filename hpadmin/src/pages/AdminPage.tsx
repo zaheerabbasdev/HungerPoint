@@ -121,8 +121,8 @@ export default function AdminPortalPage() {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [loginIdentifier, setLoginIdentifier] = useState('admin@hungerpoint.pk');
-  const [loginPassword, setLoginPassword] = useState('Admin@123456');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
@@ -265,17 +265,26 @@ export default function AdminPortalPage() {
     if (token && userStr) {
       try {
         const u = JSON.parse(userStr);
-        setAuthToken(token);
-        setCurrentUser(u);
-        // Validate token with backend
-        fetchApi('/auth/me').catch(() => {
+        // The storefront shares these storage keys, so a customer signed in on the
+        // shop used to be shown here as "CUSTOMER Ali". Only staff roles may restore.
+        if (!['ADMIN', 'BRANCH_MANAGER', 'BRANCH_STAFF'].includes(u?.role)) {
           localStorage.removeItem('hp_access_token');
           localStorage.removeItem('hp_refresh_token');
           localStorage.removeItem('hp_user');
-          setAuthToken(null);
-          setCurrentUser(null);
-          setLoginError('Session expired. Please log in again.');
-        });
+          setLoginError('Please sign in with an admin or staff account.');
+        } else {
+          setAuthToken(token);
+          setCurrentUser(u);
+          // Validate token with backend
+          fetchApi('/auth/me').catch(() => {
+            localStorage.removeItem('hp_access_token');
+            localStorage.removeItem('hp_refresh_token');
+            localStorage.removeItem('hp_user');
+            setAuthToken(null);
+            setCurrentUser(null);
+            setLoginError('Session expired. Please log in again.');
+          });
+        }
       } catch {
         localStorage.removeItem('hp_access_token');
         localStorage.removeItem('hp_refresh_token');
@@ -999,18 +1008,6 @@ export default function AdminPortalPage() {
             </button>
           </form>
 
-          <div className="pt-4 border-t border-stone-800 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setLoginIdentifier('admin@hungerpoint.pk');
-                setLoginPassword('Admin@123456');
-              }}
-              className="text-xs text-stone-500 hover:text-amber-400 underline transition-colors"
-            >
-              Prefill Seed Admin Credentials
-            </button>
-          </div>
         </div>
       </div>
     );
